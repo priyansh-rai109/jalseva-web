@@ -70,7 +70,7 @@ export async function updateSession(request: NextRequest) {
         .select('role')
         .eq('id', user.id)
         .single()
-      role = profile?.role || null
+      role = profile?.role || user.user_metadata?.role || (user.email === 'admin@jalseva.in' ? 'super_admin' : 'customer')
     }
   }
 

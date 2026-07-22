@@ -85,8 +85,7 @@ export default function AdminLoginPage() {
       }
 
       toast.success('Welcome, Admin!')
-      router.refresh()
-      router.push('/admin/dashboard')
+      window.location.href = '/admin/dashboard'
     } else {
       setLoading(false)
     }

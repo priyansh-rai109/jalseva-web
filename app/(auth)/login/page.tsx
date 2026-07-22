@@ -93,19 +93,16 @@ export default function LoginPage() {
           profile = { role: expectedRole }
         }
 
-        const role = profile?.role || 'customer'
+        const role = profile?.role || user.user_metadata?.role || (data.email === 'admin@jalseva.in' ? 'super_admin' : 'customer')
         console.log('[Login] User role resolved as:', role)
         toast.success('Signed in successfully!')
-        
-        console.log('[Login] Refreshing router...')
-        router.refresh()
 
         let targetPath = '/customer/dashboard'
         if (role === 'super_admin') targetPath = '/admin/dashboard'
         else if (role === 'supplier') targetPath = '/supplier/dashboard'
 
         console.log('[Login] Attempting redirect to:', targetPath)
-        router.push(targetPath)
+        window.location.href = targetPath
       } else {
         console.warn('[Login] No user object returned in authData')
         setLoading(false)
