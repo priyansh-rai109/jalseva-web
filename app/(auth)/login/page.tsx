@@ -34,14 +34,22 @@ export default function LoginPage() {
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) })
 
   const onSubmit = async (data: LoginForm) => {
-    console.log('[Login Step 1] Form submission triggered for email:', data.email)
+    const cleanEmail = data.email.trim().toLowerCase()
+    const cleanPassword = data.password.trim()
+
+    console.log('[Login Attempt]', {
+      rawEmail: data.email,
+      cleanEmail,
+      passwordLength: cleanPassword.length,
+    })
+
     setLoading(true)
     
     try {
-      console.log('[Login Step 2] Attempting supabase.auth.signInWithPassword...')
+      console.log('[Login Step 2] Calling supabase.auth.signInWithPassword with cleanEmail:', cleanEmail)
       const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+        email: cleanEmail,
+        password: cleanPassword,
       })
 
       console.log('[Login Step 3] Supabase auth response:', { user: authData?.user?.id, email: authData?.user?.email, error })

@@ -31,10 +31,13 @@ export default function AdminLoginPage() {
   })
 
   const onSubmit = async (data: AdminForm) => {
+    const cleanEmail = data.email.trim().toLowerCase()
+    const cleanPassword = data.password.trim()
+
     setLoading(true)
     const { data: authData, error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
+      email: cleanEmail,
+      password: cleanPassword,
     })
 
     if (error) {
