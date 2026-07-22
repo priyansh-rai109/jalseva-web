@@ -77,7 +77,7 @@ export default function AdminLoginPage() {
 
   const handleQuickLogin = () => {
     setValue('email', 'raipriyansh45@gmail.com')
-    setValue('password', 'password123')
+    setValue('password', 'password@123')
     toast.info('Pre-filled admin credentials for raipriyansh45@gmail.com')
   }
 
