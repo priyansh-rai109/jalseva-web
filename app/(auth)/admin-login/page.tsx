@@ -66,22 +66,15 @@ export default function AdminLoginPage() {
         .eq('id', user.id)
         .single()
 
-      // Ensure super_admin role for admin@jalseva.in
-      if (user.email === 'admin@jalseva.in' || !profile || profile.role !== 'super_admin') {
+      // Auto-grant super_admin role to any valid user logging in via the Admin Portal
+      if (!profile || profile.role !== 'super_admin') {
         await supabase.from('profiles').upsert({
           id: user.id,
           email: user.email,
           role: 'super_admin',
-          name: 'Super Admin'
+          name: user.user_metadata?.name || 'Super Admin'
         })
         profile = { role: 'super_admin' }
-      }
-
-      if (profile?.role !== 'super_admin') {
-        await supabase.auth.signOut()
-        toast.error('Access denied. Admin accounts only.')
-        setLoading(false)
-        return
       }
 
       toast.success('Welcome, Admin!')
