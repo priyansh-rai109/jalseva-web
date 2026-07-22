@@ -44,29 +44,20 @@ function CustomerRegisterForm() {
 
   const onSubmit = async (data: CustomerForm) => {
     setLoading(true)
-    const { data: authData, error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: { data: { role: 'customer', name: data.name, phone: data.phone } },
+    const { error } = await supabase.auth.signUp({
+      email: data.email.trim().toLowerCase(),
+      password: data.password.trim(),
+      options: {
+        data: {
+          role: 'customer',
+          name: data.name,
+          phone: data.phone
+        }
+      },
     })
     if (error) { toast.error(error.message); setLoading(false); return }
 
-    if (authData.user) {
-      await supabase.from('profiles').upsert({
-        id: authData.user.id,
-        role: 'customer',
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-      })
-      await supabase.from('customers').insert({
-        user_id: authData.user.id,
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-      })
-    }
-    toast.success('Account created! Please verify your email.')
+    toast.success('Account created! Please verify your email or sign in.')
     router.push('/login')
   }
 
@@ -121,31 +112,22 @@ function SupplierRegisterForm() {
 
   const onSubmit = async (data: SupplierForm) => {
     setLoading(true)
-    const { data: authData, error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: { data: { role: 'supplier', name: data.business_name } },
+    const { error } = await supabase.auth.signUp({
+      email: data.email.trim().toLowerCase(),
+      password: data.password.trim(),
+      options: {
+        data: {
+          role: 'supplier',
+          business_name: data.business_name,
+          owner_name: data.owner_name,
+          name: data.business_name,
+          phone: data.phone,
+          address: data.address
+        }
+      },
     })
     if (error) { toast.error(error.message); setLoading(false); return }
 
-    if (authData.user) {
-      await supabase.from('profiles').upsert({
-        id: authData.user.id,
-        role: 'supplier',
-        name: data.owner_name,
-        phone: data.phone,
-        email: data.email,
-      })
-      await supabase.from('suppliers').insert({
-        user_id: authData.user.id,
-        business_name: data.business_name,
-        owner_name: data.owner_name,
-        phone: data.phone,
-        email: data.email,
-        address: data.address,
-        status: 'pending',
-      })
-    }
     toast.success('Application submitted! Admin will review within 24 hours.')
     router.push('/login')
   }

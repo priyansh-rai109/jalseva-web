@@ -45,19 +45,62 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger to auto-create profile on signup
+-- Trigger to auto-create profile, supplier, or customer on signup
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, email, role, name)
+  -- 1. Insert Profile
+  INSERT INTO profiles (id, email, role, name, phone)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'role', 'customer'),
-    COALESCE(NEW.raw_user_meta_data->>'name', '')
+    COALESCE(NEW.raw_user_meta_data->>'name', COALESCE(NEW.raw_user_meta_data->>'business_name', '')),
+    COALESCE(NEW.raw_user_meta_data->>'phone', NULL)
   )
   ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email;
+
+  -- 2. If role is supplier, insert into suppliers table with status 'pending'
+  IF (NEW.raw_user_meta_data->>'role') = 'supplier' THEN
+    INSERT INTO suppliers (
+      user_id,
+      business_name,
+      owner_name,
+      phone,
+      email,
+      address,
+      status
+    )
+    VALUES (
+      NEW.id,
+      COALESCE(NEW.raw_user_meta_data->>'business_name', NEW.raw_user_meta_data->>'name', 'Water Supplier'),
+      COALESCE(NEW.raw_user_meta_data->>'owner_name', NEW.raw_user_meta_data->>'name', 'Owner'),
+      COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+      NEW.email,
+      COALESCE(NEW.raw_user_meta_data->>'address', 'Jodhpur'),
+      'pending'
+    )
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  -- 3. If role is customer, insert into customers table
+  IF (NEW.raw_user_meta_data->>'role') = 'customer' OR (NEW.raw_user_meta_data->>'role') IS NULL THEN
+    INSERT INTO customers (
+      user_id,
+      name,
+      phone,
+      email
+    )
+    VALUES (
+      NEW.id,
+      COALESCE(NEW.raw_user_meta_data->>'name', 'Customer'),
+      COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+      NEW.email
+    )
+    ON CONFLICT DO NOTHING;
+  END IF;
+
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
