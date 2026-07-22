@@ -34,20 +34,20 @@ export default function LoginPage() {
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) })
 
   const onSubmit = async (data: LoginForm) => {
-    console.log('[Login] Form submission triggered with email:', data.email)
+    console.log('[Login Step 1] Form submission triggered for email:', data.email)
     setLoading(true)
     
     try {
-      console.log('[Login] Calling supabase.auth.signInWithPassword...')
+      console.log('[Login Step 2] Attempting supabase.auth.signInWithPassword...')
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
 
-      console.log('[Login] Supabase auth response received. authData:', authData, 'error:', error)
+      console.log('[Login Step 3] Supabase auth response:', { user: authData?.user?.id, email: authData?.user?.email, error })
 
       if (error) {
-        console.error('[Login] Supabase auth error:', error)
+        console.error('[Login Error] Supabase auth failed:', error.message)
         toast.error(error.message || 'Invalid email or password')
         setLoading(false)
         return
@@ -55,7 +55,7 @@ export default function LoginPage() {
 
       const user = authData?.user
       if (user) {
-        console.log('[Login] User authenticated successfully. User ID:', user.id)
+        console.log('[Login Step 4] User authenticated. Fetching role from profiles table for user.id:', user.id)
         
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -63,8 +63,10 @@ export default function LoginPage() {
           .eq('id', user.id)
           .maybeSingle()
 
+        console.log('[Login Step 5] Profile fetch result:', { profile, profileError })
+
         if (profileError || !profile) {
-          console.error('[Login] Profile query error or missing profile row:', profileError)
+          console.error('[Login Error] Profile query failed or profile missing:', profileError)
           await supabase.auth.signOut()
           toast.error('Account setup incomplete. Please contact support.')
           setLoading(false)
@@ -72,22 +74,25 @@ export default function LoginPage() {
         }
 
         const role = profile.role
-        console.log('[Login] User role resolved as:', role)
+        console.log('[Login Step 6] Resolved role from database:', role)
         toast.success('Signed in successfully!')
 
         let targetPath = '/customer/dashboard'
-        if (role === 'super_admin') targetPath = '/admin/dashboard'
-        else if (role === 'supplier') targetPath = '/supplier/dashboard'
+        if (role === 'super_admin') {
+          targetPath = '/admin/dashboard'
+        } else if (role === 'supplier') {
+          targetPath = '/supplier/dashboard'
+        }
 
-        console.log('[Login] Attempting redirect to:', targetPath)
+        console.log('[Login Step 7] Performing browser redirect to:', targetPath)
         window.location.href = targetPath
       } else {
-        console.warn('[Login] No user object returned in authData')
+        console.warn('[Login Warning] No user object returned in authData')
         setLoading(false)
       }
     } catch (err) {
-      console.error('[Login] Unexpected exception during login:', err)
-      toast.error('An unexpected error occurred.')
+      console.error('[Login Exception] Unexpected error during login:', err)
+      toast.error('An unexpected error occurred during login.')
       setLoading(false)
     }
   }

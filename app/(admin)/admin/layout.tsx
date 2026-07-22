@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!profile || profile.role !== 'super_admin') redirect('/login')
 
@@ -23,14 +23,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq('is_read', false)
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-background">
       <Sidebar
         role="super_admin"
         userName={profile.name || 'Admin'}
         userEmail={profile.email || ''}
         notificationCount={count || 0}
       />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-x-hidden min-w-0 p-4 md:p-6 lg:p-8">
         {children}
       </main>
     </div>

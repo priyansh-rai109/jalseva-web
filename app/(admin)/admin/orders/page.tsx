@@ -44,14 +44,14 @@ export default async function AdminOrdersPage() {
   const productTypeIcons: Record<string, string> = { tanker: '🚛', can: '🫙', pouch: '💧' }
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>All Orders</h1>
-        <p className="text-muted-foreground mt-1">Platform-wide order management</p>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>All Orders</h1>
+        <p className="text-muted-foreground text-sm mt-1">Platform-wide order management</p>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Total Orders', value: statusCounts.all, color: 'text-sky-400', bg: 'bg-sky-400/10', icon: ShoppingCart },
           { label: 'Pending', value: statusCounts.pending, color: 'text-yellow-400', bg: 'bg-yellow-400/10', icon: Clock },

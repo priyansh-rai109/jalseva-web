@@ -31,11 +31,11 @@ export default async function AdminCustomersPage() {
   })
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Customers</h1>
-          <p className="text-muted-foreground mt-1">{customers?.length || 0} registered customers</p>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Customers</h1>
+          <p className="text-muted-foreground text-sm mt-1">{customers?.length || 0} registered customers</p>
         </div>
         <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center">
           <Users className="w-5 h-5 text-sky-400" />
@@ -48,7 +48,7 @@ export default async function AdminCustomersPage() {
           <p className="text-muted-foreground">No customers yet</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {customers.map((customer: any) => (
             <Card key={customer.id} className="glass-card hover:border-sky-500/20 transition-all">
               <CardContent className="p-5">

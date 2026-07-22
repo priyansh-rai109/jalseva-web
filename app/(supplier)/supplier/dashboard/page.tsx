@@ -24,13 +24,20 @@ export default async function SupplierDashboard() {
   if (!user) redirect('/login')
 
   // Get supplier record
-  const { data: supplier } = await supabase
+  const { data: rawSupplier } = await supabase
     .from('suppliers')
     .select('*, zones(name)')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (!supplier) redirect('/login')
+  const supplier = rawSupplier || {
+    id: user.id,
+    user_id: user.id,
+    business_name: user.user_metadata?.name || 'Water Supplier',
+    status: 'pending',
+    rating: 0.0,
+    address: 'Address Pending'
+  }
 
   // Get orders
   const { data: recentOrders } = await supabase

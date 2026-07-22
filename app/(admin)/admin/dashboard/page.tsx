@@ -91,33 +91,35 @@ export default async function AdminDashboard() {
   ]
 
   return (
-    <div className="p-6 md:p-8 space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
           Admin Dashboard
         </h1>
-        <p className="text-muted-foreground mt-1">Platform overview — JalSeva Jodhpur</p>
+        <p className="text-muted-foreground text-sm mt-1">Platform overview — JalSeva Jodhpur</p>
       </div>
 
       {/* Pending supplier alert */}
       {(pendingSuppliers ?? 0) > 0 && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-          <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-amber-300">
-              {pendingSuppliers} supplier{(pendingSuppliers ?? 0) > 1 ? 's' : ''} waiting for approval
-            </p>
-            <p className="text-xs text-amber-400/70">Review and approve new supplier applications</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+          <div className="flex items-center gap-3 flex-1">
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-300">
+                {pendingSuppliers} supplier{(pendingSuppliers ?? 0) > 1 ? 's' : ''} waiting for approval
+              </p>
+              <p className="text-xs text-amber-400/70">Review and approve new supplier applications</p>
+            </div>
           </div>
-          <Link href="/admin/suppliers" className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1">
+          <Link href="/admin/suppliers" className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1 self-end sm:self-auto min-h-[44px] flex items-center">
             Review <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
           <Link href={stat.href} key={stat.title}>
             <Card className="glass-card hover:border-sky-500/30 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer">

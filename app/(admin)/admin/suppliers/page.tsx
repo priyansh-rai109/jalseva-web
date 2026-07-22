@@ -63,12 +63,12 @@ export default function AdminSuppliersPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
           Suppliers
         </h1>
-        <p className="text-muted-foreground mt-1">Manage all water supplier accounts</p>
+        <p className="text-muted-foreground text-sm mt-1">Manage all water supplier accounts</p>
       </div>
 
       {/* Status tabs */}
@@ -77,7 +77,7 @@ export default function AdminSuppliersPage() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all min-h-[44px] ${
               status === s
                 ? 'bg-sky-500 text-white'
                 : 'bg-secondary text-muted-foreground hover:text-foreground'
@@ -90,19 +90,19 @@ export default function AdminSuppliersPage() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-sm">
+      <div className="relative w-full max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Search by name, phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 bg-secondary"
+          className="pl-10 bg-secondary h-11"
         />
       </div>
 
       {/* Supplier Cards */}
       {loading ? (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="glass-card h-40 animate-pulse" />
           ))}
@@ -113,7 +113,7 @@ export default function AdminSuppliersPage() {
           <p className="text-muted-foreground">No suppliers found</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((supplier) => (
             <Card key={supplier.id} className="glass-card hover:border-sky-500/20 transition-all">
               <CardContent className="p-5">

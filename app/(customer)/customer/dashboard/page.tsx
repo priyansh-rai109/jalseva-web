@@ -24,8 +24,8 @@ export default async function CustomerDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  const { data: customer } = await supabase.from('customers').select('*').eq('user_id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  const { data: customer } = await supabase.from('customers').select('*').eq('user_id', user.id).maybeSingle()
 
   // Active orders
   const { data: activeOrders } = await supabase
