@@ -33,20 +33,41 @@ export default function AdminSuppliersPage() {
 
   const fetchSuppliers = async () => {
     setLoading(true)
-    let query = supabase.from('suppliers').select('*, zones(name)').order('created_at', { ascending: false })
-    if (status !== 'all') query = query.eq('status', status)
-    const { data } = await query
-    setSuppliers(data || [])
+    try {
+      const res = await fetch(`/api/admin/suppliers?status=${status}`)
+      const json = await res.json()
+      if (res.ok) {
+        setSuppliers(json.suppliers || [])
+      } else {
+        toast.error(json.error || 'Failed to load suppliers')
+      }
+    } catch (err) {
+      console.error('Failed to fetch suppliers:', err)
+      toast.error('Failed to load suppliers')
+    }
     setLoading(false)
   }
 
   useEffect(() => { fetchSuppliers() }, [status])
 
   const updateStatus = async (id: string, newStatus: string) => {
-    const { error } = await supabase.from('suppliers').update({ status: newStatus }).eq('id', id)
-    if (error) { toast.error('Failed to update status'); return }
-    toast.success(`Supplier ${newStatus}`)
-    fetchSuppliers()
+    try {
+      const res = await fetch('/api/admin/suppliers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(`Supplier ${newStatus}`)
+        fetchSuppliers()
+      } else {
+        toast.error(json.error || 'Failed to update status')
+      }
+    } catch (err) {
+      console.error('Failed to update supplier status:', err)
+      toast.error('Failed to update status')
+    }
   }
 
   const filtered = suppliers.filter((s) =>

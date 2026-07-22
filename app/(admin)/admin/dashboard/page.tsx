@@ -21,7 +21,10 @@ import Link from 'next/link'
 
 export const metadata = { title: 'Admin Dashboard' }
 
-async function getStats(supabase: Awaited<ReturnType<typeof createClient>>) {
+import { createAdminClient } from '@/lib/supabase/admin'
+
+async function getStats() {
+  const adminSupabase = createAdminClient()
   const [
     { count: totalSuppliers },
     { count: pendingSuppliers },
@@ -29,11 +32,11 @@ async function getStats(supabase: Awaited<ReturnType<typeof createClient>>) {
     { count: totalOrders },
     { data: recentOrders },
   ] = await Promise.all([
-    supabase.from('suppliers').select('*', { count: 'exact', head: true }),
-    supabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('customers').select('*', { count: 'exact', head: true }),
-    supabase.from('orders').select('*', { count: 'exact', head: true }),
-    supabase.from('orders').select(`
+    adminSupabase.from('suppliers').select('*', { count: 'exact', head: true }),
+    adminSupabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    adminSupabase.from('customers').select('*', { count: 'exact', head: true }),
+    adminSupabase.from('orders').select('*', { count: 'exact', head: true }),
+    adminSupabase.from('orders').select(`
       id, total_amount, status, created_at,
       customers(name),
       suppliers(business_name),
@@ -49,7 +52,7 @@ export default async function AdminDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin-login')
 
-  const { totalSuppliers, pendingSuppliers, totalCustomers, totalOrders, recentOrders } = await getStats(supabase)
+  const { totalSuppliers, pendingSuppliers, totalCustomers, totalOrders, recentOrders } = await getStats()
 
   const statCards = [
     {
