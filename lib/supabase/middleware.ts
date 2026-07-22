@@ -19,7 +19,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Public routes — always accessible
-
   const publicRoutes = ['/', '/login', '/register', '/admin-login']
   const isPublicRoute = publicRoutes.some(
     (route) => pathname === route || pathname.startsWith('/api/')
@@ -27,6 +26,7 @@ export async function updateSession(request: NextRequest) {
 
   let user: any = null
   let role: string | null = null
+  let response = NextResponse.next({ request })
 
   if (isMock) {
     // Read user from mock session cookie
@@ -42,8 +42,6 @@ export async function updateSession(request: NextRequest) {
     }
   } else {
     // Real Supabase session update
-    let supabaseResponse = NextResponse.next({ request })
-
     const supabase = createServerClient(supabaseUrl!, supabaseKey!, {
       cookies: {
         getAll() {
@@ -53,9 +51,9 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          supabaseResponse = NextResponse.next({ request })
+          response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            response.cookies.set(name, value, options)
           )
         },
       },
@@ -74,42 +72,36 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Helper function: preserve response auth cookies on redirects
+  const makeRedirect = (targetPath: string) => {
+    const url = request.nextUrl.clone()
+    url.pathname = targetPath
+    const redirectResponse = NextResponse.redirect(url)
+    response.cookies.getAll().forEach((c) => {
+      redirectResponse.cookies.set(c.name, c.value, c)
+    })
+    return redirectResponse
+  }
+
   // Not logged in → redirect to login (except public routes)
   if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+    return makeRedirect('/login')
   }
 
   if (user) {
     // Role-based access control
     if (pathname.startsWith('/admin') && role !== 'super_admin') {
-      const url = request.nextUrl.clone()
-      url.pathname = role === 'supplier' ? '/supplier/dashboard' : '/customer/dashboard'
-      return NextResponse.redirect(url)
+      return makeRedirect(role === 'supplier' ? '/supplier/dashboard' : '/customer/dashboard')
     }
 
     if (pathname.startsWith('/supplier') && role !== 'supplier') {
-      const url = request.nextUrl.clone()
-      url.pathname = role === 'super_admin' ? '/admin/dashboard' : '/customer/dashboard'
-      return NextResponse.redirect(url)
+      return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : '/customer/dashboard')
     }
 
     if (pathname.startsWith('/customer') && role !== 'customer') {
-      const url = request.nextUrl.clone()
-      url.pathname = role === 'super_admin' ? '/admin/dashboard' : '/supplier/dashboard'
-      return NextResponse.redirect(url)
-    }
-
-    // Redirect logged-in users away from auth pages
-    if (pathname === '/login' || pathname === '/register' || pathname === '/admin-login') {
-      const url = request.nextUrl.clone()
-      if (role === 'super_admin') url.pathname = '/admin/dashboard'
-      else if (role === 'supplier') url.pathname = '/supplier/dashboard'
-      else url.pathname = '/customer/dashboard'
-      return NextResponse.redirect(url)
+      return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : '/supplier/dashboard')
     }
   }
 
-  return NextResponse.next({ request })
+  return response
 }
