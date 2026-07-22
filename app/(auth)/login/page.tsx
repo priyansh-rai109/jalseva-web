@@ -217,7 +217,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickLogin('raipriyansh45@gmail.com')}
+                onClick={() => handleQuickLogin('admin@jalseva.in')}
                 className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-purple-400 transition-all"
               >
                 <Shield className="w-3.5 h-3.5" />
