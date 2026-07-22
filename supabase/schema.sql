@@ -235,9 +235,8 @@ ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE zones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Profiles: users can manage own profile
+-- Profiles: users can read and update their own profile (inserts via SECURITY DEFINER trigger only)
 CREATE POLICY "profiles_own_read" ON profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "profiles_own_insert" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "profiles_own_update" ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Zones: public read

@@ -67,8 +67,8 @@ export async function updateSession(request: NextRequest) {
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single()
-      role = profile?.role || user.user_metadata?.role || (user.email === 'admin@jalseva.in' ? 'super_admin' : 'customer')
+        .maybeSingle()
+      role = profile?.role || null
     }
   }
 
