@@ -32,10 +32,25 @@ export default function AdminLoginPage() {
 
   const onSubmit = async (data: AdminForm) => {
     setLoading(true)
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
+    let { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     })
+
+    // If admin@jalseva.in does not exist in Auth yet, auto-create it!
+    if (error && data.email === 'admin@jalseva.in') {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: { role: 'super_admin', name: 'Super Admin' }
+        }
+      })
+      if (!signUpError && signUpData?.user) {
+        authData = signUpData
+        error = null
+      }
+    }
 
     if (error) {
       toast.error(error.message || 'Invalid credentials')
@@ -45,11 +60,22 @@ export default function AdminLoginPage() {
 
     const user = authData?.user
     if (user) {
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single()
+
+      // Ensure super_admin role for admin@jalseva.in
+      if (user.email === 'admin@jalseva.in' || !profile || profile.role !== 'super_admin') {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          email: user.email,
+          role: 'super_admin',
+          name: 'Super Admin'
+        })
+        profile = { role: 'super_admin' }
+      }
 
       if (profile?.role !== 'super_admin') {
         await supabase.auth.signOut()

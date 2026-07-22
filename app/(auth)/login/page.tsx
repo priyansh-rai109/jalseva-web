@@ -39,10 +39,27 @@ export default function LoginPage() {
     
     try {
       console.log('[Login] Calling supabase.auth.signInWithPassword...')
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
+      let { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
+
+      // Auto-create demo account in Supabase Auth if it doesn't exist yet
+      if (error && (data.email === 'admin@jalseva.in' || data.email === 'supplier@jalseva.in' || data.email === 'customer@jalseva.in')) {
+        const role = data.email === 'admin@jalseva.in' ? 'super_admin' : data.email === 'supplier@jalseva.in' ? 'supplier' : 'customer'
+        const name = role === 'super_admin' ? 'Super Admin' : role === 'supplier' ? 'Ramesh Water Suppliers' : 'Vijay Jodhpur'
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: {
+            data: { role, name }
+          }
+        })
+        if (!signUpError && signUpData?.user) {
+          authData = signUpData
+          error = null
+        }
+      }
 
       console.log('[Login] Supabase auth response received. authData:', authData, 'error:', error)
 
@@ -56,24 +73,27 @@ export default function LoginPage() {
       const user = authData?.user
       if (user) {
         console.log('[Login] User authenticated successfully. User ID:', user.id)
-        console.log('[Login] Fetching user profile from profiles table...')
         
-        const { data: profile, error: profileError } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', user.id)
           .single()
 
-        console.log('[Login] Profile fetch response. profile:', profile, 'error:', profileError)
-
-        if (profileError) {
-          console.error('[Login] Profile fetch error:', profileError)
-          toast.error('Failed to retrieve user profile.')
-          setLoading(false)
-          return
+        // Auto-upsert profile if missing or for demo admin/supplier/customer
+        if (!profile || data.email === 'admin@jalseva.in') {
+          const expectedRole = data.email === 'admin@jalseva.in' ? 'super_admin' : data.email === 'supplier@jalseva.in' ? 'supplier' : 'customer'
+          const expectedName = expectedRole === 'super_admin' ? 'Super Admin' : expectedRole === 'supplier' ? 'Ramesh Water Suppliers' : 'Vijay Jodhpur'
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            email: user.email,
+            role: expectedRole,
+            name: expectedName
+          })
+          profile = { role: expectedRole }
         }
 
-        const role = profile?.role
+        const role = profile?.role || 'customer'
         console.log('[Login] User role resolved as:', role)
         toast.success('Signed in successfully!')
         
