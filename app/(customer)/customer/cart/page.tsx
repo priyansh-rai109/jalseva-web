@@ -53,31 +53,6 @@ export default function CartPage() {
     if (items.length === 0) return
     setPlacing(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { toast.error('Please login first'); setPlacing(false); return }
-
-    let { data: customer } = await supabase.from('customers').select('id').eq('user_id', user.id).maybeSingle()
-    if (!customer) {
-      const { data: newCustomer, error: createError } = await supabase
-        .from('customers')
-        .insert({
-          user_id: user.id,
-          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Customer',
-          phone: user.user_metadata?.phone || '',
-          email: user.email || '',
-        })
-        .select('id')
-        .single()
-
-      if (createError || !newCustomer) {
-        console.error('[Cart Error] Failed to resolve customer record:', createError)
-        toast.error('Could not verify your customer account. Please contact support.')
-        setPlacing(false)
-        return
-      }
-      customer = newCustomer
-    }
-
     const deliveryAddress = {
       id: crypto.randomUUID(),
       label: 'Delivery',
@@ -87,34 +62,32 @@ export default function CartPage() {
       is_default: false,
     }
 
-    // Place one order per item (or you could group by supplier)
-    const errors_list: string[] = []
-    for (const item of items) {
-      const { error } = await supabase.from('orders').insert({
-        customer_id: customer.id,
-        supplier_id: item.product.supplier_id,
-        product_id: item.product.id,
-        quantity: item.quantity,
-        unit_price: item.product.price,
-        total_amount: item.product.price * item.quantity,
-        status: 'pending',
-        payment_mode: data.payment_mode,
-        payment_status: 'pending',
-        delivery_address: deliveryAddress,
-        special_instructions: data.special_instructions || null,
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items,
+          deliveryAddress,
+          paymentMode: data.payment_mode,
+          specialInstructions: data.special_instructions,
+        }),
       })
-      if (error) errors_list.push(error.message)
-    }
 
-    if (errors_list.length > 0) {
-      toast.error('Some orders failed to place. Please try again.')
+      const json = await res.json()
+      if (res.ok) {
+        clearCart()
+        toast.success('🎉 Order placed successfully! Supplier notified via SMS.')
+        router.push('/customer/orders')
+      } else {
+        toast.error(json.error || 'Failed to place order')
+      }
+    } catch (err) {
+      console.error('[Cart Order Placement Exception]', err)
+      toast.error('Failed to place order')
+    } finally {
       setPlacing(false)
-      return
     }
-
-    clearCart()
-    toast.success('🎉 Order placed successfully! Supplier will confirm shortly.')
-    router.push('/customer/orders')
   }
 
   if (items.length === 0) {
