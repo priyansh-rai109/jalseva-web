@@ -109,7 +109,7 @@ export default function LoginPage() {
   // Quick helper for demo logins
   const handleQuickLogin = async (email: string) => {
     setValue('email', email)
-    setValue('password', 'DemoPass123!')
+    setValue('password', 'password123')
     toast.info(`Pre-filled credentials for ${email}`)
   }
 
@@ -201,7 +201,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickLogin('demo.customer@jalseva.in')}
+                onClick={() => handleQuickLogin('bissapranav@gmail.com')}
                 className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-sky-300 transition-all"
               >
                 <User className="w-3.5 h-3.5" />
@@ -209,7 +209,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickLogin('demo.supplier@jalseva.in')}
+                onClick={() => handleQuickLogin('pmathur352@gmail.com')}
                 className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-amber-400 transition-all"
               >
                 <Building2 className="w-3.5 h-3.5" />
@@ -217,7 +217,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickLogin('demo.admin@jalseva.in')}
+                onClick={() => handleQuickLogin('raipriyansh45@gmail.com')}
                 className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-purple-400 transition-all"
               >
                 <Shield className="w-3.5 h-3.5" />
