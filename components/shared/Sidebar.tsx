@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useCartStore } from '@/lib/stores/cart-store'
 import {
   Droplets,
   LayoutDashboard,
@@ -77,10 +78,19 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
   const roleColor = role === 'super_admin' ? 'bg-purple-500/10 text-purple-400' : role === 'supplier' ? 'bg-amber-500/10 text-amber-400' : 'bg-sky-500/10 text-sky-400'
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    toast.success('Signed out successfully')
-    router.push('/')
-    router.refresh()
+    try {
+      useCartStore.getState().clearCart()
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+      }
+      await supabase.auth.signOut()
+      toast.success('Signed out successfully')
+    } catch (err) {
+      console.error('Error during sign out:', err)
+    } finally {
+      window.location.href = '/login'
+    }
   }
 
   const SidebarContent = () => (
