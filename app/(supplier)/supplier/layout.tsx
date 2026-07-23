@@ -12,7 +12,7 @@ export default async function SupplierLayout({ children }: { children: React.Rea
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!profile || profile.role !== 'supplier') redirect('/login')
 

@@ -56,9 +56,26 @@ export default function CartPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { toast.error('Please login first'); setPlacing(false); return }
 
-    let { data: customer } = await supabase.from('customers').select('id').eq('user_id', user.id).single()
+    let { data: customer } = await supabase.from('customers').select('id').eq('user_id', user.id).maybeSingle()
     if (!customer) {
-      customer = { id: 'customer-1' }
+      const { data: newCustomer, error: createError } = await supabase
+        .from('customers')
+        .insert({
+          user_id: user.id,
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Customer',
+          phone: user.user_metadata?.phone || '',
+          email: user.email || '',
+        })
+        .select('id')
+        .single()
+
+      if (createError || !newCustomer) {
+        console.error('[Cart Error] Failed to resolve customer record:', createError)
+        toast.error('Could not verify your customer account. Please contact support.')
+        setPlacing(false)
+        return
+      }
+      customer = newCustomer
     }
 
     const deliveryAddress = {

@@ -32,7 +32,7 @@ export default function SupplierDetailPage() {
   useEffect(() => {
     const fetchData = async () => {
       const [{ data: sup }, { data: prods }] = await Promise.all([
-        supabase.from('suppliers').select('*, zones(name)').eq('id', id).single(),
+        supabase.from('suppliers').select('*, zones(name)').eq('id', id).maybeSingle(),
         supabase.from('water_products').select('*').eq('supplier_id', id).eq('is_active', true).order('type'),
       ])
       setSupplier(sup)

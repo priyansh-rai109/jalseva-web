@@ -47,7 +47,7 @@ export default function OrderDetailPage() {
           water_products(name, type, capacity_liters, price)
         `)
         .eq('id', id)
-        .single(),
+        .maybeSingle(),
       supabase
         .from('order_tracking')
         .select('*')

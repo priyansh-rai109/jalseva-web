@@ -12,7 +12,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!profile || profile.role !== 'customer') redirect('/login')
 

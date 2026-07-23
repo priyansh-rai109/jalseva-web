@@ -45,8 +45,8 @@ export default function CustomerProfilePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const [{ data: p }, { data: c }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('customers').select('*').eq('user_id', user.id).single(),
+        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('customers').select('*').eq('user_id', user.id).maybeSingle(),
       ])
       setProfile(p)
       setCustomer(c)
