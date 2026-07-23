@@ -84,7 +84,7 @@ export default function SupplierOrdersPage() {
   const productTypeIcons: Record<string, string> = { tanker: '🚛', can: '🫙', pouch: '💧' }
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Orders</h1>
         <p className="text-muted-foreground mt-1">Manage and fulfill customer orders</p>

@@ -23,14 +23,14 @@ export default async function SupplierLayout({ children }: { children: React.Rea
     .eq('is_read', false)
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-background">
       <Sidebar
         role="supplier"
         userName={profile.name || 'Supplier'}
         userEmail={profile.email || ''}
         notificationCount={count || 0}
       />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-x-hidden min-w-0 p-4 md:p-6 lg:p-8">
         {children}
       </main>
     </div>

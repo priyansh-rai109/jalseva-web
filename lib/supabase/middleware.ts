@@ -63,12 +63,15 @@ export async function updateSession(request: NextRequest) {
     user = supabaseUser
 
     if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
-      role = profile?.role || null
+      role = user.user_metadata?.role || null
+      if (!role) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+        role = profile?.role || null
+      }
     }
   }
 

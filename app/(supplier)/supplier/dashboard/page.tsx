@@ -39,41 +39,49 @@ export default async function SupplierDashboard() {
     address: 'Address Pending'
   }
 
-  // Get orders
-  const { data: recentOrders } = await supabase
-    .from('orders')
-    .select(`
-      id, total_amount, status, quantity, created_at,
-      customers(name, phone),
-      water_products(name, type)
-    `)
-    .eq('supplier_id', supplier.id)
-    .order('created_at', { ascending: false })
-    .limit(6)
+  // Get orders and metrics in parallel
+  const [
+    { data: recentOrders },
+    { count: pendingCount },
+    { count: todayDelivered },
+    { count: totalOrders },
+    { count: productCount }
+  ] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(`
+        id, total_amount, status, quantity, created_at,
+        customers(name, phone),
+        water_products(name, type)
+      `)
+      .eq('supplier_id', supplier.id)
+      .order('created_at', { ascending: false })
+      .limit(6),
 
-  const { count: pendingCount } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('supplier_id', supplier.id)
-    .eq('status', 'pending')
+    supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', supplier.id)
+      .eq('status', 'pending'),
 
-  const { count: todayDelivered } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('supplier_id', supplier.id)
-    .eq('status', 'delivered')
-    .gte('created_at', new Date().toISOString().split('T')[0])
+    supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', supplier.id)
+      .eq('status', 'delivered')
+      .gte('created_at', new Date().toISOString().split('T')[0]),
 
-  const { count: totalOrders } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('supplier_id', supplier.id)
+    supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', supplier.id),
 
-  const { count: productCount } = await supabase
-    .from('water_products')
-    .select('*', { count: 'exact', head: true })
-    .eq('supplier_id', supplier.id)
-    .eq('is_active', true)
+    supabase
+      .from('water_products')
+      .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', supplier.id)
+      .eq('is_active', true)
+  ])
 
   const statCards = [
     {
@@ -112,7 +120,7 @@ export default async function SupplierDashboard() {
   ]
 
   return (
-    <div className="p-6 md:p-8 space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

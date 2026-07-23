@@ -24,51 +24,58 @@ export default async function CustomerDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
-  const { data: customer } = await supabase.from('customers').select('*').eq('user_id', user.id).maybeSingle()
+  const [{ data: profile }, { data: customer }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+    supabase.from('customers').select('*').eq('user_id', user.id).maybeSingle(),
+  ])
 
-  // Active orders
-  const { data: activeOrders } = await supabase
-    .from('orders')
-    .select(`
-      id, total_amount, status, quantity, created_at,
-      suppliers(business_name),
-      water_products(name, type)
-    `)
-    .eq('customer_id', customer?.id)
-    .in('status', ['pending', 'confirmed', 'out_for_delivery'])
-    .order('created_at', { ascending: false })
+  const [
+    { data: activeOrders },
+    { data: recentOrders },
+    { count: totalOrders },
+    { count: deliveredOrders },
+    { data: suppliers }
+  ] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(`
+        id, total_amount, status, quantity, created_at,
+        suppliers(business_name),
+        water_products(name, type)
+      `)
+      .eq('customer_id', customer?.id)
+      .in('status', ['pending', 'confirmed', 'out_for_delivery'])
+      .order('created_at', { ascending: false }),
 
-  // Recent orders
-  const { data: recentOrders } = await supabase
-    .from('orders')
-    .select(`
-      id, total_amount, status, quantity, created_at,
-      suppliers(business_name),
-      water_products(name, type)
-    `)
-    .eq('customer_id', customer?.id)
-    .order('created_at', { ascending: false })
-    .limit(5)
+    supabase
+      .from('orders')
+      .select(`
+        id, total_amount, status, quantity, created_at,
+        suppliers(business_name),
+        water_products(name, type)
+      `)
+      .eq('customer_id', customer?.id)
+      .order('created_at', { ascending: false })
+      .limit(5),
 
-  const { count: totalOrders } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('customer_id', customer?.id)
+    supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('customer_id', customer?.id),
 
-  const { count: deliveredOrders } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('customer_id', customer?.id)
-    .eq('status', 'delivered')
+    supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('customer_id', customer?.id)
+      .eq('status', 'delivered'),
 
-  // Featured suppliers
-  const { data: suppliers } = await supabase
-    .from('suppliers')
-    .select('*, zones(name)')
-    .eq('status', 'approved')
-    .order('rating', { ascending: false })
-    .limit(4)
+    supabase
+      .from('suppliers')
+      .select('*, zones(name)')
+      .eq('status', 'approved')
+      .order('rating', { ascending: false })
+      .limit(4)
+  ])
 
   const statusIcon = (status: string) => {
     if (status === 'pending') return <Clock className="w-4 h-4 text-yellow-400" />
@@ -78,7 +85,7 @@ export default async function CustomerDashboard() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

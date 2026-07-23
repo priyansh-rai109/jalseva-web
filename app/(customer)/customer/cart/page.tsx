@@ -119,7 +119,7 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="p-6 md:p-8">
+      <div className="space-y-6 max-w-4xl">
         <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Your Cart</h1>
         <div className="text-center py-20">
           <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
@@ -136,7 +136,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl space-y-6">
+    <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

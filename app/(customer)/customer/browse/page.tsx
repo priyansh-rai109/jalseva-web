@@ -47,7 +47,7 @@ export default function CustomerBrowsePage() {
   })
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
@@ -99,7 +99,7 @@ export default function CustomerBrowsePage() {
           <p className="text-xs text-muted-foreground mt-1">Try a different search or zone</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((supplier) => {
             const products = (supplier as any).water_products || []
             const activeProducts = products.filter((p: any) => p.is_active)
