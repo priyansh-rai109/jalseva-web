@@ -55,11 +55,24 @@ export default function SupplierOrdersPage() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId)
-    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
-    if (error) { toast.error('Failed to update'); setUpdatingId(null); return }
-    toast.success(`Order marked as ${newStatus.replace('_', ' ')}`)
+    try {
+      const res = await fetch('/api/supplier/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(`Order marked as ${newStatus.replace('_', ' ')}`)
+        fetchOrders(supplierId!)
+      } else {
+        toast.error(json.error || 'Failed to update order')
+      }
+    } catch (err) {
+      console.error('Error updating order:', err)
+      toast.error('Failed to update order')
+    }
     setUpdatingId(null)
-    fetchOrders(supplierId!)
   }
 
   const nextStatus: Record<string, { label: string; status: string; color: string }> = {
