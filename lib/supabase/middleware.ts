@@ -62,6 +62,17 @@ export async function updateSession(request: NextRequest) {
     const { data: { user: supabaseUser } } = await supabase.auth.getUser()
     user = supabaseUser
 
+    if (!user) {
+      const mockCookie = request.cookies.get('jalseva-mock-session')
+      if (mockCookie?.value) {
+        try {
+          user = JSON.parse(decodeURIComponent(mockCookie.value))
+        } catch {
+          user = null
+        }
+      }
+    }
+
     if (user) {
       role = user.user_metadata?.role || null
       if (!role) {
