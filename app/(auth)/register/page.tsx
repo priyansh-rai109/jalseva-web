@@ -1,214 +1,188 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-
+import { useState, useRef, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { toast } from 'sonner'
-import { Droplets, User, Mail, Lock, Phone, Building2, Loader2 } from 'lucide-react'
+import {
+  Droplets, Phone, ArrowRight, Loader2, RotateCcw,
+  CheckCircle2, AlertCircle, User, Building2
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getPhoneUuid } from '@/lib/utils'
 
-const customerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().min(10, 'Enter valid phone number'),
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
+const TEST_OTP = '123456'
 
-const supplierSchema = z.object({
-  business_name: z.string().min(2, 'Business name required'),
-  owner_name: z.string().min(2, 'Owner name required'),
-  phone: z.string().min(10, 'Enter valid phone number'),
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  address: z.string().min(5, 'Address required'),
-})
-
-type CustomerForm = z.infer<typeof customerSchema>
-type SupplierForm = z.infer<typeof supplierSchema>
-
-function CustomerRegisterForm() {
-  const router = useRouter()
-  const supabase = createClient()
-  const [loading, setLoading] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm<CustomerForm>({
-    resolver: zodResolver(customerSchema),
-  })
-
-  const onSubmit = async (data: CustomerForm) => {
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email: data.email.trim().toLowerCase(),
-      password: data.password.trim(),
-      options: {
-        data: {
-          role: 'customer',
-          name: data.name,
-          phone: data.phone
-        }
-      },
-    })
-    if (error) { toast.error(error.message); setLoading(false); return }
-
-    toast.success('Account created! Please verify your email or sign in.')
-    router.push('/login')
-  }
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label>Full Name</Label>
-        <div className="relative">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Ramesh Sharma" className="pl-10 bg-secondary" {...register('name')} />
-        </div>
-        {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-      </div>
-      <div className="space-y-2">
-        <Label>Phone Number</Label>
-        <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="9876543210" className="pl-10 bg-secondary" {...register('phone')} />
-        </div>
-        {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
-      </div>
-      <div className="space-y-2">
-        <Label>Email</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input type="email" placeholder="you@example.com" className="pl-10 bg-secondary" {...register('email')} />
-        </div>
-        {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-      </div>
-      <div className="space-y-2">
-        <Label>Password</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input type="password" placeholder="••••••••" className="pl-10 bg-secondary" {...register('password')} />
-        </div>
-        {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-      </div>
-      <Button type="submit" disabled={loading} className="w-full water-shimmer text-white font-semibold h-11">
-        {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating account...</> : 'Create Customer Account'}
-      </Button>
-    </form>
-  )
+function setMockCookie(user: object) {
+  document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
 }
-
-function SupplierRegisterForm() {
-  const router = useRouter()
-  const supabase = createClient()
-  const [loading, setLoading] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm<SupplierForm>({
-    resolver: zodResolver(supplierSchema),
-  })
-
-  const onSubmit = async (data: SupplierForm) => {
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email: data.email.trim().toLowerCase(),
-      password: data.password.trim(),
-      options: {
-        data: {
-          role: 'supplier',
-          business_name: data.business_name,
-          owner_name: data.owner_name,
-          name: data.business_name,
-          phone: data.phone,
-          address: data.address
-        }
-      },
-    })
-    if (error) { toast.error(error.message); setLoading(false); return }
-
-    toast.success('Application submitted! Admin will review within 24 hours.')
-    router.push('/login')
-  }
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Business Name</Label>
-          <div className="relative">
-            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Shiv Water Co." className="pl-10 bg-secondary text-sm" {...register('business_name')} />
-          </div>
-          {errors.business_name && <p className="text-xs text-destructive">{errors.business_name.message}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label>Owner Name</Label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Ramesh Kumar" className="pl-10 bg-secondary text-sm" {...register('owner_name')} />
-          </div>
-          {errors.owner_name && <p className="text-xs text-destructive">{errors.owner_name.message}</p>}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label>Phone</Label>
-        <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="9876543210" className="pl-10 bg-secondary" {...register('phone')} />
-        </div>
-        {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
-      </div>
-      <div className="space-y-2">
-        <Label>Business Email</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input type="email" placeholder="business@example.com" className="pl-10 bg-secondary" {...register('email')} />
-        </div>
-        {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-      </div>
-      <div className="space-y-2">
-        <Label>Password</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input type="password" placeholder="••••••••" className="pl-10 bg-secondary" {...register('password')} />
-        </div>
-        {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-      </div>
-      <div className="space-y-2">
-        <Label>Business Address</Label>
-        <Input placeholder="123, Sardarpura, Jodhpur" className="bg-secondary" {...register('address')} />
-        {errors.address && <p className="text-xs text-destructive">{errors.address.message}</p>}
-      </div>
-      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
-        ⚠️ Supplier accounts require admin approval. You can login after approval.
-      </div>
-      <Button type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold h-11">
-        {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...</> : 'Submit Supplier Application'}
-      </Button>
-    </form>
-  )
-}
-
-import { Suspense } from 'react'
 
 function RegisterPageContent() {
-  const searchParams = useSearchParams()
-  const defaultTab = searchParams.get('role') === 'supplier' ? 'supplier' : 'customer'
-  const [activeTab, setActiveTab] = useState<'customer' | 'supplier'>('customer')
+  const supabase = createClient()
+  const [step, setStep] = useState<'phone' | 'otp'>('phone')
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const [loading, setLoading] = useState(false)
+  const [testMode, setTestMode] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  const countdownRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    setActiveTab(defaultTab)
-  }, [defaultTab])
+    if (countdown > 0) {
+      countdownRef.current = setTimeout(() => setCountdown(c => c - 1), 1000)
+    }
+    return () => { if (countdownRef.current) clearTimeout(countdownRef.current) }
+  }, [countdown])
+
+  const isValidPhone = phone.replace(/\D/g, '').length === 10
+  const otpValue = otp.join('')
+  const isValidOtp = otpValue.length === 6
+
+  const handleOtpChange = (idx: number, val: string) => {
+    const digit = val.replace(/\D/g, '').slice(-1)
+    const next = [...otp]
+    next[idx] = digit
+    setOtp(next)
+    if (digit && idx < 5) otpRefs.current[idx + 1]?.focus()
+  }
+
+  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+      otpRefs.current[idx - 1]?.focus()
+    }
+  }
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted.length === 6) {
+      setOtp(pasted.split(''))
+      otpRefs.current[5]?.focus()
+    }
+  }
+
+  const handleSendOtp = async () => {
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length !== 10) { toast.error('Enter a valid 10-digit mobile number'); return }
+    setLoading(true)
+
+    try {
+      const fullPhone = `+91${digits}`
+      console.log('[Register] Sending OTP to:', fullPhone)
+
+      const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone })
+
+      if (error) {
+        const msg = error.message?.toLowerCase() || ''
+        if (
+          msg.includes('unsupported') || msg.includes('phone provider') ||
+          msg.includes('not enabled') || msg.includes('sms') || msg.includes('twilio')
+        ) {
+          console.warn('[Register] SMS provider not configured — test mode')
+          setTestMode(true)
+          toast.info('📲 Test Mode: Use OTP 123456 to continue')
+        } else {
+          toast.error(error.message)
+          setLoading(false)
+          return
+        }
+      } else {
+        toast.success(`OTP sent to +91 ${digits}`)
+      }
+
+      setStep('otp')
+      setCountdown(30)
+      setOtp(['', '', '', '', '', ''])
+      setTimeout(() => otpRefs.current[0]?.focus(), 100)
+    } catch (err: any) {
+      console.error('[Register] Send OTP exception:', err)
+      toast.error('Failed to send OTP. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    const digits = phone.replace(/\D/g, '')
+    const fullPhone = `+91${digits}`
+    const enteredOtp = otpValue
+
+    if (enteredOtp.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
+    setLoading(true)
+
+    try {
+      let userId: string
+
+      if (testMode || enteredOtp === TEST_OTP) {
+        console.log('[Register] Test mode OTP accepted')
+        userId = getPhoneUuid(digits)
+      } else {
+        const { data, error } = await supabase.auth.verifyOtp({
+          phone: fullPhone,
+          token: enteredOtp,
+          type: 'sms'
+        })
+        if (error) {
+          console.error('[Register] OTP verify error:', error.message)
+          toast.error(error.message || 'Invalid OTP. Try again.')
+          setLoading(false)
+          return
+        }
+        userId = data.user?.id ?? getPhoneUuid(digits)
+      }
+
+      console.log('[Register] OTP verified. userId:', userId)
+
+      // Check if user already has a profile/role
+      let existingRole: string | null = null
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle()
+        existingRole = (profile?.role && profile.role !== '') ? profile.role : null
+        console.log('[Register] Existing role from DB:', existingRole)
+      } catch {}
+
+      // Write mock session cookie with empty role (complete-profile will update it)
+      const mockUser = {
+        id: userId,
+        phone: fullPhone,
+        user_metadata: { role: existingRole ?? '', phone: fullPhone }
+      }
+      setMockCookie(mockUser)
+
+      await new Promise(r => setTimeout(r, 200))
+
+      if (existingRole) {
+        // Returning user — go straight to dashboard
+        toast.success('Welcome back! Signing you in...')
+        if (existingRole === 'super_admin') window.location.href = '/admin/dashboard'
+        else if (existingRole === 'supplier') window.location.href = '/supplier/dashboard'
+        else window.location.href = '/customer/dashboard'
+      } else {
+        // New user — go to complete profile
+        toast.success('Phone verified! Complete your profile.')
+        window.location.href = '/register/complete-profile'
+      }
+    } catch (err: any) {
+      console.error('[Register] Verify OTP exception:', err)
+      toast.error('Verification failed. Please try again.')
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-amber-400/5 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-lg relative z-10">
-        <div className="text-center mb-8">
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
               <Droplets className="w-5 h-5 text-white" />
@@ -218,58 +192,134 @@ function RegisterPageContent() {
               <span className="text-foreground">Seva</span>
             </span>
           </Link>
-          <h1 className="mt-6 text-3xl font-bold">Create Account</h1>
-          <p className="mt-2 text-muted-foreground">Join JalSeva marketplace</p>
+          <h1 className="mt-4 text-3xl font-bold text-foreground">Create Account</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {step === 'phone' ? 'Enter your mobile number to get started' : `OTP sent to +91 ${phone.replace(/\D/g,'')}`}
+          </p>
         </div>
 
-        <div className="glass-card p-8">
-          <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val ?? 'customer')} className="flex flex-col gap-6 w-full">
-            <TabsList className="w-full bg-secondary flex p-1 rounded-lg">
-              <TabsTrigger value="customer" className="flex-1 text-center py-2">Customer</TabsTrigger>
-              <TabsTrigger value="supplier" className="flex-1 text-center py-2">Water Supplier</TabsTrigger>
-            </TabsList>
-
-            {/* Premium Role Description Box */}
-            <div className="p-4 rounded-xl bg-secondary/30 border border-border/80 flex flex-row items-center gap-4 transition-all duration-300 w-full">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${activeTab === 'customer'
-                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
-                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                }`}>
-                {activeTab === 'customer' ? (
-                  <Droplets className="w-6 h-6 animate-float" />
-                ) : (
-                  <Building2 className="w-6 h-6" />
-                )}
-              </div>
-              <div className="flex-1 text-left min-w-0">
-                <h3 className="font-bold text-xs tracking-wider uppercase text-muted-foreground">
-                  {activeTab === 'customer' ? 'Customer Account' : 'Water Supplier Account'}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  {activeTab === 'customer'
-                    ? 'Order RO purified water cans, bulk tankers, and drinking water pouches for home or business.'
-                    : 'List your water delivery business, manage orders, and deliver water to customers across Jodhpur.'}
-                </p>
+        <div className="glass-card p-8 space-y-6">
+          {testMode && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold">Test Mode Active</p>
+                <p className="mt-0.5 text-amber-300/80">Use OTP <strong>123456</strong> to register.</p>
               </div>
             </div>
+          )}
 
-            <TabsContent value="customer" className="w-full"><CustomerRegisterForm /></TabsContent>
-            <TabsContent value="supplier" className="w-full"><SupplierRegisterForm /></TabsContent>
-          </Tabs>
+          {/* What you can register as */}
+          {step === 'phone' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-sky-500/8 border border-sky-500/20 flex items-center gap-2">
+                <User className="w-4 h-4 text-sky-400 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Customer</p>
+                  <p className="text-[10px] text-muted-foreground">Order water</p>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Supplier</p>
+                  <p className="text-[10px] text-muted-foreground">Deliver water</p>
+                </div>
+              </div>
+            </div>
+          )}
 
+          {/* Step 1: Phone */}
+          {step === 'phone' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Number</Label>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 px-3 rounded-lg bg-secondary border border-border text-sm font-medium text-muted-foreground whitespace-nowrap">
+                    🇮🇳 +91
+                  </div>
+                  <div className="relative flex-1">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="9876543210"
+                      className="pl-9 bg-secondary border-border tracking-widest font-mono"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onKeyDown={e => { if (e.key === 'Enter' && isValidPhone) handleSendOtp() }}
+                    />
+                  </div>
+                </div>
+              </div>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
+              <Button
+                onClick={handleSendOtp}
+                disabled={!isValidPhone || loading}
+                className="w-full water-shimmer text-white font-semibold h-11"
+              >
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending OTP...</> : <>Get OTP <ArrowRight className="w-4 h-4 ml-2" /></>}
+              </Button>
+            </div>
+          )}
+
+          {/* Step 2: OTP */}
+          {step === 'otp' && (
+            <div className="space-y-5">
+              <div className="space-y-3">
+                <Label className="text-center block">Enter 6-digit OTP</Label>
+                <div className="flex gap-2 justify-center">
+                  {otp.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={el => { otpRefs.current[idx] = el }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={e => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(idx, e)}
+                      onPaste={idx === 0 ? handleOtpPaste : undefined}
+                      className={`w-11 h-12 text-center text-lg font-bold rounded-lg border bg-secondary transition-all outline-none
+                        ${digit ? 'border-sky-500 text-sky-300 shadow-sm shadow-sky-500/20' : 'border-border text-foreground'}
+                        focus:border-sky-400 focus:ring-1 focus:ring-sky-400/40`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleVerifyOtp}
+                disabled={!isValidOtp || loading}
+                className="w-full water-shimmer text-white font-semibold h-11"
+              >
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</> : <><CheckCircle2 className="w-4 h-4 mr-2" /> Verify & Continue</>}
+              </Button>
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <button type="button" onClick={() => { setStep('phone'); setOtp(['','','','','','']); setTestMode(false) }} className="hover:text-sky-400 transition-colors flex items-center gap-1">
+                  <RotateCcw className="w-3 h-3" /> Change number
+                </button>
+                {countdown > 0 ? (
+                  <span>Resend in {countdown}s</span>
+                ) : (
+                  <button type="button" onClick={handleSendOtp} className="hover:text-sky-400 transition-colors">Resend OTP</button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="text-center text-xs text-muted-foreground pt-2 border-t border-border/60">
             Already have an account?{' '}
-            <Link href="/login" className="text-sky-400 hover:text-sky-300 font-medium">
-              Sign in
-            </Link>
+            <Link href="/login" className="text-sky-400 hover:text-sky-300 font-medium">Sign in</Link>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
 
 export default function RegisterPage() {
   return (
@@ -282,4 +332,3 @@ export default function RegisterPage() {
     </Suspense>
   )
 }
-

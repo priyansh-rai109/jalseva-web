@@ -1,128 +1,258 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { toast } from 'sonner'
-import { Droplets, Mail, Lock, Eye, EyeOff, Loader2, Sparkles, User, Shield, Building2 } from 'lucide-react'
+import {
+  Droplets, Phone, ArrowRight, Loader2, RotateCcw,
+  Sparkles, User, Building2, CheckCircle2, AlertCircle
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { getPhoneUuid } from '@/lib/utils'
 
-const loginSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
+// ─────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────
+const TEST_OTP = '123456'
 
-type LoginForm = z.infer<typeof loginSchema>
+function setMockCookie(user: object) {
+  document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
+}
 
 export default function LoginPage() {
-  const router = useRouter()
   const supabase = createClient()
-  const [showPassword, setShowPassword] = useState(false)
+
+  // ── state ────────────────────────────────────
+  const [step, setStep] = useState<'phone' | 'otp'>('phone')
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
+  const [testMode, setTestMode] = useState(false)
+  const [countdown, setCountdown] = useState(0)
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) })
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  const countdownRef = useRef<NodeJS.Timeout | null>(null)
 
-  const onSubmit = async (data: LoginForm) => {
-    const cleanEmail = data.email.trim().toLowerCase()
-    const cleanPassword = data.password.trim()
+  useEffect(() => {
+    if (countdown > 0) {
+      countdownRef.current = setTimeout(() => setCountdown(c => c - 1), 1000)
+    }
+    return () => { if (countdownRef.current) clearTimeout(countdownRef.current) }
+  }, [countdown])
 
-    console.log('[Login Attempt]', {
-      rawEmail: data.email,
-      cleanEmail,
-      passwordLength: cleanPassword.length,
-    })
+  const isValidPhone = phone.replace(/\D/g, '').length === 10
+  const otpValue = otp.join('')
+  const isValidOtp = otpValue.length === 6
 
+  // ── OTP box handlers ─────────────────────────
+  const handleOtpChange = (idx: number, val: string) => {
+    const digit = val.replace(/\D/g, '').slice(-1)
+    const next = [...otp]
+    next[idx] = digit
+    setOtp(next)
+    if (digit && idx < 5) otpRefs.current[idx + 1]?.focus()
+  }
+
+  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+      otpRefs.current[idx - 1]?.focus()
+    }
+  }
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted.length === 6) {
+      setOtp(pasted.split(''))
+      otpRefs.current[5]?.focus()
+    }
+  }
+
+  // ── Step 1: Send OTP ─────────────────────────
+  const handleSendOtp = async () => {
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length !== 10) { toast.error('Enter a valid 10-digit mobile number'); return }
     setLoading(true)
 
     try {
-      console.log('[Login Step 2] Calling supabase.auth.signInWithPassword with cleanEmail:', cleanEmail)
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword,
-      })
+      const fullPhone = `+91${digits}`
+      console.log('[Login] Sending OTP to:', fullPhone)
 
-      console.log('[Login Step 3] Supabase auth response:', { user: authData?.user?.id, email: authData?.user?.email, error })
+      const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone })
 
       if (error) {
-        console.error('[Login Error] Supabase auth failed:', error.message)
-        toast.error(error.message || 'Invalid email or password')
-        setLoading(false)
-        return
-      }
-
-      const user = authData?.user
-      if (user) {
-        console.log('[Login Step 4] User authenticated. Fetching role from profiles table for user.id:', user.id)
-
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle()
-
-        console.log('[Login Step 5] Profile fetch result:', { profile, profileError })
-
-        if (profileError || !profile) {
-          console.error('[Login Error] Profile query failed or profile missing:', profileError)
-          await supabase.auth.signOut()
-          toast.error('Account setup incomplete. Please contact support.')
+        const msg = error.message?.toLowerCase() || ''
+        if (
+          msg.includes('unsupported') ||
+          msg.includes('phone provider') ||
+          msg.includes('not enabled') ||
+          msg.includes('sms') ||
+          msg.includes('twilio')
+        ) {
+          console.warn('[Login] SMS provider not configured — entering test mode')
+          setTestMode(true)
+          toast.info('📲 Test Mode: Use OTP 123456 to continue')
+        } else {
+          console.error('[Login] OTP send error:', error.message)
+          toast.error(error.message)
           setLoading(false)
           return
         }
-
-        const role = profile.role
-        console.log('[Login Step 6] Resolved role from database:', role)
-        toast.success('Signed in successfully!')
-
-        let targetPath = '/customer/dashboard'
-        if (role === 'super_admin') {
-          targetPath = '/admin/dashboard'
-        } else if (role === 'supplier') {
-          targetPath = '/supplier/dashboard'
-        }
-
-        console.log('[Login Step 7] Performing browser redirect to:', targetPath)
-        window.location.href = targetPath
       } else {
-        console.warn('[Login Warning] No user object returned in authData')
-        setLoading(false)
+        toast.success(`OTP sent to +91 ${digits}`)
       }
-    } catch (err) {
-      console.error('[Login Exception] Unexpected error during login:', err)
-      toast.error('An unexpected error occurred during login.')
+
+      setStep('otp')
+      setCountdown(30)
+      setOtp(['', '', '', '', '', ''])
+      setTimeout(() => otpRefs.current[0]?.focus(), 100)
+    } catch (err: any) {
+      console.error('[Login] Send OTP exception:', err)
+      toast.error('Failed to send OTP. Try again.')
+    } finally {
       setLoading(false)
     }
   }
 
+  // ── Step 2: Verify OTP ───────────────────────
+  const handleVerifyOtp = async () => {
+    const digits = phone.replace(/\D/g, '')
+    const fullPhone = `+91${digits}`
+    const enteredOtp = otpValue
 
-  // Quick helper for demo logins
-  const handleQuickLogin = async (email: string) => {
-    setValue('email', email)
-    setValue('password', 'password123')
-    toast.info(`Pre-filled credentials for ${email}`)
+    if (enteredOtp.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
+    setLoading(true)
+
+    try {
+      let userId: string
+      let userRole: string | null = null
+
+      if (testMode || enteredOtp === TEST_OTP) {
+        // ── Test/fallback path ──────────────────
+        console.log('[Login] Test mode — accepting OTP 123456')
+        userId = getPhoneUuid(digits)
+
+        // Check if this user has an existing profile in DB
+        try {
+          const realClient = createClient()
+          const { data: profile } = await realClient
+            .from('profiles')
+            .select('role')
+            .eq('id', userId)
+            .maybeSingle()
+          userRole = (profile?.role && profile.role !== '') ? profile.role : null
+          console.log('[Login] Existing profile role:', userRole)
+        } catch {}
+
+        // Set the mock session cookie (role may be null for new users)
+        const mockUser = {
+          id: userId,
+          phone: fullPhone,
+          user_metadata: { role: userRole ?? '', phone: fullPhone }
+        }
+        setMockCookie(mockUser)
+      } else {
+        // ── Real Supabase OTP path ──────────────
+        console.log('[Login] Verifying real OTP for', fullPhone)
+        const { data, error } = await supabase.auth.verifyOtp({
+          phone: fullPhone,
+          token: enteredOtp,
+          type: 'sms'
+        })
+
+        if (error) {
+          console.error('[Login] OTP verify error:', error.message)
+          toast.error(error.message || 'Invalid OTP. Try again.')
+          setLoading(false)
+          return
+        }
+
+        const user = data.user
+        userId = user?.id ?? getPhoneUuid(digits)
+
+        // Fetch role from DB — NOT from stale JWT
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle()
+
+        userRole = (profile?.role && profile.role !== '') ? profile.role : null
+        console.log('[Login] Real auth — role from DB:', userRole)
+
+        // Also set mock cookie so middleware fallback works
+        const mockUser = {
+          id: userId,
+          phone: fullPhone,
+          user_metadata: { role: userRole ?? '', phone: fullPhone }
+        }
+        setMockCookie(mockUser)
+      }
+
+      console.log('[Login] Auth complete. userId:', userId, '| role:', userRole)
+
+      // ── Route based on role ─────────────────
+      if (!userRole) {
+        toast.success('Phone verified! Complete your profile.')
+        await new Promise(r => setTimeout(r, 200))
+        window.location.href = '/register/complete-profile'
+        return
+      }
+
+      toast.success('Signed in successfully!')
+      await new Promise(r => setTimeout(r, 200))
+
+      if (userRole === 'super_admin') window.location.href = '/admin/dashboard'
+      else if (userRole === 'supplier') window.location.href = '/supplier/dashboard'
+      else window.location.href = '/customer/dashboard'
+
+    } catch (err: any) {
+      console.error('[Login] Verify OTP exception:', err)
+      toast.error('Verification failed. Please try again.')
+      setLoading(false)
+    }
   }
 
+  // ── Demo quick-fills ─────────────────────────
+  const fillDemo = async (demoPhone: string, role: string) => {
+    const digits = demoPhone.replace(/\D/g, '')
+    const fullPhone = `+91${digits}`
+    const userId = getPhoneUuid(digits)
+
+    const mockUser = {
+      id: userId,
+      phone: fullPhone,
+      user_metadata: { role, phone: fullPhone, name: role === 'customer' ? 'Vijay Jodhpur' : 'Ramesh Kumar' }
+    }
+    setMockCookie(mockUser)
+
+    toast.success(`${role === 'customer' ? 'Customer' : 'Supplier'} demo session set!`)
+    await new Promise(r => setTimeout(r, 200))
+    window.location.href = role === 'customer' ? '/customer/dashboard' : '/supplier/dashboard'
+  }
+
+  // ── Resend OTP ───────────────────────────────
+  const handleResend = async () => {
+    if (countdown > 0) return
+    setOtp(['', '', '', '', '', ''])
+    setStep('phone')
+    setTestMode(false)
+  }
+
+  // ─────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background orbs */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-cyan-400/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-6">
-          <Link href="/" className="inline-flex items-center gap-2 group">
+          <Link href="/" className="inline-flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
               <Droplets className="w-5 h-5 text-white" />
             </div>
@@ -132,112 +262,146 @@ export default function LoginPage() {
             </span>
           </Link>
           <h1 className="mt-4 text-3xl font-bold text-foreground">Welcome Back</h1>
-          <p className="text-muted-foreground text-sm mt-1">Sign in to your professional water marketplace account</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            {step === 'phone' ? 'Sign in with your mobile number' : `OTP sent to +91 ${phone.replace(/\D/g,'')}`}
+          </p>
         </div>
 
-        {/* Card */}
         <div className="glass-card p-8 space-y-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="pl-10 bg-secondary border-border"
-                  {...register('email')}
-                />
+          {/* Test Mode Banner */}
+          {testMode && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold">Test Mode Active</p>
+                <p className="mt-0.5 text-amber-300/80">SMS provider not configured. Use OTP <strong>123456</strong> to continue.</p>
               </div>
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email.message}</p>
-              )}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  className="pl-10 pr-10 bg-secondary border-border"
-                  {...register('password')}
-                />
+          {/* ── STEP 1: Phone ── */}
+          {step === 'phone' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Number</Label>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 px-3 rounded-lg bg-secondary border border-border text-sm font-medium text-muted-foreground whitespace-nowrap">
+                    🇮🇳 +91
+                  </div>
+                  <div className="relative flex-1">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="9876543210"
+                      className="pl-9 bg-secondary border-border tracking-widest font-mono"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onKeyDown={e => { if (e.key === 'Enter' && isValidPhone) handleSendOtp() }}
+                    />
+                  </div>
+                </div>
+                {phone.length > 0 && phone.length < 10 && (
+                  <p className="text-xs text-muted-foreground">{10 - phone.length} more digit{10 - phone.length !== 1 ? 's' : ''} needed</p>
+                )}
+              </div>
+
+              <Button
+                onClick={handleSendOtp}
+                disabled={!isValidPhone || loading}
+                className="w-full water-shimmer text-white font-semibold h-11"
+              >
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending OTP...</> : <>Send OTP <ArrowRight className="w-4 h-4 ml-2" /></>}
+              </Button>
+            </div>
+          )}
+
+          {/* ── STEP 2: OTP ── */}
+          {step === 'otp' && (
+            <div className="space-y-5">
+              <div className="space-y-3">
+                <Label className="text-center block">Enter 6-digit OTP</Label>
+                <div className="flex gap-2 justify-center">
+                  {otp.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={el => { otpRefs.current[idx] = el }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={e => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(idx, e)}
+                      onPaste={idx === 0 ? handleOtpPaste : undefined}
+                      className={`w-11 h-12 text-center text-lg font-bold rounded-lg border bg-secondary transition-all outline-none
+                        ${digit ? 'border-sky-500 text-sky-300 shadow-sm shadow-sky-500/20' : 'border-border text-foreground'}
+                        focus:border-sky-400 focus:ring-1 focus:ring-sky-400/40`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleVerifyOtp}
+                disabled={!isValidOtp || loading}
+                className="w-full water-shimmer text-white font-semibold h-11"
+              >
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</> : <><CheckCircle2 className="w-4 h-4 mr-2" /> Verify & Continue</>}
+              </Button>
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => { setStep('phone'); setOtp(['','','','','','']); setTestMode(false) }}
+                  className="hover:text-sky-400 transition-colors flex items-center gap-1"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  <RotateCcw className="w-3 h-3" /> Change number
                 </button>
+                {countdown > 0 ? (
+                  <span>Resend in {countdown}s</span>
+                ) : (
+                  <button type="button" onClick={handleResend} className="hover:text-sky-400 transition-colors">
+                    Resend OTP
+                  </button>
+                )}
               </div>
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
             </div>
+          )}
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full water-shimmer text-white font-semibold h-11"
-            >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Signing in...</>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-          </form>
-
-          {/* Quick Demo Logins Section */}
-          <div className="pt-2 border-t border-border/60">
-            <div className="flex items-center gap-1.5 mb-3 justify-center text-xs text-sky-400 font-medium">
+          {/* Quick Demo Pre-fills */}
+          <div className="pt-2 border-t border-border/60 space-y-3">
+            <div className="flex items-center gap-1.5 justify-center text-xs text-sky-400 font-medium">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Quick Demo Pre-fills</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickLogin('bissapranav@gmail.com')}
-                className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-sky-300 transition-all"
+                onClick={() => fillDemo('9876543210', 'customer')}
+                className="py-2 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-medium flex items-center justify-center gap-1.5 text-sky-300 transition-all"
               >
-                <User className="w-3.5 h-3.5" />
-                <span>Customer</span>
+                <User className="w-3.5 h-3.5" /> Customer Demo
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickLogin('pmathur352@gmail.com')}
-                className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-amber-400 transition-all"
+                onClick={() => fillDemo('9876543211', 'supplier')}
+                className="py-2 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-medium flex items-center justify-center gap-1.5 text-amber-400 transition-all"
               >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Supplier</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('raipriyansh45@gmail.com')}
-                className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-purple-400 transition-all"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Admin</span>
+                <Building2 className="w-3.5 h-3.5" /> Supplier Demo
               </button>
             </div>
           </div>
 
-          <div className="text-center text-xs text-muted-foreground pt-2">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-sky-400 hover:text-sky-300 font-medium">
-              Register here
-            </Link>
+          <div className="text-center text-xs text-muted-foreground">
+            New to JalSeva?{' '}
+            <Link href="/register" className="text-sky-400 hover:text-sky-300 font-medium">Register here</Link>
           </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          <Link href="/admin-login" className="hover:text-muted-foreground/80 underline">
-            Go to Admin Portal
-          </Link>
+          <Link href="/admin-login" className="hover:text-muted-foreground/80 underline">Go to Admin Portal →</Link>
         </p>
       </div>
     </div>
