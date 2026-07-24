@@ -137,7 +137,8 @@ export async function createClient() {
     } as any
   }
 
-  return createServerClient(
+  // Build the real Supabase client
+  const realClient = createServerClient(
     supabaseUrl!,
     supabaseKey!,
     {
@@ -157,4 +158,27 @@ export async function createClient() {
       },
     }
   )
+
+  // CRITICAL: Patch auth.getUser() to fall back to mock session cookie.
+  // On Vercel, real Supabase credentials are set (isMock=false), but phone OTP
+  // test-mode users only have a jalseva-mock-session cookie — no real Supabase JWT.
+  // We patch getUser() DIRECTLY on the instance (not spread) to preserve the
+  // prototype chain so realClient.from() and all other methods remain intact.
+  const originalGetUser = realClient.auth.getUser.bind(realClient.auth)
+  ;(realClient.auth as any).getUser = async () => {
+    const { data, error } = await originalGetUser()
+    if (data?.user) return { data, error }
+    try {
+      const mockCookie = cookieStore.get('jalseva-mock-session')
+      if (mockCookie?.value) {
+        const mockUser = JSON.parse(decodeURIComponent(mockCookie.value))
+        if (mockUser?.id) {
+          return { data: { user: mockUser }, error: null }
+        }
+      }
+    } catch {}
+    return { data: { user: null }, error }
+  }
+
+  return realClient
 }
