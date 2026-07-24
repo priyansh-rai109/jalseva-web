@@ -113,14 +113,7 @@ export async function updateSession(request: NextRequest) {
       return makeRedirect('/register/complete-profile')
     }
 
-    // Authenticated user WITH role trying to visit auth pages -> send to their dashboard
-    if (pathname === '/login' || pathname === '/register') {
-      if (role === 'super_admin') return makeRedirect('/admin/dashboard')
-      if (role === 'supplier') return makeRedirect('/supplier/dashboard')
-      if (role === 'customer') return makeRedirect('/customer/dashboard')
-    }
-
-    // Role-based access control
+    // Role-based access control for protected sections
     if (pathname.startsWith('/admin') && role !== 'super_admin') {
       return makeRedirect(role === 'supplier' ? '/supplier/dashboard' : '/customer/dashboard')
     }
