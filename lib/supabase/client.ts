@@ -47,6 +47,45 @@ export function createClient() {
           document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400`
           return { data: { user }, error: null }
         },
+        signInWithOtp: async ({ phone }: { phone: string }) => {
+          console.log('[Mock Auth] signInWithOtp called for:', phone)
+          return { data: { message: 'OTP Sent' }, error: null }
+        },
+        verifyOtp: async ({ phone, token }: { phone: string; token: string; type?: string }) => {
+          console.log('[Mock Auth] verifyOtp called for phone:', phone, 'token:', token)
+          const cleanPhone = phone.replace('+91', '').trim()
+          
+          let role = 'customer'
+          let name = 'Vijay Jodhpur'
+          let id = `user-${cleanPhone}`
+
+          if (cleanPhone === '9876543211' || cleanPhone === '9829012345') {
+            role = 'supplier'
+            id = 'supplier-id'
+            name = 'Ramesh Kumar'
+          } else if (cleanPhone === '9876543210') {
+            role = 'customer'
+            id = 'customer-id'
+            name = 'Vijay Jodhpur'
+          } else if (cleanPhone.length === 10) {
+            // New user without profile
+            role = ''
+            name = ''
+          }
+
+          const user = {
+            id,
+            phone: `+91${cleanPhone}`,
+            email: `${cleanPhone}@jalseva.in`,
+            user_metadata: {
+              role,
+              name,
+              phone: `+91${cleanPhone}`,
+            }
+          }
+          document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400`
+          return { data: { user, session: { user, access_token: 'mock-token' } }, error: null }
+        },
         signOut: async () => {
           document.cookie = 'jalseva-mock-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
           return { error: null }
@@ -62,8 +101,17 @@ export function createClient() {
           if (table === 'profiles') {
             if (typeof window === 'undefined') return []
             const cookie = document.cookie.split('; ').find(row => row.startsWith('jalseva-mock-session='))
-            const role = cookie ? JSON.parse(decodeURIComponent(cookie.split('=')[1]))?.user_metadata?.role || 'customer' : 'customer'
-            return [{ id: `${role}-id`, role, name: role === 'super_admin' ? 'Super Admin' : role === 'supplier' ? 'Ramesh Kumar' : 'Vijay Jodhpur', email: `${role}@jalseva.in` }]
+            const user = cookie ? JSON.parse(decodeURIComponent(cookie.split('=')[1])) : null
+            if (!user) return []
+            const role = user.user_metadata?.role ?? ''
+            if (role === '') return []
+            return [{
+              id: user.id,
+              role,
+              name: user.user_metadata?.name || (role === 'super_admin' ? 'Super Admin' : role === 'supplier' ? 'Ramesh Kumar' : 'Vijay Jodhpur'),
+              phone: user.phone || user.user_metadata?.phone || '',
+              email: user.email || ''
+            }]
           }
           if (table === 'customers') {
             if (typeof window === 'undefined') return []

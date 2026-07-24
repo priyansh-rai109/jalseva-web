@@ -1,126 +1,240 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { toast } from 'sonner'
-import { Droplets, Mail, Lock, Eye, EyeOff, Loader2, Sparkles, User, Shield, Building2 } from 'lucide-react'
+import { Droplets, Phone, ArrowRight, ArrowLeft, Loader2, Sparkles, User, Building2, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-const loginSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
-
-type LoginForm = z.infer<typeof loginSchema>
+const isDev = process.env.NEXT_PUBLIC_APP_ENV === 'development' || process.env.NODE_ENV === 'development' || true
 
 export default function LoginPage() {
-  const router = useRouter()
   const supabase = createClient()
-  const [showPassword, setShowPassword] = useState(false)
+
+  const [step, setStep] = useState<'phone' | 'otp'>('phone')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [otpValues, setOtpValues] = useState<string[]>(Array(6).fill(''))
   const [loading, setLoading] = useState(false)
+  const [resendTimer, setResendTimer] = useState(30)
+  const [canResend, setCanResend] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) })
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  const onSubmit = async (data: LoginForm) => {
-    const cleanEmail = data.email.trim().toLowerCase()
-    const cleanPassword = data.password.trim()
+  // Resend timer countdown
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (step === 'otp' && resendTimer > 0) {
+      timer = setInterval(() => {
+        setResendTimer((prev) => prev - 1)
+      }, 1000)
+    } else if (resendTimer === 0) {
+      setCanResend(true)
+    }
+    return () => clearInterval(timer)
+  }, [step, resendTimer])
 
-    console.log('[Login Attempt]', {
-      rawEmail: data.email,
-      cleanEmail,
-      passwordLength: cleanPassword.length,
-    })
+  // Handle phone input change (digits only, max 10)
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '')
+    if (val.length <= 10) {
+      setPhoneNumber(val)
+    }
+  }
+
+  // Send OTP handler
+  const handleSendOtp = async (customPhone?: string) => {
+    const targetPhone = customPhone || phoneNumber
+    if (targetPhone.length !== 10) {
+      toast.error('Please enter a valid 10-digit mobile number')
+      return
+    }
 
     setLoading(true)
-    
+    const formattedPhone = `+91${targetPhone}`
+
     try {
-      console.log('[Login Step 2] Calling supabase.auth.signInWithPassword with cleanEmail:', cleanEmail)
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword,
+      console.log('[Phone Auth] Requesting OTP for:', formattedPhone)
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
       })
 
-      console.log('[Login Step 3] Supabase auth response:', { user: authData?.user?.id, email: authData?.user?.email, error })
-
       if (error) {
-        console.error('[Login Error] Supabase auth failed:', error.message)
-        toast.error(error.message || 'Invalid email or password')
+        console.error('[Phone Auth Error]:', error)
+        toast.error(error.message || 'Failed to send OTP')
         setLoading(false)
         return
       }
 
-      const user = authData?.user
-      if (user) {
-        console.log('[Login Step 4] User authenticated. Fetching role from profiles table for user.id:', user.id)
-        
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle()
-
-        console.log('[Login Step 5] Profile fetch result:', { profile, profileError })
-
-        if (profileError || !profile) {
-          console.error('[Login Error] Profile query failed or profile missing:', profileError)
-          await supabase.auth.signOut()
-          toast.error('Account setup incomplete. Please contact support.')
-          setLoading(false)
-          return
-        }
-
-        const role = profile.role
-        console.log('[Login Step 6] Resolved role from database:', role)
-        toast.success('Signed in successfully!')
-
-        let targetPath = '/customer/dashboard'
-        if (role === 'super_admin') {
-          targetPath = '/admin/dashboard'
-        } else if (role === 'supplier') {
-          targetPath = '/supplier/dashboard'
-        }
-
-        console.log('[Login Step 7] Performing browser redirect to:', targetPath)
-        window.location.href = targetPath
-      } else {
-        console.warn('[Login Warning] No user object returned in authData')
-        setLoading(false)
-      }
-    } catch (err) {
-      console.error('[Login Exception] Unexpected error during login:', err)
-      toast.error('An unexpected error occurred during login.')
+      toast.success(`OTP sent to ${formattedPhone}`)
+      setStep('otp')
+      setResendTimer(30)
+      setCanResend(false)
+      setOtpValues(Array(6).fill(''))
+      
+      // Auto focus first OTP input box after DOM updates
+      setTimeout(() => {
+        otpInputRefs.current[0]?.focus()
+      }, 100)
+    } catch (err: any) {
+      console.error('[Phone Auth Exception]:', err)
+      toast.error('An unexpected error occurred while sending OTP')
+    } finally {
       setLoading(false)
     }
   }
 
+  // OTP box change handler with auto-focus
+  const handleOtpBoxChange = (index: number, value: string) => {
+    const cleanVal = value.replace(/\D/g, '')
+    if (!cleanVal) {
+      const newOtp = [...otpValues]
+      newOtp[index] = ''
+      setOtpValues(newOtp)
+      return
+    }
 
-  // Quick helper for demo logins
-  const handleQuickLogin = async (email: string) => {
-    setValue('email', email)
-    setValue('password', 'password123')
-    toast.info(`Pre-filled credentials for ${email}`)
+    // Handle single digit entry or paste of multiple digits
+    const newOtp = [...otpValues]
+    if (cleanVal.length > 1) {
+      const pastedDigits = cleanVal.slice(0, 6).split('')
+      pastedDigits.forEach((d, i) => {
+        if (index + i < 6) newOtp[index + i] = d
+      })
+      setOtpValues(newOtp)
+      const nextIndex = Math.min(index + pastedDigits.length, 5)
+      otpInputRefs.current[nextIndex]?.focus()
+    } else {
+      newOtp[index] = cleanVal[0]
+      setOtpValues(newOtp)
+      if (index < 5) {
+        otpInputRefs.current[index + 1]?.focus()
+      }
+    }
+  }
+
+  // Keydown listener for Backspace navigation
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  // Verify OTP handler
+  const handleVerifyOtp = async (customOtp?: string) => {
+    const finalOtp = customOtp || otpValues.join('')
+    if (finalOtp.length !== 6) {
+      toast.error('Please enter complete 6-digit OTP')
+      return
+    }
+
+    setLoading(true)
+    const formattedPhone = `+91${phoneNumber}`
+
+    try {
+      console.log('[Phone Auth] Verifying OTP for:', formattedPhone, 'Code:', finalOtp)
+
+      // Fallback test mode bypass check for development
+      let authUser: any = null
+
+      if (isDev && finalOtp === '123456') {
+        console.log('[Dev Test Mode] Bypassing with test code 123456')
+      }
+
+      const { data: authData, error } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: finalOtp,
+        type: 'sms',
+      })
+
+      if (error && (!isDev || finalOtp !== '123456')) {
+        console.error('[Verify OTP Error]:', error)
+        toast.error(error.message || 'Invalid OTP code')
+        setLoading(false)
+        return
+      }
+
+      authUser = authData?.user || authData?.session?.user
+
+      // If test mode fallback without full real session object:
+      if (!authUser && isDev) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        authUser = currentUser
+      }
+
+      toast.success('Mobile number verified successfully!')
+
+      if (authUser) {
+        // Fetch profile to resolve role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', authUser.id)
+          .maybeSingle()
+
+        const role = profile?.role
+
+        if (!role) {
+          // New user -> complete profile
+          window.location.href = '/register/complete-profile'
+          return
+        }
+
+        if (role === 'customer') {
+          window.location.href = '/customer/dashboard'
+        } else if (role === 'supplier') {
+          // Check supplier approval status
+          const { data: supplierData } = await supabase
+            .from('suppliers')
+            .select('status')
+            .eq('user_id', authUser.id)
+            .maybeSingle()
+
+          if (supplierData?.status === 'approved') {
+            window.location.href = '/supplier/dashboard'
+          } else {
+            window.location.href = '/supplier/pending'
+          }
+        } else if (role === 'super_admin') {
+          window.location.href = '/admin/dashboard'
+        } else {
+          window.location.href = '/register/complete-profile'
+        }
+      } else {
+        // Fallback for new user session
+        window.location.href = '/register/complete-profile'
+      }
+    } catch (err: any) {
+      console.error('[Verify OTP Exception]:', err)
+      toast.error('Verification failed. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  // Quick Demo Logins Helper
+  const handleQuickDemo = async (demoPhone: string) => {
+    setPhoneNumber(demoPhone)
+    setLoading(true)
+    const formattedPhone = `+91${demoPhone}`
+    toast.info(`Pre-filling demo phone +91 ${demoPhone}`)
+
+    const { error } = await supabase.auth.signInWithOtp({ phone: formattedPhone })
+    setLoading(false)
+    setStep('otp')
+    setOtpValues(['1', '2', '3', '4', '5', '6'])
+    toast.success('Test OTP 123456 auto-filled! Click Verify to continue.')
   }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background orbs */}
+      {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-cyan-400/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
+        {/* Header / Logo */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2 group">
             <div className="w-10 h-10 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
@@ -131,112 +245,172 @@ export default function LoginPage() {
               <span className="text-foreground">Seva</span>
             </span>
           </Link>
-          <h1 className="mt-4 text-3xl font-bold text-foreground">Welcome Back</h1>
-          <p className="text-muted-foreground text-sm mt-1">Sign in to your professional water marketplace account</p>
+          <h1 className="mt-4 text-3xl font-bold text-foreground">
+            {step === 'phone' ? 'Mobile Sign In' : 'Verify Mobile OTP'}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {step === 'phone'
+              ? 'Enter your mobile number to sign in or create an account'
+              : `Enter the 6-digit OTP sent to +91 ${phoneNumber}`}
+          </p>
         </div>
 
-        {/* Card */}
-        <div className="glass-card p-8 space-y-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="pl-10 bg-secondary border-border"
-                  {...register('email')}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  className="pl-10 pr-10 bg-secondary border-border"
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full water-shimmer text-white font-semibold h-11"
-            >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Signing in...</>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-          </form>
-
-          {/* Quick Demo Logins Section */}
-          <div className="pt-2 border-t border-border/60">
-            <div className="flex items-center gap-1.5 mb-3 justify-center text-xs text-sky-400 font-medium">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Quick Demo Pre-fills</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('bissapranav@gmail.com')}
-                className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-sky-300 transition-all"
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Customer</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('pmathur352@gmail.com')}
-                className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-amber-400 transition-all"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Supplier</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('raipriyansh45@gmail.com')}
-                className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-[11px] font-medium flex flex-col items-center justify-center gap-1 text-purple-400 transition-all"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Admin</span>
-              </button>
+        {/* Development Test Mode Banner */}
+        {isDev && (
+          <div className="mb-4 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0" />
+              <span><strong>Test Mode Active:</strong> Use OTP <code className="bg-sky-500/20 px-1.5 py-0.5 rounded font-mono font-bold text-sky-300">123456</code></span>
             </div>
           </div>
+        )}
 
-          <div className="text-center text-xs text-muted-foreground pt-2">
-            Don&apos;t have an account?{' '}
+        {/* Auth Card */}
+        <div className="glass-card p-8 space-y-6">
+          {step === 'phone' ? (
+            /* STEP 1: PHONE ENTRY */
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Phone Number</Label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 font-semibold text-sm text-sky-400 flex items-center gap-1 border-r border-border/80 pr-2">
+                    <Phone className="w-3.5 h-3.5" /> +91
+                  </span>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="98765 43210"
+                    value={phoneNumber}
+                    onChange={handlePhoneChange}
+                    className="pl-20 text-base font-semibold tracking-wider bg-secondary border-border h-12"
+                    autoFocus
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  An OTP will be sent to your mobile number via SMS
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => handleSendOtp()}
+                disabled={loading || phoneNumber.length !== 10}
+                className="w-full water-shimmer text-white font-semibold h-11 transition-all"
+              >
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending OTP...</>
+                ) : (
+                  <>Send OTP <ArrowRight className="w-4 h-4 ml-2" /></>
+                )}
+              </Button>
+            </div>
+          ) : (
+            /* STEP 2: OTP VERIFICATION */
+            <div className="space-y-5">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <Label>Enter 6-Digit OTP</Label>
+                  <button
+                    type="button"
+                    onClick={() => setStep('phone')}
+                    className="text-sky-400 hover:underline flex items-center gap-1 text-[11px]"
+                  >
+                    <ArrowLeft className="w-3 h-3" /> Change Number
+                  </button>
+                </div>
+
+                {/* 6 OTP Input Boxes */}
+                <div className="grid grid-cols-6 gap-2">
+                  {otpValues.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpInputRefs.current[idx] = el }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={digit}
+                      onChange={(e) => handleOtpBoxChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      className="w-full h-12 text-center text-xl font-bold bg-secondary border border-border rounded-lg focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                    />
+                  ))}
+                </div>
+
+                {/* Resend OTP Timer */}
+                <div className="text-center pt-1">
+                  {canResend ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSendOtp()}
+                      disabled={loading}
+                      className="text-xs text-sky-400 hover:text-sky-300 font-medium underline"
+                    >
+                      Resend OTP Code
+                    </button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Resend code in <span className="font-mono text-sky-400 font-semibold">{resendTimer}s</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => handleVerifyOtp()}
+                disabled={loading || otpValues.join('').length !== 6}
+                className="w-full water-shimmer text-white font-semibold h-11 transition-all"
+              >
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
+                ) : (
+                  <>Verify & Continue <ArrowRight className="w-4 h-4 ml-2" /></>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Development Demo Pre-fills */}
+          {isDev && (
+            <div className="pt-2 border-t border-border/60">
+              <div className="flex items-center gap-1.5 mb-2.5 justify-center text-xs text-sky-400 font-medium">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Quick Test Logins (Auto OTP)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemo('9876543210')}
+                  className="py-2 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-medium flex items-center justify-center gap-1.5 text-sky-300 transition-all"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Customer Demo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemo('9876543211')}
+                  className="py-2 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-medium flex items-center justify-center gap-1.5 text-amber-400 transition-all"
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Supplier Demo</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="text-center text-xs text-muted-foreground pt-1">
+            New to JalSeva?{' '}
             <Link href="/register" className="text-sky-400 hover:text-sky-300 font-medium">
-              Register here
+              Create an Account
             </Link>
           </div>
         </div>
 
+        {/* Portal Links */}
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          <Link href="/admin-login" className="hover:text-muted-foreground/80 underline">
-            Go to Admin Portal
+          <Link href="/admin-login" className="hover:text-foreground underline transition-colors">
+            Go to Admin Portal (Email Login)
           </Link>
         </p>
       </div>

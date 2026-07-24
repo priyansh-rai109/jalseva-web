@@ -19,7 +19,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Public routes — always accessible
-  const publicRoutes = ['/', '/login', '/register', '/admin-login']
+  const publicRoutes = ['/', '/login', '/register', '/register/complete-profile', '/admin-login', '/supplier/pending']
   const isPublicRoute = publicRoutes.some(
     (route) => pathname === route || pathname.startsWith('/api/')
   )
@@ -97,12 +97,12 @@ export async function updateSession(request: NextRequest) {
       return makeRedirect(role === 'supplier' ? '/supplier/dashboard' : '/customer/dashboard')
     }
 
-    if (pathname.startsWith('/supplier') && role !== 'supplier') {
+    if (pathname.startsWith('/supplier') && pathname !== '/supplier/pending' && role !== 'supplier') {
       return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : '/customer/dashboard')
     }
 
     if (pathname.startsWith('/customer') && role !== 'customer') {
-      return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : '/supplier/dashboard')
+      return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : (role === 'supplier' ? '/supplier/dashboard' : '/login'))
     }
   }
 
