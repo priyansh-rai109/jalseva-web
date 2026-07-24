@@ -12,7 +12,7 @@ export function createClient() {
       auth: {
         getUser: async () => {
           if (typeof window === 'undefined') return { data: { user: null }, error: null }
-          const cookie = document.cookie.split('; ').find(row => row.startsWith('jalseva-mock-session='))
+          const cookie = document.cookie.split(';').map(c => c.trim()).find(row => row.startsWith('jalseva-mock-session='))
           if (!cookie) return { data: { user: null }, error: null }
           try {
             const user = JSON.parse(decodeURIComponent(cookie.split('=')[1]))
@@ -61,13 +61,13 @@ export function createClient() {
           if (table === 'notifications') return mockNotifications
           if (table === 'profiles') {
             if (typeof window === 'undefined') return []
-            const cookie = document.cookie.split('; ').find(row => row.startsWith('jalseva-mock-session='))
+            const cookie = document.cookie.split(';').map(c => c.trim()).find(row => row.startsWith('jalseva-mock-session='))
             const role = cookie ? JSON.parse(decodeURIComponent(cookie.split('=')[1]))?.user_metadata?.role || 'customer' : 'customer'
             return [{ id: `${role}-id`, role, name: role === 'super_admin' ? 'Super Admin' : role === 'supplier' ? 'Ramesh Kumar' : 'Vijay Jodhpur', email: `${role}@jalseva.in` }]
           }
           if (table === 'customers') {
             if (typeof window === 'undefined') return []
-            const cookie = document.cookie.split('; ').find(row => row.startsWith('jalseva-mock-session='))
+            const cookie = document.cookie.split(';').map(c => c.trim()).find(row => row.startsWith('jalseva-mock-session='))
             const user = cookie ? JSON.parse(decodeURIComponent(cookie.split('=')[1])) : null
             const userId = user?.id || 'customer-id'
             return [{
@@ -175,5 +175,27 @@ export function createClient() {
     } as any
   }
 
-  return createBrowserClient(supabaseUrl!, supabaseKey!)
+  const realClient = createBrowserClient(supabaseUrl!, supabaseKey!)
+
+  // CRITICAL: Patch auth.getUser() to fall back to mock session cookie.
+  // On the client side, if a user logged in via OTP test mode, they only have the
+  // jalseva-mock-session cookie. We patch getUser() so client components don't redirect them to login.
+  const originalGetUser = realClient.auth.getUser.bind(realClient.auth)
+  ;(realClient.auth as any).getUser = async () => {
+    const { data, error } = await originalGetUser()
+    if (data?.user) return { data, error }
+    try {
+      if (typeof document !== 'undefined') {
+        const cookie = document.cookie.split(';').map(c => c.trim()).find(row => row.startsWith('jalseva-mock-session='))
+        if (cookie) {
+          const cookieValue = cookie.substring('jalseva-mock-session='.length)
+          const mockUser = JSON.parse(decodeURIComponent(cookieValue))
+          if (mockUser?.id) return { data: { user: mockUser }, error: null }
+        }
+      }
+    } catch {}
+    return { data: { user: null }, error }
+  }
+
+  return realClient
 }

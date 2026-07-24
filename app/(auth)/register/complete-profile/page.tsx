@@ -18,9 +18,9 @@ import { getPhoneUuid } from '@/lib/utils'
 // ─────────────────────────────────────────────────
 function readMockCookie(): any | null {
   if (typeof window === 'undefined') return null
-  const raw = document.cookie.split('; ').find(r => r.startsWith('jalseva-mock-session='))
+  const raw = document.cookie.split(';').map(c => c.trim()).find(r => r.startsWith('jalseva-mock-session='))
   if (!raw) return null
-  try { return JSON.parse(decodeURIComponent(raw.split('=').slice(1).join('='))) } catch { return null }
+  try { return JSON.parse(decodeURIComponent(raw.substring('jalseva-mock-session='.length))) } catch { return null }
 }
 
 function writeMockCookie(user: object) {
@@ -53,7 +53,21 @@ export default function CompleteProfilePage() {
   useEffect(() => {
     async function checkSession() {
       try {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
+        let { data: { user: authUser } } = await supabase.auth.getUser()
+        
+        // Direct manual fallback in case client.ts patch is cached/fails
+        if (!authUser && typeof document !== 'undefined') {
+          const raw = document.cookie.split(';').map(c => c.trim()).find(r => r.startsWith('jalseva-mock-session='))
+          if (raw) {
+            try {
+              const mockUser = JSON.parse(decodeURIComponent(raw.substring('jalseva-mock-session='.length)))
+              if (mockUser?.id) authUser = mockUser
+            } catch (e) {
+              console.error('Fallback mock parse error:', e)
+            }
+          }
+        }
+
         console.log('[CompleteProfile] Session auth user:', authUser)
 
         if (!authUser) {

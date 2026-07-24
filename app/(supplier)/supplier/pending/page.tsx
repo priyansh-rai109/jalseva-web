@@ -61,7 +61,7 @@ export default function SupplierPendingPage() {
       if (sup?.status === 'approved') {
         toast.success('Your account has been approved! 🎉')
         // Update cookie with approved role
-        const cookieRaw = document.cookie.split('; ').find(r => r.startsWith('jalseva-mock-session='))
+        const cookieRaw = document.cookie.split(';').map(c => c.trim()).find(r => r.startsWith('jalseva-mock-session='))
         if (cookieRaw) {
           try {
             const cookieUser = JSON.parse(decodeURIComponent(cookieRaw.split('=').slice(1).join('=')))
