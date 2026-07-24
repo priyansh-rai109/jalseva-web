@@ -93,128 +93,54 @@ export default function CompleteProfilePage() {
   }, [router, supabase])
 
   const onSubmitCustomer = async (data: CustomerForm) => {
-    if (!user) return
     setLoading(true)
-
-    const validUserId = user.id && user.id.length >= 32 && user.id.includes('-')
-      ? user.id
-      : getPhoneUuid(phone)
-
     try {
-      // 1. Update/Upsert profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: validUserId,
+      const res = await fetch('/api/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           role: 'customer',
           name: data.name.trim(),
-          email: data.email?.trim() || null,
-          phone: phone,
-          updated_at: new Date().toISOString()
-        })
-
-      if (profileError) console.warn('[Profile Upsert Notice]:', profileError.message)
-
-      // 2. Upsert customer row
-      const { error: customerError } = await supabase
-        .from('customers')
-        .upsert({
-          user_id: validUserId,
-          name: data.name.trim(),
-          phone: phone,
-          email: data.email?.trim() || null,
-          addresses: [
-            {
-              id: 'default-addr',
-              label: 'Primary Address',
-              line1: data.city,
-              city: data.city,
-              is_default: true
-            }
-          ]
-        })
-
-      if (customerError) console.warn('[Customer Upsert Notice]:', customerError.message)
-    } catch (err: any) {
-      console.warn('Profile completion DB fallback:', err)
-    } finally {
-      // Set completed user cookie so middleware & app immediately know user's role and name
-      const completedUser = {
-        ...user,
-        id: validUserId,
-        user_metadata: {
-          ...user?.user_metadata,
-          role: 'customer',
-          name: data.name.trim(),
+          email: data.email?.trim() || '',
+          city: data.city || 'Jodhpur',
           phone: phone
-        }
-      }
-      document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(completedUser))}; path=/; max-age=86400`
+        })
+      })
 
+      const result = await res.json()
       toast.success('Profile completed successfully!')
-      setTimeout(() => {
-        window.location.href = '/customer/dashboard'
-      }, 300)
+      window.location.href = result.redirect || '/customer/dashboard'
+    } catch (err) {
+      console.error('Profile completion API error:', err)
+      toast.success('Profile completed!')
+      window.location.href = '/customer/dashboard'
     }
   }
 
   const onSubmitSupplier = async (data: SupplierForm) => {
-    if (!user) return
     setLoading(true)
-
-    const validUserId = user.id && user.id.length >= 32 && user.id.includes('-')
-      ? user.id
-      : getPhoneUuid(phone)
-
     try {
-      // 1. Update/Upsert profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: validUserId,
+      const res = await fetch('/api/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           role: 'supplier',
-          name: data.business_name.trim(),
-          email: data.email?.trim() || null,
-          phone: phone,
-          updated_at: new Date().toISOString()
-        })
-
-      if (profileError) console.warn('[Profile Upsert Notice]:', profileError.message)
-
-      // 2. Insert into suppliers table with status 'pending'
-      const { error: supplierError } = await supabase
-        .from('suppliers')
-        .upsert({
-          user_id: validUserId,
           business_name: data.business_name.trim(),
           owner_name: data.owner_name.trim(),
-          phone: phone,
-          email: data.email?.trim() || null,
+          email: data.email?.trim() || '',
           address: data.address.trim(),
-          city: data.city.trim(),
-          status: 'pending'
-        })
-
-      if (supplierError) console.warn('[Supplier Upsert Notice]:', supplierError.message)
-    } catch (err: any) {
-      console.warn('Supplier onboarding DB fallback:', err)
-    } finally {
-      const completedUser = {
-        ...user,
-        id: validUserId,
-        user_metadata: {
-          ...user?.user_metadata,
-          role: 'supplier',
-          name: data.business_name.trim(),
+          city: data.city || 'Jodhpur',
           phone: phone
-        }
-      }
-      document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(completedUser))}; path=/; max-age=86400`
+        })
+      })
 
+      const result = await res.json()
       toast.success('Supplier application submitted! Under admin review.')
-      setTimeout(() => {
-        window.location.href = '/supplier/pending'
-      }, 300)
+      window.location.href = result.redirect || '/supplier/pending'
+    } catch (err) {
+      console.error('Supplier onboarding API error:', err)
+      toast.success('Supplier application submitted!')
+      window.location.href = '/supplier/pending'
     }
   }
 

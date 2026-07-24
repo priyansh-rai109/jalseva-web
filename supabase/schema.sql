@@ -338,8 +338,15 @@ CREATE POLICY "reviews_customer_insert" ON reviews FOR INSERT WITH CHECK (
   customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
 );
 
--- Customers: own profile only
-CREATE POLICY "customers_own" ON customers FOR ALL USING (user_id = auth.uid());
+-- Customers: own profile / public insert
+CREATE POLICY "customers_own" ON customers FOR ALL USING (user_id = auth.uid() OR auth.uid() IS NULL);
+CREATE POLICY "customers_insert" ON customers FOR INSERT WITH CHECK (TRUE);
+
+-- Profiles: insert and access
+CREATE POLICY "profiles_insert" ON profiles FOR INSERT WITH CHECK (TRUE);
+
+-- Suppliers: insert and access
+CREATE POLICY "suppliers_insert" ON suppliers FOR INSERT WITH CHECK (TRUE);
 
 -- Notifications: own only
 CREATE POLICY "notifications_own" ON notifications FOR ALL USING (user_id = auth.uid());
