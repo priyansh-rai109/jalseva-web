@@ -137,7 +137,7 @@ export async function createClient() {
     } as any
   }
 
-  const client = createServerClient(
+  return createServerClient(
     supabaseUrl!,
     supabaseKey!,
     {
@@ -157,21 +157,4 @@ export async function createClient() {
       },
     }
   )
-
-  const originalGetUser = client.auth.getUser.bind(client.auth)
-  client.auth.getUser = async () => {
-    const realResult = await originalGetUser()
-    if (realResult.data?.user) return realResult
-
-    const mockCookie = cookieStore.get('jalseva-mock-session')
-    if (mockCookie?.value) {
-      try {
-        const user = JSON.parse(decodeURIComponent(mockCookie.value))
-        return { data: { user }, error: null }
-      } catch {}
-    }
-    return realResult
-  }
-
-  return client
 }

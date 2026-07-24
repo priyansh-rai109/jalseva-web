@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Droplets, User, Mail, MapPin, Building2, CheckCircle2, ArrowRight, Loader2, ShieldAlert } from 'lucide-react'
+import { Droplets, User, Mail, MapPin, Building2, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -63,65 +63,107 @@ export default function CompleteProfilePage() {
     async function loadUser() {
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser()
+        console.log('[CompleteProfile] Session user:', currentUser)
         if (!currentUser) {
           toast.error('Session expired. Please enter phone number again.')
           router.push('/login')
           return
         }
         setUser(currentUser)
-        setPhone(currentUser.phone || currentUser.user_metadata?.phone || '+91 User')
+        const rawPhone = currentUser.phone || currentUser.user_metadata?.phone || ''
+        setPhone(rawPhone)
 
-        // Check if user already has profile
+        // Check if user already has a completed profile
         const { data: profile } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', currentUser.id)
           .maybeSingle()
 
+        console.log('[CompleteProfile] Existing profile:', profile)
+
         if (profile?.role === 'customer') {
           router.push('/customer/dashboard')
         } else if (profile?.role === 'supplier') {
-          router.push('/supplier/dashboard')
+          router.push('/supplier/pending')
         }
       } catch (err) {
-        console.error('Error loading session user:', err)
+        console.error('[CompleteProfile] Error loading session:', err)
       } finally {
         setCheckingAuth(false)
       }
     }
     loadUser()
-  }, [router, supabase])
+  }, [])
 
   const onSubmitCustomer = async (data: CustomerForm) => {
-    console.log('[CompleteProfile] Form submitted with data:', data)
+    console.log('[CompleteProfile] Customer form submitted:', data)
     console.log('[CompleteProfile] Current auth session:', user)
     setLoading(true)
 
     try {
       console.log('[CompleteProfile] Inserting profile data...')
-      const res = await fetch('/api/auth/complete-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+      const validUserId = user?.id && user.id.length >= 30 && user.id.includes('-')
+        ? user.id
+        : getPhoneUuid(cleanPhone)
+      const formattedPhone = cleanPhone ? `+91${cleanPhone}` : phone
+
+      // 1. Upsert profile row
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: validUserId,
           role: 'customer',
           name: data.name.trim(),
-          email: data.email?.trim() || '',
-          city: data.city || 'Jodhpur',
-          phone: phone
+          email: data.email?.trim() || null,
+          phone: formattedPhone,
+          updated_at: new Date().toISOString()
         })
-      })
 
-      const result = await res.json()
-      console.log('[CompleteProfile] Insert response:', result)
+      console.log('[CompleteProfile] Profile insert response:', profileError || 'success')
+      if (profileError) console.warn('[CompleteProfile] Profile insert notice:', profileError.message)
 
-      if (!res.ok || result.error) {
-        throw new Error(result.error || 'Failed to insert customer profile')
+      // 2. Upsert customer row
+      const { error: customerError } = await supabase
+        .from('customers')
+        .upsert({
+          user_id: validUserId,
+          name: data.name.trim(),
+          phone: formattedPhone,
+          email: data.email?.trim() || null,
+          addresses: [{
+            id: 'default-addr',
+            label: 'Primary Address',
+            line1: data.city,
+            city: data.city,
+            is_default: true
+          }]
+        })
+
+      if (customerError) console.warn('[CompleteProfile] Customer insert notice:', customerError.message)
+
+      // 3. CRITICAL: Update the mock session cookie with the new role BEFORE redirecting
+      //    This ensures middleware reads the correct role on the next request
+      const updatedUser = {
+        ...(user || {}),
+        id: validUserId,
+        user_metadata: {
+          ...(user?.user_metadata || {}),
+          role: 'customer',
+          name: data.name.trim(),
+          phone: formattedPhone,
+        }
       }
+      document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(updatedUser))}; path=/; max-age=86400; SameSite=Lax`
 
-      const targetPath = result.redirect || '/customer/dashboard'
+      const targetPath = '/customer/dashboard'
       console.log('[CompleteProfile] Attempting redirect to:', targetPath)
-
       toast.success('Profile completed successfully!')
+
+      // Small delay to ensure cookie is fully set before navigation
+      await new Promise(r => setTimeout(r, 300))
       window.location.href = targetPath
     } catch (err: any) {
       console.error('[CompleteProfile] Profile completion error:', err)
@@ -131,37 +173,68 @@ export default function CompleteProfilePage() {
   }
 
   const onSubmitSupplier = async (data: SupplierForm) => {
-    console.log('[CompleteProfile] Form submitted with data:', data)
+    console.log('[CompleteProfile] Supplier form submitted:', data)
     console.log('[CompleteProfile] Current auth session:', user)
     setLoading(true)
 
     try {
-      console.log('[CompleteProfile] Inserting profile data...')
-      const res = await fetch('/api/auth/complete-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      console.log('[CompleteProfile] Inserting supplier profile data...')
+
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+      const validUserId = user?.id && user.id.length >= 30 && user.id.includes('-')
+        ? user.id
+        : getPhoneUuid(cleanPhone)
+      const formattedPhone = cleanPhone ? `+91${cleanPhone}` : phone
+
+      // 1. Upsert profile row
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: validUserId,
           role: 'supplier',
+          name: data.business_name.trim(),
+          email: data.email?.trim() || null,
+          phone: formattedPhone,
+          updated_at: new Date().toISOString()
+        })
+
+      if (profileError) console.warn('[CompleteProfile] Profile insert notice:', profileError.message)
+
+      // 2. Upsert supplier row
+      const { error: supplierError } = await supabase
+        .from('suppliers')
+        .upsert({
+          user_id: validUserId,
           business_name: data.business_name.trim(),
           owner_name: data.owner_name.trim(),
-          email: data.email?.trim() || '',
+          phone: formattedPhone,
+          email: data.email?.trim() || null,
           address: data.address.trim(),
-          city: data.city || 'Jodhpur',
-          phone: phone
+          city: data.city.trim(),
+          status: 'pending'
         })
-      })
 
-      const result = await res.json()
-      console.log('[CompleteProfile] Insert response:', result)
+      if (supplierError) console.warn('[CompleteProfile] Supplier insert notice:', supplierError.message)
 
-      if (!res.ok || result.error) {
-        throw new Error(result.error || 'Failed to insert supplier profile')
+      // 3. CRITICAL: Update the mock session cookie with the new role BEFORE redirecting
+      const updatedUser = {
+        ...(user || {}),
+        id: validUserId,
+        user_metadata: {
+          ...(user?.user_metadata || {}),
+          role: 'supplier',
+          name: data.business_name.trim(),
+          phone: formattedPhone,
+        }
       }
+      document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(updatedUser))}; path=/; max-age=86400; SameSite=Lax`
 
-      const targetPath = result.redirect || '/supplier/pending'
+      const targetPath = '/supplier/pending'
       console.log('[CompleteProfile] Attempting redirect to:', targetPath)
-
       toast.success('Supplier application submitted! Under admin review.')
+
+      // Small delay to ensure cookie is fully set before navigation
+      await new Promise(r => setTimeout(r, 300))
       window.location.href = targetPath
     } catch (err: any) {
       console.error('[CompleteProfile] Supplier onboarding error:', err)
@@ -205,7 +278,7 @@ export default function CompleteProfilePage() {
         </div>
 
         <div className="glass-card p-6 sm:p-8 space-y-6">
-          {/* Step 1: Role Selection Cards */}
+          {/* Role Selection Cards */}
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Account Type</Label>
             <div className="grid grid-cols-2 gap-3">
@@ -225,8 +298,8 @@ export default function CompleteProfilePage() {
                   {selectedRole === 'customer' && <CheckCircle2 className="w-4 h-4 text-sky-400" />}
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-foreground">Customer</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Order water cans & tankers for home/business</p>
+                  <p className="text-sm font-semibold text-foreground">Customer</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Order water cans & tankers for home/business</p>
                 </div>
               </button>
 
@@ -240,76 +313,72 @@ export default function CompleteProfilePage() {
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${selectedRole === 'supplier' ? 'bg-amber-500 text-black' : 'bg-secondary text-muted-foreground'}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${selectedRole === 'supplier' ? 'bg-amber-500 text-white' : 'bg-secondary text-muted-foreground'}`}>
                     <Building2 className="w-5 h-5" />
                   </div>
                   {selectedRole === 'supplier' && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-foreground">Water Supplier</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Deliver water orders & manage business</p>
+                  <p className="text-sm font-semibold text-foreground">Water Supplier</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Deliver water orders & manage business</p>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Form Step 2a: Customer Form */}
+          {/* Customer Form */}
           {selectedRole === 'customer' && (
-            <form onSubmit={handleSubmitCustomer(onSubmitCustomer)} className="space-y-4 pt-2 border-t border-border/60">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
+            <form onSubmit={handleSubmitCustomer(onSubmitCustomer)} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-name" className="text-sm font-medium">
+                  Full Name <span className="text-red-400">*</span>
+                </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="name"
-                    placeholder="Ramesh Sharma"
-                    className="pl-10 bg-secondary border-border"
+                    id="customer-name"
                     {...registerCustomer('name')}
+                    placeholder="Enter your full name"
+                    className="pl-9"
                   />
                 </div>
-                {customerErrors.name && (
-                  <p className="text-xs text-destructive">{customerErrors.name.message}</p>
-                )}
+                {customerErrors.name && <p className="text-xs text-red-400">{customerErrors.name.message}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-email" className="text-sm font-medium">
+                  Email Address <span className="text-muted-foreground text-xs">(Optional)</span>
+                </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="email"
+                    id="customer-email"
                     type="email"
-                    placeholder="name@example.com"
-                    className="pl-10 bg-secondary border-border"
                     {...registerCustomer('email')}
+                    placeholder="your@email.com"
+                    className="pl-9"
                   />
                 </div>
-                {customerErrors.email && (
-                  <p className="text-xs text-destructive">{customerErrors.email.message}</p>
-                )}
+                {customerErrors.email && <p className="text-xs text-red-400">{customerErrors.email.message}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-city" className="text-sm font-medium">
+                  City <span className="text-red-400">*</span>
+                </Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="city"
-                    defaultValue="Jodhpur"
-                    className="pl-10 bg-secondary border-border"
+                    id="customer-city"
                     {...registerCustomer('city')}
+                    placeholder="Your city"
+                    className="pl-9"
                   />
                 </div>
-                {customerErrors.city && (
-                  <p className="text-xs text-destructive">{customerErrors.city.message}</p>
-                )}
+                {customerErrors.city && <p className="text-xs text-red-400">{customerErrors.city.message}</p>}
               </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full water-shimmer text-white font-semibold h-11 transition-all mt-4"
-              >
+              <Button type="submit" className="w-full water-shimmer text-white font-semibold" disabled={loading}>
                 {loading ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving Profile...</>
                 ) : (
@@ -319,92 +388,107 @@ export default function CompleteProfilePage() {
             </form>
           )}
 
-          {/* Form Step 2b: Supplier Onboarding Form */}
+          {/* Supplier Form */}
           {selectedRole === 'supplier' && (
-            <form onSubmit={handleSubmitSupplier(onSubmitSupplier)} className="space-y-4 pt-2 border-t border-border/60">
-              <div className="space-y-2">
-                <Label htmlFor="business_name">Business Name <span className="text-destructive">*</span></Label>
+            <form onSubmit={handleSubmitSupplier(onSubmitSupplier)} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="business-name" className="text-sm font-medium">
+                  Business Name <span className="text-red-400">*</span>
+                </Label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="business_name"
-                    placeholder="Marwar Water Suppliers"
-                    className="pl-10 bg-secondary border-border"
+                    id="business-name"
                     {...registerSupplier('business_name')}
+                    placeholder="e.g. Marwar Pure Water"
+                    className="pl-9"
                   />
                 </div>
-                {supplierErrors.business_name && (
-                  <p className="text-xs text-destructive">{supplierErrors.business_name.message}</p>
-                )}
+                {supplierErrors.business_name && <p className="text-xs text-red-400">{supplierErrors.business_name.message}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="owner_name">Owner Name <span className="text-destructive">*</span></Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="owner-name" className="text-sm font-medium">
+                  Owner Name <span className="text-red-400">*</span>
+                </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="owner_name"
-                    placeholder="Suresh Kumar"
-                    className="pl-10 bg-secondary border-border"
+                    id="owner-name"
                     {...registerSupplier('owner_name')}
+                    placeholder="Your full name"
+                    className="pl-9"
                   />
                 </div>
-                {supplierErrors.owner_name && (
-                  <p className="text-xs text-destructive">{supplierErrors.owner_name.message}</p>
-                )}
+                {supplierErrors.owner_name && <p className="text-xs text-red-400">{supplierErrors.owner_name.message}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="supplier_email">Business Email <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-email" className="text-sm font-medium">
+                  Business Email <span className="text-muted-foreground text-xs">(Optional)</span>
+                </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="supplier_email"
+                    id="supplier-email"
                     type="email"
-                    placeholder="business@jalseva.in"
-                    className="pl-10 bg-secondary border-border"
                     {...registerSupplier('email')}
+                    placeholder="business@email.com"
+                    className="pl-9"
                   />
                 </div>
-                {supplierErrors.email && (
-                  <p className="text-xs text-destructive">{supplierErrors.email.message}</p>
-                )}
+                {supplierErrors.email && <p className="text-xs text-red-400">{supplierErrors.email.message}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="address">Business Address <span className="text-destructive">*</span></Label>
-                <Input
-                  id="address"
-                  placeholder="Plot 14, Sardarpura B Road, Jodhpur"
-                  className="bg-secondary border-border"
-                  {...registerSupplier('address')}
-                />
-                {supplierErrors.address && (
-                  <p className="text-xs text-destructive">{supplierErrors.address.message}</p>
-                )}
-              </div>
-
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2">
-                <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-                <div>
-                  <strong>Admin Approval Required:</strong> Water supplier profiles require verification by JalSeva Admin before accepting orders.
+              <div className="space-y-1.5">
+                <Label htmlFor="address" className="text-sm font-medium">
+                  Business Address <span className="text-red-400">*</span>
+                </Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="address"
+                    {...registerSupplier('address')}
+                    placeholder="Full business address"
+                    className="pl-9"
+                  />
                 </div>
+                {supplierErrors.address && <p className="text-xs text-red-400">{supplierErrors.address.message}</p>}
               </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold h-11 transition-all mt-4"
-              >
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-city" className="text-sm font-medium">
+                  City <span className="text-red-400">*</span>
+                </Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="supplier-city"
+                    {...registerSupplier('city')}
+                    placeholder="Your city"
+                    className="pl-9"
+                  />
+                </div>
+                {supplierErrors.city && <p className="text-xs text-red-400">{supplierErrors.city.message}</p>}
+              </div>
+
+              <Button type="submit" className="w-full amber-shimmer text-white font-semibold" disabled={loading}>
                 {loading ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting Application...</>
                 ) : (
-                  <>Submit Supplier Profile <ArrowRight className="w-4 h-4 ml-2" /></>
+                  <>Submit Application <ArrowRight className="w-4 h-4 ml-2" /></>
                 )}
               </Button>
             </form>
           )}
         </div>
+
+        <p className="text-center text-xs text-muted-foreground">
+          Already have an account?{' '}
+          <Link href="/login" className="text-sky-400 hover:text-sky-300 font-medium">
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   )

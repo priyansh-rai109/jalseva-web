@@ -76,7 +76,13 @@ export function getInitials(name: string): string {
     .slice(0, 2)
 }
 
+/**
+ * Converts a 10-digit phone number into a valid PostgreSQL UUID string.
+ * Format: 00000000-0000-0000-0000-00XXXXXXXXXX
+ * This deterministically produces a UUID from a phone number, 
+ * preventing the PostgreSQL 22P02 "invalid input syntax for type uuid" error.
+ */
 export function getPhoneUuid(phone: string): string {
-  const digits = phone.replace(/\D/g, '').slice(-12).padStart(12, '0')
+  const digits = phone.replace(/\D/g, '').slice(-10).padStart(12, '0')
   return `00000000-0000-0000-0000-${digits}`
 }

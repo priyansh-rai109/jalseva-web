@@ -46,37 +46,23 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- Trigger to auto-create profile, supplier, or customer on signup
-CREATE UNIQUE INDEX IF NOT EXISTS profiles_phone_idx ON profiles (phone) WHERE phone IS NOT NULL;
-
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
-DECLARE
-  user_phone TEXT;
-  user_email TEXT;
-  user_role TEXT;
-  user_name TEXT;
 BEGIN
-  user_phone := COALESCE(NEW.phone, NEW.raw_user_meta_data->>'phone', NULL);
-  user_email := COALESCE(NEW.email, NEW.raw_user_meta_data->>'email', NULL);
-  user_role  := COALESCE(NEW.raw_user_meta_data->>'role', 'customer');
-  user_name  := COALESCE(NEW.raw_user_meta_data->>'name', COALESCE(NEW.raw_user_meta_data->>'business_name', ''));
-
   -- 1. Insert Profile
-  INSERT INTO profiles (id, email, phone, role, name)
+  INSERT INTO profiles (id, email, role, name, phone)
   VALUES (
     NEW.id,
-    user_email,
-    user_phone,
-    user_role,
-    user_name
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'role', 'customer'),
+    COALESCE(NEW.raw_user_meta_data->>'name', COALESCE(NEW.raw_user_meta_data->>'business_name', '')),
+    COALESCE(NEW.raw_user_meta_data->>'phone', NULL)
   )
   ON CONFLICT (id) DO UPDATE SET
-    phone = EXCLUDED.phone,
-    email = COALESCE(EXCLUDED.email, profiles.email),
-    name  = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE profiles.name END;
+    email = EXCLUDED.email;
 
   -- 2. If role is supplier, insert into suppliers table with status 'pending'
-  IF user_role = 'supplier' THEN
+  IF (NEW.raw_user_meta_data->>'role') = 'supplier' THEN
     INSERT INTO suppliers (
       user_id,
       business_name,
@@ -88,10 +74,10 @@ BEGIN
     )
     VALUES (
       NEW.id,
-      COALESCE(NEW.raw_user_meta_data->>'business_name', user_name, 'Water Supplier'),
-      COALESCE(NEW.raw_user_meta_data->>'owner_name', user_name, 'Owner'),
-      COALESCE(user_phone, ''),
-      user_email,
+      COALESCE(NEW.raw_user_meta_data->>'business_name', NEW.raw_user_meta_data->>'name', 'Water Supplier'),
+      COALESCE(NEW.raw_user_meta_data->>'owner_name', NEW.raw_user_meta_data->>'name', 'Owner'),
+      COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+      NEW.email,
       COALESCE(NEW.raw_user_meta_data->>'address', 'Jodhpur'),
       'pending'
     )
@@ -99,7 +85,7 @@ BEGIN
   END IF;
 
   -- 3. If role is customer, insert into customers table
-  IF user_role = 'customer' THEN
+  IF (NEW.raw_user_meta_data->>'role') = 'customer' OR (NEW.raw_user_meta_data->>'role') IS NULL THEN
     INSERT INTO customers (
       user_id,
       name,
@@ -108,9 +94,9 @@ BEGIN
     )
     VALUES (
       NEW.id,
-      COALESCE(user_name, 'Customer'),
-      COALESCE(user_phone, ''),
-      user_email
+      COALESCE(NEW.raw_user_meta_data->>'name', 'Customer'),
+      COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+      NEW.email
     )
     ON CONFLICT DO NOTHING;
   END IF;
@@ -338,15 +324,8 @@ CREATE POLICY "reviews_customer_insert" ON reviews FOR INSERT WITH CHECK (
   customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
 );
 
--- Customers: own profile / public insert
-CREATE POLICY "customers_own" ON customers FOR ALL USING (user_id = auth.uid() OR auth.uid() IS NULL);
-CREATE POLICY "customers_insert" ON customers FOR INSERT WITH CHECK (TRUE);
-
--- Profiles: insert and access
-CREATE POLICY "profiles_insert" ON profiles FOR INSERT WITH CHECK (TRUE);
-
--- Suppliers: insert and access
-CREATE POLICY "suppliers_insert" ON suppliers FOR INSERT WITH CHECK (TRUE);
+-- Customers: own profile only
+CREATE POLICY "customers_own" ON customers FOR ALL USING (user_id = auth.uid());
 
 -- Notifications: own only
 CREATE POLICY "notifications_own" ON notifications FOR ALL USING (user_id = auth.uid());

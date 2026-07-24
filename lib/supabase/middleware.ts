@@ -8,7 +8,7 @@ export async function updateSession(request: NextRequest) {
   const isMock = !supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')
   const { pathname } = request.nextUrl
 
-  // Bypass middleware for internal Next.js requests, static files, API routes
+  // ─── Bypass: Next.js internals, static files, API routes ────────────────
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
@@ -18,30 +18,32 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
-  // Public routes — always accessible
+  // ─── Public routes — always accessible, no auth check ───────────────────
   const publicRoutes = ['/', '/login', '/register', '/register/complete-profile', '/admin-login', '/supplier/pending']
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith('/api/')
-  )
+  const isPublicRoute = publicRoutes.some((route) => pathname === route)
 
   let user: any = null
   let role: string | null = null
   let response = NextResponse.next({ request })
 
-  if (isMock) {
-    // Read user from mock session cookie
-    const cookie = request.cookies.get('jalseva-mock-session')
-    if (cookie?.value) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(cookie.value))
-        user = parsed
-        role = parsed.user_metadata?.role || 'customer'
-      } catch {
-        user = null
-      }
+  // ─── Resolve user + role ─────────────────────────────────────────────────
+  // ALWAYS check jalseva-mock-session cookie first (works in both mock and real Supabase modes)
+  const mockCookie = request.cookies.get('jalseva-mock-session')
+  if (mockCookie?.value) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(mockCookie.value))
+      user = parsed
+      // CRITICAL: read role from cookie, but ONLY if it's a non-empty string
+      // The cookie is updated with role AFTER profile completion, so it may be '' for new users
+      const cookieRole = parsed.user_metadata?.role
+      role = cookieRole && cookieRole !== '' ? cookieRole : null
+    } catch {
+      user = null
     }
-  } else {
-    // Real Supabase session update
+  }
+
+  // If no mock session, try real Supabase (when credentials are present)
+  if (!user && !isMock) {
     const supabase = createServerClient(supabaseUrl!, supabaseKey!, {
       cookies: {
         getAll() {
@@ -60,33 +62,37 @@ export async function updateSession(request: NextRequest) {
     })
 
     const { data: { user: supabaseUser } } = await supabase.auth.getUser()
-    user = supabaseUser
+    if (supabaseUser) {
+      user = supabaseUser
+      // ALWAYS query DB for role — never trust stale JWT metadata
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', supabaseUser.id)
+        .maybeSingle()
+      role = profile?.role || null
 
-    if (!user) {
-      const mockCookie = request.cookies.get('jalseva-mock-session')
-      if (mockCookie?.value) {
-        try {
-          user = JSON.parse(decodeURIComponent(mockCookie.value))
-        } catch {
-          user = null
-        }
-      }
+      console.log(`[Middleware] Path: ${pathname} | User: ${supabaseUser.id} | Role from DB: ${role}`)
     }
-
-    if (user) {
-      role = user.user_metadata?.role || null
-      if (!role) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle()
-        role = profile?.role || null
-      }
-    }
+  } else if (user && !isMock) {
+    // Has mock cookie but real Supabase — also query DB for role to be safe
+    // (role in cookie may be stale)
+    try {
+      const supabase = createServerClient(supabaseUrl!, supabaseKey!, {
+        cookies: { getAll() { return request.cookies.getAll() }, setAll() {} },
+      })
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (profile?.role) role = profile.role
+    } catch {}
   }
 
-  // Helper function: preserve response auth cookies on redirects
+  console.log(`[Middleware] Path: ${pathname} | HasUser: ${!!user} | Role: ${role} | IsPublic: ${isPublicRoute}`)
+
+  // ─── Helper: redirect preserving auth cookies ────────────────────────────
   const makeRedirect = (targetPath: string) => {
     const url = request.nextUrl.clone()
     url.pathname = targetPath
@@ -94,35 +100,48 @@ export async function updateSession(request: NextRequest) {
     response.cookies.getAll().forEach((c) => {
       redirectResponse.cookies.set(c.name, c.value, c)
     })
+    // Also preserve mock session cookie on redirect
+    if (mockCookie?.value) {
+      redirectResponse.cookies.set('jalseva-mock-session', mockCookie.value, {
+        path: '/',
+        maxAge: 86400,
+        sameSite: 'lax',
+      })
+    }
     return redirectResponse
   }
 
-  // Not logged in → redirect to login (except public routes)
+  // ─── Guard: unauthenticated users on protected routes ───────────────────
   if (!user && !isPublicRoute) {
+    console.log(`[Middleware] REDIRECT: No user → /login`)
     return makeRedirect('/login')
   }
 
-  if (user) {
-    // Authenticated user with NO role set yet
-    if (!role) {
-      // If already on complete-profile or public route, ALLOW (do not redirect)
-      if (pathname === '/register/complete-profile' || isPublicRoute) {
-        return response
-      }
-      // If trying to access protected page directly, redirect to /register/complete-profile (not /login!)
-      return makeRedirect('/register/complete-profile')
+  // ─── Guard: authenticated user with NO role (new user, profile incomplete) ─
+  if (user && !role) {
+    // Allow staying on public routes and /register/complete-profile
+    if (isPublicRoute || pathname === '/register/complete-profile') {
+      return response
     }
+    // Any other protected route → send to complete profile
+    console.log(`[Middleware] REDIRECT: No role → /register/complete-profile`)
+    return makeRedirect('/register/complete-profile')
+  }
 
-    // Role-based access control for protected sections
+  // ─── Guard: role-based access control ───────────────────────────────────
+  if (user && role) {
     if (pathname.startsWith('/admin') && role !== 'super_admin') {
+      console.log(`[Middleware] REDIRECT: Not admin → dashboard`)
       return makeRedirect(role === 'supplier' ? '/supplier/dashboard' : '/customer/dashboard')
     }
 
     if (pathname.startsWith('/supplier') && pathname !== '/supplier/pending' && role !== 'supplier') {
+      console.log(`[Middleware] REDIRECT: Not supplier → customer/dashboard`)
       return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : '/customer/dashboard')
     }
 
     if (pathname.startsWith('/customer') && role !== 'customer') {
+      console.log(`[Middleware] REDIRECT: Not customer → ${role === 'supplier' ? '/supplier/dashboard' : '/supplier/pending'}`)
       return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : (role === 'supplier' ? '/supplier/dashboard' : '/supplier/pending'))
     }
   }

@@ -24,23 +24,10 @@ export default async function CustomerDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: rawCustomer }] = await Promise.all([
+  const [{ data: profile }, { data: customer }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     supabase.from('customers').select('*').eq('user_id', user.id).maybeSingle(),
   ])
-
-  let customer = rawCustomer
-
-  if (!customer) {
-    customer = {
-      id: 'customer-1',
-      user_id: user.id,
-      name: user.user_metadata?.name || 'Vijay Jodhpur',
-      phone: user.phone || user.user_metadata?.phone || '9876543210',
-      email: user.email || 'customer@jalseva.in',
-      addresses: [{ id: 'addr-1', label: 'Home', line1: 'Sardarpura, Jodhpur', city: 'Jodhpur', pincode: '342001', is_default: true }]
-    }
-  }
 
   const [
     { data: activeOrders },
