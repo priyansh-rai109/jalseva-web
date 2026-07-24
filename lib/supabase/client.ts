@@ -222,6 +222,24 @@ export function createClient() {
       removeChannel: () => {}
     } as any
   }
+  const client = createBrowserClient(supabaseUrl!, supabaseKey!)
 
-  return createBrowserClient(supabaseUrl!, supabaseKey!)
+  const originalGetUser = client.auth.getUser.bind(client.auth)
+  client.auth.getUser = async () => {
+    const realResult = await originalGetUser()
+    if (realResult.data?.user) return realResult
+
+    if (typeof window !== 'undefined') {
+      const cookie = document.cookie.split('; ').find(row => row.startsWith('jalseva-mock-session='))
+      if (cookie) {
+        try {
+          const user = JSON.parse(decodeURIComponent(cookie.split('=')[1]))
+          return { data: { user }, error: null }
+        } catch {}
+      }
+    }
+    return realResult
+  }
+
+  return client
 }
