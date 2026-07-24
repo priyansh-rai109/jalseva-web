@@ -103,6 +103,23 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
+    // Authenticated user with NO role set yet
+    if (!role) {
+      // If already on complete-profile or public route, ALLOW (do not redirect)
+      if (pathname === '/register/complete-profile' || isPublicRoute) {
+        return response
+      }
+      // If trying to access protected page directly, redirect to /register/complete-profile (not /login!)
+      return makeRedirect('/register/complete-profile')
+    }
+
+    // Authenticated user WITH role trying to visit auth pages -> send to their dashboard
+    if (pathname === '/login' || pathname === '/register') {
+      if (role === 'super_admin') return makeRedirect('/admin/dashboard')
+      if (role === 'supplier') return makeRedirect('/supplier/dashboard')
+      if (role === 'customer') return makeRedirect('/customer/dashboard')
+    }
+
     // Role-based access control
     if (pathname.startsWith('/admin') && role !== 'super_admin') {
       return makeRedirect(role === 'supplier' ? '/supplier/dashboard' : '/customer/dashboard')
@@ -113,7 +130,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (pathname.startsWith('/customer') && role !== 'customer') {
-      return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : (role === 'supplier' ? '/supplier/dashboard' : '/login'))
+      return makeRedirect(role === 'super_admin' ? '/admin/dashboard' : (role === 'supplier' ? '/supplier/dashboard' : '/supplier/pending'))
     }
   }
 

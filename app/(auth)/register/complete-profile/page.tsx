@@ -93,8 +93,12 @@ export default function CompleteProfilePage() {
   }, [router, supabase])
 
   const onSubmitCustomer = async (data: CustomerForm) => {
+    console.log('[CompleteProfile] Form submitted with data:', data)
+    console.log('[CompleteProfile] Current auth session:', user)
     setLoading(true)
+
     try {
+      console.log('[CompleteProfile] Inserting profile data...')
       const res = await fetch('/api/auth/complete-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,18 +112,31 @@ export default function CompleteProfilePage() {
       })
 
       const result = await res.json()
+      console.log('[CompleteProfile] Insert response:', result)
+
+      if (!res.ok || result.error) {
+        throw new Error(result.error || 'Failed to insert customer profile')
+      }
+
+      const targetPath = result.redirect || '/customer/dashboard'
+      console.log('[CompleteProfile] Attempting redirect to:', targetPath)
+
       toast.success('Profile completed successfully!')
-      window.location.href = result.redirect || '/customer/dashboard'
-    } catch (err) {
-      console.error('Profile completion API error:', err)
-      toast.success('Profile completed!')
-      window.location.href = '/customer/dashboard'
+      window.location.href = targetPath
+    } catch (err: any) {
+      console.error('[CompleteProfile] Profile completion error:', err)
+      toast.error(`Failed to complete profile: ${err?.message || 'Unknown error'}`)
+      setLoading(false)
     }
   }
 
   const onSubmitSupplier = async (data: SupplierForm) => {
+    console.log('[CompleteProfile] Form submitted with data:', data)
+    console.log('[CompleteProfile] Current auth session:', user)
     setLoading(true)
+
     try {
+      console.log('[CompleteProfile] Inserting profile data...')
       const res = await fetch('/api/auth/complete-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,12 +152,21 @@ export default function CompleteProfilePage() {
       })
 
       const result = await res.json()
+      console.log('[CompleteProfile] Insert response:', result)
+
+      if (!res.ok || result.error) {
+        throw new Error(result.error || 'Failed to insert supplier profile')
+      }
+
+      const targetPath = result.redirect || '/supplier/pending'
+      console.log('[CompleteProfile] Attempting redirect to:', targetPath)
+
       toast.success('Supplier application submitted! Under admin review.')
-      window.location.href = result.redirect || '/supplier/pending'
-    } catch (err) {
-      console.error('Supplier onboarding API error:', err)
-      toast.success('Supplier application submitted!')
-      window.location.href = '/supplier/pending'
+      window.location.href = targetPath
+    } catch (err: any) {
+      console.error('[CompleteProfile] Supplier onboarding error:', err)
+      toast.error(`Failed to complete profile: ${err?.message || 'Unknown error'}`)
+      setLoading(false)
     }
   }
 
