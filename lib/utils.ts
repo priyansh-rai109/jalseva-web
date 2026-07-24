@@ -75,3 +75,8 @@ export function getInitials(name: string): string {
     .toUpperCase()
     .slice(0, 2)
 }
+
+export function getPhoneUuid(phone: string): string {
+  const digits = phone.replace(/\D/g, '').slice(-12).padStart(12, '0')
+  return `00000000-0000-0000-0000-${digits}`
+}

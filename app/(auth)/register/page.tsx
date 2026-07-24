@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { getPhoneUuid } from '@/lib/utils'
 
 const isDev = process.env.NEXT_PUBLIC_APP_ENV === 'development' || process.env.NODE_ENV === 'development' || true
 
@@ -163,7 +164,7 @@ function RegisterPageContent() {
       if (finalOtp === '123456' || isDev || !authUser) {
         const role = cleanDigits === '9876543211' ? 'supplier' : (cleanDigits === '9876543210' ? 'customer' : '')
         const name = role === 'supplier' ? 'Ramesh Kumar' : (role === 'customer' ? 'Vijay Jodhpur' : '')
-        const id = role === 'supplier' ? 'supplier-id' : (role === 'customer' ? 'customer-id' : `user-${cleanDigits}`)
+        const id = getPhoneUuid(cleanDigits)
 
         authUser = {
           id,
@@ -190,7 +191,7 @@ function RegisterPageContent() {
     const cleanDigits = demoPhone.replace(/\D/g, '').slice(-10)
     const role = cleanDigits === '9876543211' ? 'supplier' : 'customer'
     const name = role === 'supplier' ? 'Ramesh Kumar' : 'Vijay Jodhpur'
-    const id = `${role}-id`
+    const id = getPhoneUuid(cleanDigits)
 
     const mockUser = {
       id,
