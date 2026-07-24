@@ -197,5 +197,13 @@ export function createClient() {
     return { data: { user: null }, error }
   }
 
+  const originalSignOut = realClient.auth.signOut.bind(realClient.auth)
+  ;(realClient.auth as any).signOut = async (options?: any) => {
+    if (typeof document !== 'undefined') {
+      document.cookie = 'jalseva-mock-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    }
+    return await originalSignOut(options)
+  }
+
   return realClient
 }
