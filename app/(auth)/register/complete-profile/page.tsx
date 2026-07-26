@@ -127,39 +127,30 @@ export default function CompleteProfilePage() {
 
       console.log('[CompleteProfile] Inserting profile data... userId:', validUserId)
 
-      // 1. Upsert profile
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: validUserId,
-        role: 'customer',
-        name: custName.trim(),
-        email: custEmail.trim() || null,
-        phone: formattedPhone,
-        updated_at: new Date().toISOString(),
-      })
-      console.log('[CompleteProfile] Profile upsert result:', profileError?.message || 'success')
-      if (profileError) console.warn('[CompleteProfile] Profile insert notice:', profileError.message)
-
-      // 2. Upsert customer record
-      const { error: custError } = await supabase.from('customers').upsert({
-        user_id: validUserId,
-        name: custName.trim(),
-        phone: formattedPhone,
-        email: custEmail.trim() || null,
-        addresses: [{
-          id: 'default-addr',
-          label: 'Primary',
-          line1: custCity,
-          city: custCity,
-          is_default: true,
-        }],
-      })
-      if (custError) console.warn('[CompleteProfile] Customer insert notice:', custError.message)
+      // Use server action to bypass RLS and get REAL user ID
+      const { upsertCustomerProfileAction } = await import('./actions')
+      let newUserId = validUserId
+      try {
+        newUserId = await upsertCustomerProfileAction({
+          userId: validUserId,
+          name: custName.trim(),
+          email: custEmail.trim() || null,
+          phone: formattedPhone,
+          city: custCity.trim(),
+        })
+        console.log('[CompleteProfile] Customer profile saved via server action, real ID:', newUserId)
+      } catch (saveErr: any) {
+        console.error('[CompleteProfile] Profile save failed:', saveErr)
+        toast.error('Failed to save profile details.')
+        setLoading(false)
+        return
+      }
 
       // 3. CRITICAL: Update cookie BEFORE redirect so middleware sees the role
       const currentCookieUser = readMockCookie() || {}
       writeMockCookie({
         ...currentCookieUser,
-        id: validUserId,
+        id: newUserId,
         user_metadata: {
           ...(currentCookieUser.user_metadata || {}),
           role: 'customer',
@@ -200,37 +191,32 @@ export default function CompleteProfilePage() {
         : getPhoneUuid(digits)
       const formattedPhone = digits ? `+91${digits}` : phone
 
-      console.log('[CompleteProfile] Inserting supplier profile data... userId:', validUserId)
-
-      // 1. Upsert profile
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: validUserId,
-        role: 'supplier',
-        name: bizName.trim(),
-        email: supEmail.trim() || null,
-        phone: formattedPhone,
-        updated_at: new Date().toISOString(),
-      })
-      if (profileError) console.warn('[CompleteProfile] Profile insert notice:', profileError.message)
-
-      // 2. Upsert supplier record
-      const { error: supError } = await supabase.from('suppliers').upsert({
-        user_id: validUserId,
-        business_name: bizName.trim(),
-        owner_name: ownerName.trim(),
-        phone: formattedPhone,
-        email: supEmail.trim() || null,
-        address: supAddress.trim(),
-        city: supCity.trim(),
-        status: 'pending',
-      })
-      if (supError) console.warn('[CompleteProfile] Supplier insert notice:', supError.message)
+      // Use server action to bypass RLS
+      const { upsertSupplierProfileAction } = await import('./actions')
+      let newUserId = validUserId
+      try {
+        newUserId = await upsertSupplierProfileAction({
+          userId: validUserId,
+          bizName: bizName.trim(),
+          ownerName: ownerName.trim(),
+          email: supEmail.trim() || null,
+          phone: formattedPhone,
+          address: supAddress.trim(),
+          city: supCity.trim(),
+        })
+        console.log('[CompleteProfile] Supplier profile saved via server action, real ID:', newUserId)
+      } catch (saveErr: any) {
+        console.error('[CompleteProfile] Profile save failed:', saveErr)
+        toast.error('Failed to save supplier details.')
+        setLoading(false)
+        return
+      }
 
       // 3. CRITICAL: Update cookie BEFORE redirect
       const currentCookieUser = readMockCookie() || {}
       writeMockCookie({
         ...currentCookieUser,
-        id: validUserId,
+        id: newUserId,
         user_metadata: {
           ...(currentCookieUser.user_metadata || {}),
           role: 'supplier',

@@ -34,6 +34,9 @@ export const metadata: Metadata = {
   },
 }
 
+import { Suspense } from 'react'
+import { SessionToastHandler } from '@/components/SessionToastHandler'
+
 export default function RootLayout({
   children,
 }: {
@@ -44,6 +47,9 @@ export default function RootLayout({
       <body className="font-sans min-h-screen bg-background text-foreground">
         {children}
         <Toaster richColors position="top-right" />
+        <Suspense fallback={null}>
+          <SessionToastHandler />
+        </Suspense>
       </body>
     </html>
   )

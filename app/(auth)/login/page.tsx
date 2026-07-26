@@ -129,24 +129,28 @@ export default function LoginPage() {
       let userId: string
       let userRole: string | null = null
 
+      let existingProfile = null
+      try {
+        const { checkExistingUserByPhone } = await import('./actions')
+        existingProfile = await checkExistingUserByPhone(fullPhone)
+        console.log('[Login] Profile check by phone:', existingProfile)
+      } catch (e) {
+        console.error('[Login] Action error:', e)
+      }
+
       if (testMode || enteredOtp === TEST_OTP) {
         // ── Test/fallback path ──────────────────
         console.log('[Login] Test mode — accepting OTP 123456')
-        userId = getPhoneUuid(digits)
 
-        // Check if this user has an existing profile in DB
-        try {
-          const realClient = createClient()
-          const { data: profile } = await realClient
-            .from('profiles')
-            .select('role')
-            .eq('id', userId)
-            .maybeSingle()
-          userRole = (profile?.role && profile.role !== '') ? profile.role : null
-          console.log('[Login] Existing profile role:', userRole)
-        } catch {}
+        if (existingProfile) {
+          userId = existingProfile.id
+          userRole = existingProfile.role || null
+        } else {
+          userId = getPhoneUuid(digits)
+          userRole = null
+        }
 
-        // Set the mock session cookie (role may be null for new users)
+        // Set the mock session cookie
         const mockUser = {
           id: userId,
           phone: fullPhone,
@@ -170,16 +174,8 @@ export default function LoginPage() {
         }
 
         const user = data.user
-        userId = user?.id ?? getPhoneUuid(digits)
-
-        // Fetch role from DB — NOT from stale JWT
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', userId)
-          .maybeSingle()
-
-        userRole = (profile?.role && profile.role !== '') ? profile.role : null
+        userId = existingProfile?.id || user?.id || getPhoneUuid(digits)
+        userRole = existingProfile?.role || null
         console.log('[Login] Real auth — role from DB:', userRole)
 
         // Also set mock cookie so middleware fallback works

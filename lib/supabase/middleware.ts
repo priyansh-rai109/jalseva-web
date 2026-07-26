@@ -134,23 +134,45 @@ export async function updateSession(request: NextRequest) {
     return makeRedirect('/register/complete-profile')
   }
 
+  // ── Helper: build a redirect response with optional query params ──
+  const makeRedirectWithParams = (targetPath: string, queryParams?: Record<string, string>) => {
+    if (targetPath === pathname) {
+      return response
+    }
+    const url = request.nextUrl.clone()
+    url.pathname = targetPath
+    if (queryParams) {
+      Object.entries(queryParams).forEach(([key, val]) => url.searchParams.set(key, val))
+    }
+    const redirectResponse = NextResponse.redirect(url)
+    response.cookies.getAll().forEach(c => redirectResponse.cookies.set(c.name, c.value, c))
+    if (mockCookie?.value) {
+      redirectResponse.cookies.set('jalseva-mock-session', mockCookie.value, {
+        path: '/', maxAge: 86400, sameSite: 'lax',
+      })
+    }
+    return redirectResponse
+  }
+
   // ── 7. Role-based access control ─────────────────────────────────────
   if (pathname.startsWith('/admin') && role !== 'super_admin') {
     const target = role === 'supplier' ? '/supplier/dashboard' : '/customer/dashboard'
     console.log(`[Middleware] REDIRECT (wrong role for /admin) → ${target}`)
-    return makeRedirect(target)
+    return makeRedirectWithParams(target, { session_changed: 'true', role: role || 'unknown' })
   }
 
   if (pathname.startsWith('/supplier') && role !== 'supplier') {
+    // If accessing supplier routes without supplier role
     const target = role === 'super_admin' ? '/admin/dashboard' : '/customer/dashboard'
     console.log(`[Middleware] REDIRECT (wrong role for /supplier) → ${target}`)
-    return makeRedirect(target)
+    return makeRedirectWithParams(target, { session_changed: 'true', role: role || 'unknown' })
   }
 
   if (pathname.startsWith('/customer') && role !== 'customer') {
+    // If accessing customer routes without customer role
     const target = role === 'super_admin' ? '/admin/dashboard' : '/supplier/dashboard'
     console.log(`[Middleware] REDIRECT (wrong role for /customer) → ${target}`)
-    return makeRedirect(target)
+    return makeRedirectWithParams(target, { session_changed: 'true', role: role || 'unknown' })
   }
 
   console.log(`[Middleware] ALLOW → ${pathname}`)

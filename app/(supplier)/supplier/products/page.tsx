@@ -64,26 +64,27 @@ export default function SupplierProductsPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      // We don't strictly need to fetch supplierId on the client anymore
-      // since the API route resolves it automatically based on the session.
-      fetchProducts()
+      import('./actions').then(async (actions) => {
+        const sid = await actions.getSupplierIdAction()
+        if (sid) {
+          setSupplierId(sid)
+          fetchProducts(sid, actions)
+        }
+      })
     }
     init()
   }, [])
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (sid: string, actions?: any) => {
     setLoading(true)
     try {
-      const res = await fetch('/api/supplier/products')
-      const data = await res.json()
-      setProducts(data.products || [])
+      const act = actions || await import('./actions')
+      const data = await act.fetchProductsAction(sid)
+      setProducts(data || [])
     } catch (err) {
       console.error(err)
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   const openEdit = (product: WaterProduct) => {
@@ -107,9 +108,11 @@ export default function SupplierProductsPage() {
   }
 
   const onSubmit = async (data: ProductForm) => {
+    if (!supplierId) return
     setSaving(true)
 
     const payload = {
+      supplier_id: supplierId,
       name: data.name,
       type: data.type,
       capacity_liters: data.capacity_liters ? parseFloat(data.capacity_liters) : null,
@@ -121,54 +124,43 @@ export default function SupplierProductsPage() {
     }
 
     try {
+      const actions = await import('./actions')
       if (editProduct) {
-        const res = await fetch(`/api/supplier/products/${editProduct.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        if (!res.ok) throw new Error('Failed to update product')
+        await actions.updateProductAction(editProduct.id, payload)
         toast.success('Product updated!')
       } else {
-        const res = await fetch('/api/supplier/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        if (!res.ok) throw new Error('Failed to create product')
+        await actions.addProductAction(payload)
         toast.success('Product added!')
       }
-    } catch (err: any) {
-      toast.error(err.message)
+      setSheetOpen(false)
+      fetchProducts(supplierId)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save product')
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    setSheetOpen(false)
-    fetchProducts()
   }
 
   const toggleActive = async (product: WaterProduct) => {
     try {
-      await fetch(`/api/supplier/products/${product.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !product.is_active })
-      })
-      fetchProducts()
+      const actions = await import('./actions')
+      await actions.toggleProductActiveAction(product.id, !product.is_active)
+      fetchProducts(supplierId!)
       toast.success(product.is_active ? 'Product hidden' : 'Product visible')
-    } catch {
-      toast.error('Failed to update status')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to toggle status')
     }
   }
 
   const deleteProduct = async (id: string) => {
     if (!confirm('Delete this product?')) return
     try {
-      await fetch(`/api/supplier/products/${id}`, { method: 'DELETE' })
+      const actions = await import('./actions')
+      await actions.deleteProductAction(id)
       toast.success('Product deleted')
-      fetchProducts()
-    } catch {
-      toast.error('Failed to delete product')
+      fetchProducts(supplierId!)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete product')
     }
   }
 
