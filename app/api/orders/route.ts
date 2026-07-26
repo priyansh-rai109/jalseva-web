@@ -23,32 +23,74 @@ export async function POST(request: Request) {
     // 1. Resolve or auto-create Customer profile
     let customerObj: { id: string; name?: string | null; phone?: string | null } | null = null
 
-    const { data: existingCustomer } = await adminSupabase
+    let { data: existingCustomer } = await adminSupabase
       .from('customers')
       .select('id, name, phone')
       .eq('user_id', user.id)
       .maybeSingle()
 
+    // Fallback: If user has a mock session but already has a provisioned test profile by phone
+    const phoneToUse = user.phone || user.user_metadata?.phone || '9876543210'
+    if (!existingCustomer && phoneToUse) {
+      const { data: byPhone } = await adminSupabase
+        .from('customers')
+        .select('id, name, phone')
+        .eq('phone', phoneToUse)
+        .maybeSingle()
+      if (byPhone) {
+        existingCustomer = byPhone
+      }
+    }
+
     if (existingCustomer) {
       customerObj = existingCustomer
     } else {
       const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Customer'
-      const phone = user.user_metadata?.phone || '9876543210'
+      
       const { data: createdCust, error: custErr } = await adminSupabase
         .from('customers')
         .insert({
           user_id: user.id,
           name,
-          phone,
+          phone: phoneToUse,
           email: user.email,
         })
         .select('id, name, phone')
-        .single()
+        .maybeSingle()
 
-      if (custErr || !createdCust) {
-        return NextResponse.json({ error: 'Failed to create customer profile' }, { status: 500 })
+      if (custErr) {
+        if (custErr.code === '23503') { // Foreign Key Violation
+          console.log('[Orders API] FK violation for user_id. Provisioning mock auth user...')
+          const { error: authErr } = await adminSupabase.auth.admin.createUser({
+            phone: phoneToUse,
+            password: 'MockUser123!',
+            email_confirm: true,
+            phone_confirm: true,
+            user_metadata: { role: 'customer', name, phone: phoneToUse }
+          })
+
+          if (authErr && !authErr.message.includes('already registered')) {
+            console.error('[Create Auth User Error]', authErr)
+            return NextResponse.json({ error: 'Failed to provision test user: ' + authErr.message }, { status: 500 })
+          }
+
+          const { data: autoCreatedCust } = await adminSupabase
+            .from('customers')
+            .select('id, name, phone')
+            .eq('phone', phoneToUse)
+            .maybeSingle()
+
+          if (!autoCreatedCust) {
+            return NextResponse.json({ error: 'Customer auto-creation failed' }, { status: 500 })
+          }
+          customerObj = autoCreatedCust
+        } else {
+          console.error('[Create Customer Error]', custErr)
+          return NextResponse.json({ error: 'Failed to create customer profile: ' + custErr.message }, { status: 500 })
+        }
+      } else if (createdCust) {
+        customerObj = createdCust
       }
-      customerObj = createdCust
     }
 
     if (!customerObj) {

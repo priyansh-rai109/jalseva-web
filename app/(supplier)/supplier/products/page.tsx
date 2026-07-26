@@ -66,20 +66,24 @@ export default function SupplierProductsPage() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: supplier } = await supabase.from('suppliers').select('id').eq('user_id', user.id).single()
-      if (supplier) {
-        setSupplierId(supplier.id)
-        fetchProducts(supplier.id)
-      }
+      // We don't strictly need to fetch supplierId on the client anymore
+      // since the API route resolves it automatically based on the session.
+      fetchProducts()
     }
     init()
   }, [])
 
-  const fetchProducts = async (sid: string) => {
+  const fetchProducts = async () => {
     setLoading(true)
-    const { data } = await supabase.from('water_products').select('*').eq('supplier_id', sid).order('created_at', { ascending: false })
-    setProducts(data || [])
-    setLoading(false)
+    try {
+      const res = await fetch('/api/supplier/products')
+      const data = await res.json()
+      setProducts(data.products || [])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const openEdit = (product: WaterProduct) => {
@@ -103,11 +107,9 @@ export default function SupplierProductsPage() {
   }
 
   const onSubmit = async (data: ProductForm) => {
-    if (!supplierId) return
     setSaving(true)
 
     const payload = {
-      supplier_id: supplierId,
       name: data.name,
       type: data.type,
       capacity_liters: data.capacity_liters ? parseFloat(data.capacity_liters) : null,
@@ -118,32 +120,56 @@ export default function SupplierProductsPage() {
       is_active: true,
     }
 
-    if (editProduct) {
-      const { error } = await supabase.from('water_products').update(payload).eq('id', editProduct.id)
-      if (error) { toast.error('Failed to update product'); setSaving(false); return }
-      toast.success('Product updated!')
-    } else {
-      const { error } = await supabase.from('water_products').insert(payload)
-      if (error) { toast.error('Failed to create product'); setSaving(false); return }
-      toast.success('Product added!')
+    try {
+      if (editProduct) {
+        const res = await fetch(`/api/supplier/products/${editProduct.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) throw new Error('Failed to update product')
+        toast.success('Product updated!')
+      } else {
+        const res = await fetch('/api/supplier/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) throw new Error('Failed to create product')
+        toast.success('Product added!')
+      }
+    } catch (err: any) {
+      toast.error(err.message)
     }
 
     setSaving(false)
     setSheetOpen(false)
-    fetchProducts(supplierId)
+    fetchProducts()
   }
 
   const toggleActive = async (product: WaterProduct) => {
-    await supabase.from('water_products').update({ is_active: !product.is_active }).eq('id', product.id)
-    fetchProducts(supplierId!)
-    toast.success(product.is_active ? 'Product hidden' : 'Product visible')
+    try {
+      await fetch(`/api/supplier/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !product.is_active })
+      })
+      fetchProducts()
+      toast.success(product.is_active ? 'Product hidden' : 'Product visible')
+    } catch {
+      toast.error('Failed to update status')
+    }
   }
 
   const deleteProduct = async (id: string) => {
     if (!confirm('Delete this product?')) return
-    await supabase.from('water_products').delete().eq('id', id)
-    toast.success('Product deleted')
-    fetchProducts(supplierId!)
+    try {
+      await fetch(`/api/supplier/products/${id}`, { method: 'DELETE' })
+      toast.success('Product deleted')
+      fetchProducts()
+    } catch {
+      toast.error('Failed to delete product')
+    }
   }
 
   return (
