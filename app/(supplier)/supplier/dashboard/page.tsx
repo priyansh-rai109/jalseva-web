@@ -17,6 +17,8 @@ import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabe
 import Link from 'next/link'
 
 export const metadata = { title: 'Supplier Dashboard' }
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function SupplierDashboard() {
   const supabase = await createClient()
