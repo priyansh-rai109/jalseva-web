@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import {
   TrendingUp, ShoppingCart, Building2, Users,
@@ -8,11 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 
 export const metadata = { title: 'Analytics — Admin' }
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function AdminAnalyticsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin-login')
+
+  const adminSupabase = createAdminClient()
 
   const [
     { data: allOrders },
@@ -20,10 +25,10 @@ export default async function AdminAnalyticsPage() {
     { count: totalCustomers },
     { count: approvedSuppliers },
   ] = await Promise.all([
-    supabase.from('orders').select('status, total_amount, created_at'),
-    supabase.from('suppliers').select('*', { count: 'exact', head: true }),
-    supabase.from('customers').select('*', { count: 'exact', head: true }),
-    supabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+    adminSupabase.from('orders').select('status, total_amount, created_at'),
+    adminSupabase.from('suppliers').select('*', { count: 'exact', head: true }),
+    adminSupabase.from('customers').select('*', { count: 'exact', head: true }),
+    adminSupabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
   ])
 
   const orders = (allOrders || []) as { status: string; total_amount: number; created_at: string; customer_id: string }[]

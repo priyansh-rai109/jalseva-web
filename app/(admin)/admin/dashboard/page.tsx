@@ -20,6 +20,8 @@ import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabe
 import Link from 'next/link'
 
 export const metadata = { title: 'Admin Dashboard' }
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 import { createAdminClient } from '@/lib/supabase/admin'
 

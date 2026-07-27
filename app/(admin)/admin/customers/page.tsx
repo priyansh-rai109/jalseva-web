@@ -1,17 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { Users, Phone, Mail, ShoppingCart, Calendar, Droplets } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatDate, getInitials } from '@/lib/utils'
 
 export const metadata = { title: 'Customers — Admin' }
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function AdminCustomersPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin-login')
 
-  const { data: customers } = await supabase
+  const adminSupabase = createAdminClient()
+  const { data: customers } = await adminSupabase
     .from('customers')
     .select('*')
     .order('created_at', { ascending: false })
@@ -19,7 +23,7 @@ export default async function AdminCustomersPage() {
   // Get order counts per customer
   const customerIds = customers?.map((c: { id: string }) => c.id) || []
 
-  const { data: orderCounts } = await supabase
+  const { data: orderCounts } = await adminSupabase
     .from('orders')
     .select('customer_id')
     .in('customer_id', customerIds)

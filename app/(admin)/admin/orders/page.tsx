@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import {
   ShoppingCart, Clock, CheckCircle2, Truck, XCircle, ArrowUpRight, Droplets, Search
@@ -9,13 +10,16 @@ import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabe
 import Link from 'next/link'
 
 export const metadata = { title: 'All Orders — Admin' }
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function AdminOrdersPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin-login')
 
-  const { data: orders } = await supabase
+  const adminSupabase = createAdminClient()
+  const { data: orders } = await adminSupabase
     .from('orders')
     .select(`
       id, total_amount, status, quantity, payment_mode, created_at,
