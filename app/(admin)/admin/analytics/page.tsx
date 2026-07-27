@@ -26,10 +26,10 @@ export default async function AdminAnalyticsPage() {
     supabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
   ])
 
-  const orders = (allOrders || []) as any[]
-  const delivered = orders.filter((o: any) => o.status === 'delivered')
-  const cancelled = orders.filter((o: any) => o.status === 'cancelled')
-  const totalRevenue = delivered.reduce((s: number, o: any) => s + o.total_amount, 0)
+  const orders = (allOrders || []) as { status: string; total_amount: number; created_at: string; customer_id: string }[]
+  const delivered = orders.filter((o) => o.status === 'delivered')
+  const cancelled = orders.filter((o) => o.status === 'cancelled')
+  const totalRevenue = delivered.reduce((s: number, o) => s + o.total_amount, 0)
   const deliveryRate = orders.length ? ((delivered.length / orders.length) * 100).toFixed(1) : '0'
 
 
@@ -171,7 +171,7 @@ export default async function AdminAnalyticsPage() {
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Total Customers</span><span>{totalCustomers}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Active Orderers</span><span className="text-sky-400">{delivered.length > 0 ? new Set(delivered.map((o: any) => o.customer_id)).size : 0}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Active Orderers</span><span className="text-sky-400">{delivered.length > 0 ? new Set(delivered.map((o) => o.customer_id)).size : 0}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Avg Orders/Customer</span><span>{totalCustomers ? (orders.length / (totalCustomers || 1)).toFixed(1) : 0}</span></div>
             </div>
           </CardContent>

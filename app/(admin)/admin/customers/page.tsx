@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Users, Phone, Mail, ShoppingCart, Calendar, Droplets } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { formatDate, getInitials } from '@/lib/utils'
 
 export const metadata = { title: 'Customers — Admin' }
@@ -18,7 +17,7 @@ export default async function AdminCustomersPage() {
     .order('created_at', { ascending: false })
 
   // Get order counts per customer
-  const customerIds = customers?.map((c: any) => c.id) || []
+  const customerIds = customers?.map((c: { id: string }) => c.id) || []
 
   const { data: orderCounts } = await supabase
     .from('orders')
@@ -26,7 +25,7 @@ export default async function AdminCustomersPage() {
     .in('customer_id', customerIds)
 
   const countMap: Record<string, number> = {}
-  orderCounts?.forEach((o: any) => {
+  orderCounts?.forEach((o: { customer_id: string }) => {
     countMap[o.customer_id] = (countMap[o.customer_id] || 0) + 1
   })
 
@@ -49,7 +48,7 @@ export default async function AdminCustomersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {customers.map((customer: any) => (
+          {customers.map((customer: { id: string; name?: string; email?: string; phone?: string; created_at: string; addresses?: unknown[] }) => (
             <Card key={customer.id} className="glass-card hover:border-sky-500/20 transition-all">
               <CardContent className="p-5">
                 <div className="flex items-center gap-3 mb-3">
@@ -73,9 +72,9 @@ export default async function AdminCustomersPage() {
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-3 h-3" /> Joined {formatDate(customer.created_at)}
                   </div>
-                  {customer.addresses?.length > 0 && (
+                  {(customer.addresses?.length ?? 0) > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <Mail className="w-3 h-3" /> {customer.addresses.length} saved address{customer.addresses.length > 1 ? 'es' : ''}
+                      <Mail className="w-3 h-3" /> {customer.addresses?.length} saved address{(customer.addresses?.length ?? 0) > 1 ? 'es' : ''}
                     </div>
                   )}
                 </div>

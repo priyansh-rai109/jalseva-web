@@ -27,12 +27,15 @@ export async function POST(request: Request) {
       const phoneToUse = user.phone || user.user_metadata?.phone || '9876543210'
 
       // First try to find by exact user_id
-      let { data: existingCustomer, error: findErr } = await adminSupabase
+      let existingCustomer;
+      const { data: initialCustomer, error: findErr } = await adminSupabase
         .from('customers')
         .select('id, name, phone')
         .eq('user_id', user.id)
         .limit(1)
         .maybeSingle()
+      
+      existingCustomer = initialCustomer;
 
       if (findErr) console.warn('[Orders API] Find by user_id error:', findErr.message)
 
