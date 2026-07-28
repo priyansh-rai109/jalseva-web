@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
 
 const TEST_OTP = '123456'
+const isDevelopment = process.env.NODE_ENV === 'development'
 
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
@@ -78,8 +79,9 @@ function RegisterPageContent() {
       if (error) {
         const msg = error.message?.toLowerCase() || ''
         if (
-          msg.includes('unsupported') || msg.includes('phone provider') ||
-          msg.includes('not enabled') || msg.includes('sms') || msg.includes('twilio')
+          isDevelopment &&
+          (msg.includes('unsupported') || msg.includes('phone provider') ||
+            msg.includes('not enabled') || msg.includes('sms') || msg.includes('twilio'))
         ) {
           console.warn('[Register] SMS provider not configured — test mode')
           setTestMode(true)
@@ -116,7 +118,7 @@ function RegisterPageContent() {
     try {
       let userId: string
 
-      if (testMode || enteredOtp === TEST_OTP) {
+      if (isDevelopment && (testMode || enteredOtp === TEST_OTP)) {
         console.log('[Register] Test mode OTP accepted')
         userId = getPhoneUuid(digits)
       } else {
