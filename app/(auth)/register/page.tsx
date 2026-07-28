@@ -28,6 +28,7 @@ function RegisterPageContent() {
   const [loading, setLoading] = useState(false)
   const [testMode, setTestMode] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>('customer')
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
   const countdownRef = useRef<NodeJS.Timeout | null>(null)
@@ -169,7 +170,7 @@ function RegisterPageContent() {
       } else {
         // New user — go to complete profile
         toast.success('Phone verified! Complete your profile.')
-        window.location.href = '/register/complete-profile'
+        window.location.href = `/register/complete-profile?role=${selectedRole}`
       }
     } catch (err: any) {
       console.error('[Register] Verify OTP exception:', err)
@@ -213,21 +214,37 @@ function RegisterPageContent() {
 
           {/* What you can register as */}
           {step === 'phone' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-sky-500/8 border border-sky-500/20 flex items-center gap-2">
-                <User className="w-4 h-4 text-sky-400 shrink-0" />
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => setSelectedRole('customer')}
+                className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2 ${
+                  selectedRole === 'customer'
+                    ? 'bg-sky-500/15 border-sky-500/60 ring-1 ring-sky-500/50'
+                    : 'bg-secondary/40 border-border hover:bg-secondary/70'
+                }`}
+              >
+                <User className={`w-4 h-4 shrink-0 ${selectedRole === 'customer' ? 'text-sky-400' : 'text-muted-foreground'}`} />
                 <div>
-                  <p className="text-xs font-semibold text-foreground">Customer</p>
-                  <p className="text-[10px] text-muted-foreground">Order water</p>
+                  <p className={`text-xs font-semibold ${selectedRole === 'customer' ? 'text-foreground' : 'text-muted-foreground'}`}>Customer</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Order water</p>
                 </div>
-              </div>
-              <div className="p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRole('supplier')}
+                className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2 ${
+                  selectedRole === 'supplier'
+                    ? 'bg-amber-500/15 border-amber-500/60 ring-1 ring-amber-500/50'
+                    : 'bg-secondary/40 border-border hover:bg-secondary/70'
+                }`}
+              >
+                <Building2 className={`w-4 h-4 shrink-0 ${selectedRole === 'supplier' ? 'text-amber-400' : 'text-muted-foreground'}`} />
                 <div>
-                  <p className="text-xs font-semibold text-foreground">Supplier</p>
-                  <p className="text-[10px] text-muted-foreground">Deliver water</p>
+                  <p className={`text-xs font-semibold ${selectedRole === 'supplier' ? 'text-foreground' : 'text-muted-foreground'}`}>Supplier</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Deliver water</p>
                 </div>
-              </div>
+              </button>
             </div>
           )}
 

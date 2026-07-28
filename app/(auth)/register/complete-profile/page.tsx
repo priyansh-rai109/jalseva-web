@@ -33,7 +33,12 @@ export default function CompleteProfilePage() {
 
   const [user, setUser] = useState<any>(null)
   const [phone, setPhone] = useState('')
-  const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>('customer')
+  
+  // Try to read role from URL, fallback to customer
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const initialRole = searchParams?.get('role') === 'supplier' ? 'supplier' : 'customer'
+  const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>(initialRole)
+
   const [loading, setLoading] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
