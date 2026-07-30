@@ -29,6 +29,7 @@ async function resolveUserId(admin: any, payload: any, role: string, name: strin
   try {
     const { data: newAuth, error: authErr } = await admin.auth.admin.createUser({
       email: dummyEmail,
+      password: 'MockUser123!',
       email_confirm: true,
       user_metadata: { role, name, phone: fullPhone }
     })
