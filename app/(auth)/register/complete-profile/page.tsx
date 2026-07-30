@@ -37,11 +37,11 @@ export default function CompleteProfilePage() {
   const [loading, setLoading] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
-  // Customer form state (No Email field required)
+  // Customer form state
   const [custName, setCustName] = useState('')
   const [custCity, setCustCity] = useState('Jodhpur')
 
-  // Supplier form state (No Email field required)
+  // Supplier form state
   const [bizName, setBizName] = useState('')
   const [ownerName, setOwnerName] = useState('')
   const [supAddress, setSupAddress] = useState('')
@@ -83,7 +83,6 @@ export default function CompleteProfilePage() {
         let existingRole: string | null = authUser.user_metadata?.role || null
 
         if (!existingRole || existingRole === '') {
-          // Query profiles by phone
           if (digits) {
             const { data: pByPhone } = await supabase
               .from('profiles')
@@ -95,7 +94,6 @@ export default function CompleteProfilePage() {
             }
           }
 
-          // Query profiles by ID
           if (!existingRole && authUser.id) {
             const { data: pById } = await supabase
               .from('profiles')
@@ -148,12 +146,20 @@ export default function CompleteProfilePage() {
       console.log('[CompleteProfile] Submitting Customer profile...', { validUserId, custName, custCity, formattedPhone })
 
       const { upsertCustomerProfileAction } = await import('./actions')
-      const realUserId = await upsertCustomerProfileAction({
+      const res = await upsertCustomerProfileAction({
         userId: validUserId,
         name: custName.trim(),
         phone: formattedPhone,
         city: custCity.trim(),
       })
+
+      if (res && res.success === false) {
+        toast.error(res.error || 'Failed to save profile')
+        setLoading(false)
+        return
+      }
+
+      const realUserId = res?.userId || validUserId
 
       writeMockCookie({
         ...user,
@@ -196,7 +202,7 @@ export default function CompleteProfilePage() {
       console.log('[CompleteProfile] Submitting Supplier profile...', { validUserId, bizName, ownerName, supAddress, supCity })
 
       const { upsertSupplierProfileAction } = await import('./actions')
-      const realUserId = await upsertSupplierProfileAction({
+      const res = await upsertSupplierProfileAction({
         userId: validUserId,
         bizName: bizName.trim(),
         ownerName: ownerName.trim(),
@@ -204,6 +210,14 @@ export default function CompleteProfilePage() {
         address: supAddress.trim(),
         city: supCity.trim(),
       })
+
+      if (res && res.success === false) {
+        toast.error(res.error || 'Failed to save supplier profile')
+        setLoading(false)
+        return
+      }
+
+      const realUserId = res?.userId || validUserId
 
       writeMockCookie({
         ...user,
@@ -311,7 +325,7 @@ export default function CompleteProfilePage() {
             </div>
           </div>
 
-          {/* ── Customer Form (No Email Field) ── */}
+          {/* ── Customer Form ── */}
           {selectedRole === 'customer' && (
             <form onSubmit={handleCustomerSubmit} className="space-y-4">
               <div className="space-y-1.5">
@@ -350,7 +364,7 @@ export default function CompleteProfilePage() {
             </form>
           )}
 
-          {/* ── Supplier Form (No Email Field) ── */}
+          {/* ── Supplier Form ── */}
           {selectedRole === 'supplier' && (
             <form onSubmit={handleSupplierSubmit} className="space-y-4">
               <div className="space-y-1.5">
