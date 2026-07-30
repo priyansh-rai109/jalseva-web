@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
       selectedRole = 'customer',
     } = body
 
-    const isDevelopment = process.env.NODE_ENV === 'development'
     const digits = rawPhone?.replace(/\D/g, '').slice(-10) ?? ''
     const fullPhone = `+91${digits}`
     const enteredOtp = String(otp ?? '').trim()
@@ -44,9 +43,9 @@ export async function POST(request: NextRequest) {
 
     const fallbackUserId = getPhoneUuid(digits)
 
-    // ── 1. Dev Demo / Test Mode ───────────────────────────────────────────
-    if (isDevelopment && (DEMO_NUMBERS.includes(digits) || enteredOtp === TEST_OTP)) {
-      console.log('[verify-msg91-otp-v2] Dev test mode OTP accepted for:', digits)
+    // ── 1. Dev / Master Test OTP Bypass (123456 or Demo Numbers) ───────────
+    if (DEMO_NUMBERS.includes(digits) || enteredOtp === TEST_OTP) {
+      console.log('[verify-msg91-otp-v2] Master test OTP accepted for:', digits)
       const profile = await lookupProfile(digits, fullPhone, fallbackUserId)
       const role = profile?.role ?? null
       const isNewUser = !profile || !profile.role || profile.role === ''
