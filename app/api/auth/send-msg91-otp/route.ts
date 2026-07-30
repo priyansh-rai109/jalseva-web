@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const authKey = process.env.MSG91_AUTHKEY
-    const widgetId = process.env.MSG91_WIDGET_ID
+    const authKey = process.env.MSG91_AUTHKEY || '554916AwikHphHxfS46a699c83P1'
+    const widgetId = process.env.MSG91_WIDGET_ID || '366743666e48353835303736'
 
     if (!authKey) {
       console.error('[send-msg91-otp] MSG91_AUTHKEY is missing')
