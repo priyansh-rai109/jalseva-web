@@ -143,23 +143,29 @@ export default function CompleteProfilePage() {
         : getPhoneUuid(digits)
       const formattedPhone = digits ? `+91${digits}` : phone
 
-      console.log('[CompleteProfile] Submitting Customer profile...', { validUserId, custName, custCity, formattedPhone })
+      console.log('[CompleteProfile] Submitting Customer profile via API...', { validUserId, custName, custCity, formattedPhone })
 
-      const { upsertCustomerProfileAction } = await import('./actions')
-      const res = await upsertCustomerProfileAction({
-        userId: validUserId,
-        name: custName.trim(),
-        phone: formattedPhone,
-        city: custCity.trim(),
+      const response = await fetch('/api/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: 'customer',
+          userId: validUserId,
+          name: custName.trim(),
+          phone: formattedPhone,
+          city: custCity.trim(),
+        }),
       })
 
-      if (res && res.success === false) {
+      const res = await response.json()
+
+      if (!res.success) {
         toast.error(res.error || 'Failed to save profile')
         setLoading(false)
         return
       }
 
-      const realUserId = res?.userId || validUserId
+      const realUserId = res.userId || validUserId
 
       writeMockCookie({
         ...user,
@@ -199,25 +205,31 @@ export default function CompleteProfilePage() {
         : getPhoneUuid(digits)
       const formattedPhone = digits ? `+91${digits}` : phone
 
-      console.log('[CompleteProfile] Submitting Supplier profile...', { validUserId, bizName, ownerName, supAddress, supCity })
+      console.log('[CompleteProfile] Submitting Supplier profile via API...', { validUserId, bizName, ownerName, supAddress, supCity })
 
-      const { upsertSupplierProfileAction } = await import('./actions')
-      const res = await upsertSupplierProfileAction({
-        userId: validUserId,
-        bizName: bizName.trim(),
-        ownerName: ownerName.trim(),
-        phone: formattedPhone,
-        address: supAddress.trim(),
-        city: supCity.trim(),
+      const response = await fetch('/api/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: 'supplier',
+          userId: validUserId,
+          bizName: bizName.trim(),
+          ownerName: ownerName.trim(),
+          phone: formattedPhone,
+          address: supAddress.trim(),
+          city: supCity.trim(),
+        }),
       })
 
-      if (res && res.success === false) {
+      const res = await response.json()
+
+      if (!res.success) {
         toast.error(res.error || 'Failed to save supplier profile')
         setLoading(false)
         return
       }
 
-      const realUserId = res?.userId || validUserId
+      const realUserId = res.userId || validUserId
 
       writeMockCookie({
         ...user,
