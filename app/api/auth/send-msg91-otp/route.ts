@@ -3,6 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 const DEMO_NUMBERS = ['9876543210', '9876543211']
 const DEFAULT_AUTH_KEY = '554916AwikHphHxfS46a699c83P1'
 const DEFAULT_WIDGET_ID = '366743666e48353835303736'
+const DEFAULT_TEMPLATE_ID = '6a69a7bfd7f04edf290d3915'
+
+function cleanStr(val: string | undefined, fallback: string): string {
+  if (!val) return fallback
+  const cleaned = val.replace(/['"]/g, '').trim()
+  return cleaned !== '' ? cleaned : fallback
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +17,7 @@ export async function POST(request: NextRequest) {
     const { phone: rawPhone } = body
 
     const isDevelopment = process.env.NODE_ENV === 'development'
-    const digits = rawPhone?.replace(/\D/g, '') ?? ''
+    const digits = rawPhone?.replace(/\D/g, '').slice(-10) ?? ''
 
     if (!digits || digits.length !== 10) {
       return NextResponse.json(
@@ -29,16 +36,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const envKey = process.env.MSG91_AUTHKEY?.trim()
-    const envWidget = process.env.MSG91_WIDGET_ID?.trim()
-
-    const authKey = envKey && envKey !== '' ? envKey : DEFAULT_AUTH_KEY
-    const widgetId = envWidget && envWidget !== '' ? envWidget : DEFAULT_WIDGET_ID
+    const authKey = cleanStr(process.env.MSG91_AUTHKEY, DEFAULT_AUTH_KEY)
+    const widgetId = cleanStr(process.env.MSG91_WIDGET_ID, DEFAULT_WIDGET_ID)
+    const templateId = cleanStr(process.env.MSG91_TEMPLATE_ID, DEFAULT_TEMPLATE_ID)
 
     const formattedMobile = `91${digits}`
-    console.log('[send-msg91-otp] Requesting OTP send for:', formattedMobile, 'using authKey:', authKey ? 'present' : 'none')
+    console.log('[send-msg91-otp] Requesting OTP send for:', formattedMobile)
 
-    // ── 2. Widget Send OTP API (uses OTP Widget ₹50 wallet balance) ─────────
+    // ── 2. Method 1: Widget Send OTP API ──────────────────────────────────
     if (widgetId) {
       try {
         const widgetRes = await fetch('https://control.msg91.com/api/v5/widget/sendOtp', {
@@ -48,7 +53,7 @@ export async function POST(request: NextRequest) {
             authkey: authKey,
           },
           body: JSON.stringify({
-            widgetId: widgetId.trim(),
+            widgetId: widgetId,
             identifier: formattedMobile,
           }),
         })
@@ -67,22 +72,18 @@ export async function POST(request: NextRequest) {
             message: 'OTP sent successfully via SMS',
           })
         }
-
-        if (widgetData.message?.toLowerCase().includes('captcha')) {
-          console.warn('[send-msg91-otp] Captcha enabled on widget. Falling back to standard OTP API.')
-        } else if (widgetData.type === 'error') {
-          return NextResponse.json(
-            { success: false, error: widgetData.message || 'Widget OTP send failed' },
-            { status: 400 }
-          )
-        }
+        console.warn('[send-msg91-otp] Widget API failed, trying Standard OTP API fallback. Widget error:', widgetData)
       } catch (e) {
-        console.warn('[send-msg91-otp] Widget sendOtp error, attempting standard OTP API:', e)
+        console.warn('[send-msg91-otp] Widget API exception, falling back:', e)
       }
     }
 
-    // ── 3. Fallback: Standard MSG91 v5 OTP API ────────────────────────────
-    const otpRes = await fetch(`https://control.msg91.com/api/v5/otp?mobile=${formattedMobile}`, {
+    // ── 3. Method 2 Fallback: Standard MSG91 v5 OTP API with Template ID ───
+    const otpApiUrl = templateId
+      ? `https://control.msg91.com/api/v5/otp?mobile=${formattedMobile}&template_id=${templateId}`
+      : `https://control.msg91.com/api/v5/otp?mobile=${formattedMobile}`
+
+    const otpRes = await fetch(otpApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -93,18 +94,18 @@ export async function POST(request: NextRequest) {
     const otpData = await otpRes.json()
     console.log('[send-msg91-otp] Standard OTP API response:', otpData)
 
-    if (otpData.type === 'error' || otpData.status === 'fail') {
-      return NextResponse.json(
-        { success: false, error: otpData.message || 'Failed to send OTP via SMS' },
-        { status: 400 }
-      )
+    if (otpData.type === 'success' || otpData.status === 'success' || otpData.request_id) {
+      return NextResponse.json({
+        success: true,
+        requestId: otpData.request_id || null,
+        message: 'OTP sent successfully via SMS',
+      })
     }
 
-    return NextResponse.json({
-      success: true,
-      requestId: otpData.request_id || null,
-      message: 'OTP sent successfully via SMS',
-    })
+    return NextResponse.json(
+      { success: false, error: otpData.message || 'Failed to send OTP via SMS. Please check mobile number.' },
+      { status: 400 }
+    )
 
   } catch (err: any) {
     console.error('[send-msg91-otp] Unexpected exception:', err)

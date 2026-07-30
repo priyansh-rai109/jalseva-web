@@ -7,6 +7,12 @@ const TEST_OTP = '123456'
 const DEFAULT_AUTH_KEY = '554916AwikHphHxfS46a699c83P1'
 const DEFAULT_WIDGET_ID = '366743666e48353835303736'
 
+function cleanStr(val: string | undefined, fallback: string): string {
+  if (!val) return fallback
+  const cleaned = val.replace(/['"]/g, '').trim()
+  return cleaned !== '' ? cleaned : fallback
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -56,11 +62,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const envKey = process.env.MSG91_AUTHKEY?.trim()
-    const envWidget = process.env.MSG91_WIDGET_ID?.trim()
-
-    const authKey = envKey && envKey !== '' ? envKey : DEFAULT_AUTH_KEY
-    const widgetId = envWidget && envWidget !== '' ? envWidget : DEFAULT_WIDGET_ID
+    const authKey = cleanStr(process.env.MSG91_AUTHKEY, DEFAULT_AUTH_KEY)
+    const widgetId = cleanStr(process.env.MSG91_WIDGET_ID, DEFAULT_WIDGET_ID)
 
     const formattedMobile = `91${digits}`
     console.log('[verify-msg91-otp-v2] Verifying OTP via MSG91 API for:', formattedMobile, 'OTP:', enteredOtp)
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
     if (widgetId) {
       try {
         const payload: any = {
-          widgetId: widgetId.trim(),
+          widgetId: widgetId,
           identifier: formattedMobile,
           otp: enteredOtp,
         }
