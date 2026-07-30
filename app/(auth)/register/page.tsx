@@ -5,30 +5,32 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Droplets, Phone, ArrowRight, Loader2, RotateCcw,
-  CheckCircle2, AlertCircle, User, Building2
+  CheckCircle2, User, Building2
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
 
-const TEST_OTP = '123456'
-const isDevelopment = process.env.NODE_ENV === 'development'
-
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
 }
 
+function redirectByRole(role: string | null, selectedRole: string) {
+  if (role === 'super_admin') { window.location.href = '/admin/dashboard'; return }
+  if (role === 'supplier') { window.location.href = '/supplier/dashboard'; return }
+  if (role === 'customer') { window.location.href = '/customer/dashboard'; return }
+  window.location.href = `/register/complete-profile?role=${selectedRole}`
+}
+
 function RegisterPageContent() {
-  const supabase = createClient()
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [loading, setLoading] = useState(false)
-  const [testMode, setTestMode] = useState(false)
-  const [countdown, setCountdown] = useState(0)
+  const [requestId, setRequestId] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>('customer')
+  const [loading, setLoading] = useState(false)
+  const [countdown, setCountdown] = useState(0)
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
   const countdownRef = useRef<NodeJS.Timeout | null>(null)
@@ -72,26 +74,26 @@ function RegisterPageContent() {
     setLoading(true)
 
     try {
-      const fullPhone = `+91${digits}`
-      console.log('[Register] Sending OTP to:', fullPhone)
+      console.log('[Register] Requesting OTP send for:', digits)
+      const res = await fetch('/api/auth/send-msg91-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: digits }),
+      })
 
-      const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone })
+      const data = await res.json()
+      if (!data.success) {
+        toast.error(data.error || 'Failed to send OTP')
+        setLoading(false)
+        return
+      }
 
-      if (error) {
-        const msg = error.message?.toLowerCase() || ''
-        if (
-          isDevelopment &&
-          (msg.includes('unsupported') || msg.includes('phone provider') ||
-            msg.includes('not enabled') || msg.includes('sms') || msg.includes('twilio'))
-        ) {
-          console.warn('[Register] SMS provider not configured — test mode')
-          setTestMode(true)
-          toast.info('📲 Test Mode: Use OTP 123456 to continue')
-        } else {
-          toast.error(error.message)
-          setLoading(false)
-          return
-        }
+      if (data.requestId) {
+        setRequestId(data.requestId)
+      }
+
+      if (data.testMode) {
+        toast.info('📲 Test Mode: Use OTP 123456 to register')
       } else {
         toast.success(`OTP sent to +91 ${digits}`)
       }
@@ -101,8 +103,8 @@ function RegisterPageContent() {
       setOtp(['', '', '', '', '', ''])
       setTimeout(() => otpRefs.current[0]?.focus(), 100)
     } catch (err: any) {
-      console.error('[Register] Send OTP exception:', err)
-      toast.error('Failed to send OTP. Try again.')
+      console.error('[Register] Send OTP error:', err)
+      toast.error('Failed to send OTP. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -110,70 +112,53 @@ function RegisterPageContent() {
 
   const handleVerifyOtp = async () => {
     const digits = phone.replace(/\D/g, '')
-    const fullPhone = `+91${digits}`
-    const enteredOtp = otpValue
-
-    if (enteredOtp.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
+    if (otpValue.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
     setLoading(true)
 
     try {
-      let userId: string
+      console.log('[Register] Requesting OTP verification for:', digits, 'with requestId:', requestId)
+      const res = await fetch('/api/auth/verify-msg91-otp-v2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: digits,
+          otp: otpValue,
+          requestId: requestId || undefined,
+          selectedRole,
+        }),
+      })
 
-      if (isDevelopment && (testMode || enteredOtp === TEST_OTP)) {
-        console.log('[Register] Test mode OTP accepted')
-        userId = getPhoneUuid(digits)
-      } else {
-        const { data, error } = await supabase.auth.verifyOtp({
-          phone: fullPhone,
-          token: enteredOtp,
-          type: 'sms'
-        })
-        if (error) {
-          console.error('[Register] OTP verify error:', error.message)
-          toast.error(error.message || 'Invalid OTP. Try again.')
-          setLoading(false)
-          return
-        }
-        userId = data.user?.id ?? getPhoneUuid(digits)
+      const data = await res.json()
+      if (!data.success) {
+        toast.error(data.error || 'Invalid OTP. Please try again.')
+        setLoading(false)
+        return
       }
 
-      console.log('[Register] OTP verified. userId:', userId)
-
-      // Check if user already has a profile/role
-      let existingRole: string | null = null
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', userId)
-          .maybeSingle()
-        existingRole = (profile?.role && profile.role !== '') ? profile.role : null
-        console.log('[Register] Existing role from DB:', existingRole)
-      } catch {}
-
-      // Write mock session cookie with empty role (complete-profile will update it)
       const mockUser = {
-        id: userId,
-        phone: fullPhone,
-        user_metadata: { role: existingRole ?? '', phone: fullPhone }
+        id: data.userId,
+        phone: data.phone,
+        user_metadata: {
+          role: data.role ?? '',
+          phone: data.phone,
+          name: data.name ?? '',
+        },
       }
       setMockCookie(mockUser)
 
       await new Promise(r => setTimeout(r, 200))
 
-      if (existingRole) {
-        // Returning user — go straight to dashboard
-        toast.success('Welcome back! Signing you in...')
-        if (existingRole === 'super_admin') window.location.href = '/admin/dashboard'
-        else if (existingRole === 'supplier') window.location.href = '/supplier/dashboard'
-        else window.location.href = '/customer/dashboard'
+      if (!data.isNewUser && data.role) {
+        // Returning user → direct to dashboard!
+        toast.success(`Welcome back${data.name ? ', ' + data.name : ''}!`)
+        redirectByRole(data.role, selectedRole)
       } else {
-        // New user — go to complete profile
-        toast.success('Phone verified! Complete your profile.')
+        // New user → complete profile
+        toast.success('Phone verified! Please complete your details.')
         window.location.href = `/register/complete-profile?role=${selectedRole}`
       }
     } catch (err: any) {
-      console.error('[Register] Verify OTP exception:', err)
+      console.error('[Register] Verify OTP error:', err)
       toast.error('Verification failed. Please try again.')
       setLoading(false)
     }
@@ -202,19 +187,10 @@ function RegisterPageContent() {
         </div>
 
         <div className="glass-card p-8 space-y-6">
-          {testMode && (
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <div>
-                <p className="font-semibold">Test Mode Active</p>
-                <p className="mt-0.5 text-amber-300/80">Use OTP <strong>123456</strong> to register.</p>
-              </div>
-            </div>
-          )}
 
-          {/* What you can register as */}
+          {/* Role selector — show only on phone step */}
           {step === 'phone' && (
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setSelectedRole('customer')}
@@ -318,7 +294,7 @@ function RegisterPageContent() {
               </Button>
 
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <button type="button" onClick={() => { setStep('phone'); setOtp(['','','','','','']); setTestMode(false) }} className="hover:text-sky-400 transition-colors flex items-center gap-1">
+                <button type="button" onClick={() => { setStep('phone'); setOtp(['','','','','','']); setRequestId(null) }} className="hover:text-sky-400 transition-colors flex items-center gap-1">
                   <RotateCcw className="w-3 h-3" /> Change number
                 </button>
                 {countdown > 0 ? (

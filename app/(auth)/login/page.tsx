@@ -5,33 +5,30 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Droplets, Phone, ArrowRight, Loader2, RotateCcw,
-  Sparkles, User, Building2, CheckCircle2, AlertCircle
+  Sparkles, User, Building2, CheckCircle2
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
 
-// ─────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────
-const TEST_OTP = '123456'
-const isDevelopment = process.env.NODE_ENV === 'development'
-
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
 }
 
-export default function LoginPage() {
-  const supabase = createClient()
+function redirectByRole(role: string | null) {
+  if (role === 'super_admin') window.location.href = '/admin/dashboard'
+  else if (role === 'supplier') window.location.href = '/supplier/dashboard'
+  else if (role === 'customer') window.location.href = '/customer/dashboard'
+  else window.location.href = '/register/complete-profile'
+}
 
-  // ── state ────────────────────────────────────
+export default function LoginPage() {
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const [requestId, setRequestId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [testMode, setTestMode] = useState(false)
   const [countdown, setCountdown] = useState(0)
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -48,7 +45,7 @@ export default function LoginPage() {
   const otpValue = otp.join('')
   const isValidOtp = otpValue.length === 6
 
-  // ── OTP box handlers ─────────────────────────
+  // ── OTP box handlers ──────────────────────────────────────────────────
   const handleOtpChange = (idx: number, val: string) => {
     const digit = val.replace(/\D/g, '').slice(-1)
     const next = [...otp]
@@ -71,37 +68,33 @@ export default function LoginPage() {
     }
   }
 
-  // ── Step 1: Send OTP ─────────────────────────
+  // ── Step 1: Send OTP via Server API ─────────────────────────────────────
   const handleSendOtp = async () => {
     const digits = phone.replace(/\D/g, '')
     if (digits.length !== 10) { toast.error('Enter a valid 10-digit mobile number'); return }
     setLoading(true)
 
     try {
-      const fullPhone = `+91${digits}`
-      console.log('[Login] Sending OTP to:', fullPhone)
+      console.log('[Login] Requesting OTP send for:', digits)
+      const res = await fetch('/api/auth/send-msg91-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: digits }),
+      })
 
-      const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone })
+      const data = await res.json()
+      if (!data.success) {
+        toast.error(data.error || 'Failed to send OTP')
+        setLoading(false)
+        return
+      }
 
-      if (error) {
-        const msg = error.message?.toLowerCase() || ''
-        if (
-          isDevelopment &&
-          (msg.includes('unsupported') ||
-            msg.includes('phone provider') ||
-            msg.includes('not enabled') ||
-            msg.includes('sms') ||
-            msg.includes('twilio'))
-        ) {
-          console.warn('[Login] SMS provider not configured — entering test mode')
-          setTestMode(true)
-          toast.info('📲 Test Mode: Use OTP 123456 to continue')
-        } else {
-          console.error('[Login] OTP send error:', error.message)
-          toast.error(error.message)
-          setLoading(false)
-          return
-        }
+      if (data.requestId) {
+        setRequestId(data.requestId)
+      }
+
+      if (data.testMode) {
+        toast.info('📲 Test Mode: Use OTP 123456 to continue')
       } else {
         toast.success(`OTP sent to +91 ${digits}`)
       }
@@ -111,109 +104,69 @@ export default function LoginPage() {
       setOtp(['', '', '', '', '', ''])
       setTimeout(() => otpRefs.current[0]?.focus(), 100)
     } catch (err: any) {
-      console.error('[Login] Send OTP exception:', err)
-      toast.error('Failed to send OTP. Try again.')
+      console.error('[Login] Send OTP error:', err)
+      toast.error('Failed to send OTP. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  // ── Step 2: Verify OTP ───────────────────────
+  // ── Step 2: Verify OTP via Server API ───────────────────────────────────
   const handleVerifyOtp = async () => {
     const digits = phone.replace(/\D/g, '')
-    const fullPhone = `+91${digits}`
-    const enteredOtp = otpValue
-
-    if (enteredOtp.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
+    if (otpValue.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
     setLoading(true)
 
     try {
-      let userId: string
-      let userRole: string | null = null
+      console.log('[Login] Requesting OTP verification for:', digits, 'with requestId:', requestId)
+      const res = await fetch('/api/auth/verify-msg91-otp-v2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: digits,
+          otp: otpValue,
+          requestId: requestId || undefined,
+        }),
+      })
 
-      let existingProfile = null
-      try {
-        const { checkExistingUserByPhone } = await import('./actions')
-        existingProfile = await checkExistingUserByPhone(fullPhone)
-        console.log('[Login] Profile check by phone:', existingProfile)
-      } catch (e) {
-        console.error('[Login] Action error:', e)
-      }
-
-      if (isDevelopment && (testMode || enteredOtp === TEST_OTP)) {
-        // ── Test/fallback path ──────────────────
-        console.log('[Login] Test mode — accepting OTP 123456')
-
-        if (existingProfile) {
-          userId = existingProfile.id
-          userRole = existingProfile.role || null
-        } else {
-          userId = getPhoneUuid(digits)
-          userRole = null
-        }
-
-        // Set the mock session cookie
-        const mockUser = {
-          id: userId,
-          phone: fullPhone,
-          user_metadata: { role: userRole ?? '', phone: fullPhone }
-        }
-        setMockCookie(mockUser)
-      } else {
-        // ── Real Supabase OTP path ──────────────
-        console.log('[Login] Verifying real OTP for', fullPhone)
-        const { data, error } = await supabase.auth.verifyOtp({
-          phone: fullPhone,
-          token: enteredOtp,
-          type: 'sms'
-        })
-
-        if (error) {
-          console.error('[Login] OTP verify error:', error.message)
-          toast.error(error.message || 'Invalid OTP. Try again.')
-          setLoading(false)
-          return
-        }
-
-        const user = data.user
-        userId = existingProfile?.id || user?.id || getPhoneUuid(digits)
-        userRole = existingProfile?.role || null
-        console.log('[Login] Real auth — role from DB:', userRole)
-
-        // Also set mock cookie so middleware fallback works
-        const mockUser = {
-          id: userId,
-          phone: fullPhone,
-          user_metadata: { role: userRole ?? '', phone: fullPhone }
-        }
-        setMockCookie(mockUser)
-      }
-
-      console.log('[Login] Auth complete. userId:', userId, '| role:', userRole)
-
-      // ── Route based on role ─────────────────
-      if (!userRole) {
-        toast.success('Phone verified! Complete your profile.')
-        await new Promise(r => setTimeout(r, 200))
-        window.location.href = '/register/complete-profile'
+      const data = await res.json()
+      if (!data.success) {
+        toast.error(data.error || 'Invalid OTP. Please try again.')
+        setLoading(false)
         return
       }
 
-      toast.success('Signed in successfully!')
+      // Set mock session cookie with real userId and role
+      const mockUser = {
+        id: data.userId,
+        phone: data.phone,
+        user_metadata: {
+          role: data.role ?? '',
+          phone: data.phone,
+          name: data.name ?? '',
+        },
+      }
+      setMockCookie(mockUser)
+
       await new Promise(r => setTimeout(r, 200))
 
-      if (userRole === 'super_admin') window.location.href = '/admin/dashboard'
-      else if (userRole === 'supplier') window.location.href = '/supplier/dashboard'
-      else window.location.href = '/customer/dashboard'
-
+      if (!data.isNewUser && data.role) {
+        // Returning registered user → direct to dashboard!
+        toast.success(`Welcome back${data.name ? ', ' + data.name : ''}!`)
+        redirectByRole(data.role)
+      } else {
+        // New unregistered user → complete profile
+        toast.success('Phone verified! Please complete your details.')
+        window.location.href = `/register/complete-profile?role=customer`
+      }
     } catch (err: any) {
-      console.error('[Login] Verify OTP exception:', err)
+      console.error('[Login] Verify OTP error:', err)
       toast.error('Verification failed. Please try again.')
       setLoading(false)
     }
   }
 
-  // ── Demo quick-fills ─────────────────────────
+  // ── Demo quick-fills ────────────────────────────────────────────────────
   const fillDemo = async (demoPhone: string, role: string) => {
     const digits = demoPhone.replace(/\D/g, '')
     const fullPhone = `+91${digits}`
@@ -222,7 +175,7 @@ export default function LoginPage() {
     const mockUser = {
       id: userId,
       phone: fullPhone,
-      user_metadata: { role, phone: fullPhone, name: role === 'customer' ? 'Vijay Jodhpur' : 'Ramesh Kumar' }
+      user_metadata: { role, phone: fullPhone, name: role === 'customer' ? 'Vijay Jodhpur' : 'Ramesh Kumar' },
     }
     setMockCookie(mockUser)
 
@@ -231,17 +184,6 @@ export default function LoginPage() {
     window.location.href = role === 'customer' ? '/customer/dashboard' : '/supplier/dashboard'
   }
 
-  // ── Resend OTP ───────────────────────────────
-  const handleResend = async () => {
-    if (countdown > 0) return
-    setOtp(['', '', '', '', '', ''])
-    setStep('phone')
-    setTestMode(false)
-  }
-
-  // ─────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -266,18 +208,8 @@ export default function LoginPage() {
         </div>
 
         <div className="glass-card p-8 space-y-6">
-          {/* Test Mode Banner */}
-          {testMode && (
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <div>
-                <p className="font-semibold">Test Mode Active</p>
-                <p className="mt-0.5 text-amber-300/80">SMS provider not configured. Use OTP <strong>123456</strong> to continue.</p>
-              </div>
-            </div>
-          )}
 
-          {/* ── STEP 1: Phone ── */}
+          {/* ── STEP 1: Phone Input ── */}
           {step === 'phone' && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -316,7 +248,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* ── STEP 2: OTP ── */}
+          {/* ── STEP 2: Custom 6-Box OTP Input ── */}
           {step === 'otp' && (
             <div className="space-y-5">
               <div className="space-y-3">
@@ -352,7 +284,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <button
                   type="button"
-                  onClick={() => { setStep('phone'); setOtp(['','','','','','']); setTestMode(false) }}
+                  onClick={() => { setStep('phone'); setOtp(['','','','','','']); setRequestId(null) }}
                   className="hover:text-sky-400 transition-colors flex items-center gap-1"
                 >
                   <RotateCcw className="w-3 h-3" /> Change number
@@ -360,7 +292,7 @@ export default function LoginPage() {
                 {countdown > 0 ? (
                   <span>Resend in {countdown}s</span>
                 ) : (
-                  <button type="button" onClick={handleResend} className="hover:text-sky-400 transition-colors">
+                  <button type="button" onClick={handleSendOtp} className="hover:text-sky-400 transition-colors">
                     Resend OTP
                   </button>
                 )}

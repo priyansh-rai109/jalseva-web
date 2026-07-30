@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 async function resolveUserId(admin: any, payload: any, role: string, name: string) {
   let realUserId = payload.userId
   if (realUserId.startsWith('00000000-0000-')) {
-    const dummyEmail = `test_${payload.phone.replace('+', '')}@jalseva.demo`
+    const digits = payload.phone.replace(/\D/g, '').slice(-10)
+    const dummyEmail = `test_91${digits}@jalseva.demo`
     const { data: newAuth, error: authErr } = await admin.auth.admin.createUser({
       phone: payload.phone,
       email: dummyEmail,
@@ -27,12 +28,14 @@ async function resolveUserId(admin: any, payload: any, role: string, name: strin
 export async function upsertCustomerProfileAction(payload: any) {
   const admin = createAdminClient()
   const realUserId = await resolveUserId(admin, payload, 'customer', payload.name)
+  const digits = payload.phone.replace(/\D/g, '').slice(-10)
+  const dummyEmail = payload.email || `test_91${digits}@jalseva.demo`
 
   const { error: pErr } = await admin.from('profiles').upsert({
     id: realUserId,
     role: 'customer',
     name: payload.name,
-    email: payload.email,
+    email: dummyEmail,
     phone: payload.phone,
     updated_at: new Date().toISOString(),
   })
@@ -42,7 +45,7 @@ export async function upsertCustomerProfileAction(payload: any) {
     user_id: realUserId,
     name: payload.name,
     phone: payload.phone,
-    email: payload.email,
+    email: dummyEmail,
     addresses: [{
       id: 'default-addr',
       label: 'Primary',
@@ -59,12 +62,14 @@ export async function upsertCustomerProfileAction(payload: any) {
 export async function upsertSupplierProfileAction(payload: any) {
   const admin = createAdminClient()
   const realUserId = await resolveUserId(admin, payload, 'supplier', payload.bizName)
+  const digits = payload.phone.replace(/\D/g, '').slice(-10)
+  const dummyEmail = payload.email || `test_91${digits}@jalseva.demo`
 
   const { error: pErr } = await admin.from('profiles').upsert({
     id: realUserId,
     role: 'supplier',
     name: payload.bizName,
-    email: payload.email,
+    email: dummyEmail,
     phone: payload.phone,
     updated_at: new Date().toISOString(),
   })
@@ -75,10 +80,10 @@ export async function upsertSupplierProfileAction(payload: any) {
     business_name: payload.bizName,
     owner_name: payload.ownerName,
     phone: payload.phone,
-    email: payload.email,
+    email: dummyEmail,
     address: payload.address,
     city: payload.city,
-    status: 'pending',
+    status: 'approved',
   })
   if (sErr) throw new Error(sErr.message)
   

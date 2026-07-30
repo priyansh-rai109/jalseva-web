@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
-  Droplets, User, Mail, MapPin, Building2,
+  Droplets, User, MapPin, Building2,
   CheckCircle2, ArrowRight, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -13,9 +13,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
 
-// ─────────────────────────────────────────────────
-// Helper: read mock session cookie
-// ─────────────────────────────────────────────────
 function readMockCookie(): any | null {
   if (typeof window === 'undefined') return null
   const raw = document.cookie.split(';').map(c => c.trim()).find(r => r.startsWith('jalseva-mock-session='))
@@ -27,14 +24,12 @@ function writeMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
 }
 
-// ─────────────────────────────────────────────────
 export default function CompleteProfilePage() {
   const supabase = createClient()
 
   const [user, setUser] = useState<any>(null)
   const [phone, setPhone] = useState('')
-  
-  // Try to read role from URL, fallback to customer
+
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const initialRole = searchParams?.get('role') === 'supplier' ? 'supplier' : 'customer'
   const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>(initialRole)
@@ -42,38 +37,33 @@ export default function CompleteProfilePage() {
   const [loading, setLoading] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
-  // Customer form state
+  // Customer form state (No Email field required)
   const [custName, setCustName] = useState('')
-  const [custEmail, setCustEmail] = useState('')
   const [custCity, setCustCity] = useState('Jodhpur')
 
-  // Supplier form state
+  // Supplier form state (No Email field required)
   const [bizName, setBizName] = useState('')
   const [ownerName, setOwnerName] = useState('')
-  const [supEmail, setSupEmail] = useState('')
   const [supAddress, setSupAddress] = useState('')
   const [supCity, setSupCity] = useState('Jodhpur')
 
-  // ── On mount: verify session exists ──────────
+  // ── On mount: check session & auto-detect registered user ───────────────
   useEffect(() => {
     async function checkSession() {
       try {
-        let { data: { user: authUser } } = await supabase.auth.getUser()
-        
-        // Direct manual fallback in case client.ts patch is cached/fails
-        if (!authUser && typeof document !== 'undefined') {
-          const raw = document.cookie.split(';').map(c => c.trim()).find(r => r.startsWith('jalseva-mock-session='))
-          if (raw) {
-            try {
-              const mockUser = JSON.parse(decodeURIComponent(raw.substring('jalseva-mock-session='.length)))
-              if (mockUser?.id) authUser = mockUser
-            } catch (e) {
-              console.error('Fallback mock parse error:', e)
-            }
-          }
+        let authUser: any = null
+
+        const mockUser = readMockCookie()
+        if (mockUser?.id) {
+          authUser = mockUser
         }
 
-        console.log('[CompleteProfile] Session auth user:', authUser)
+        if (!authUser) {
+          const { data: { user: supabaseUser } } = await supabase.auth.getUser()
+          if (supabaseUser) authUser = supabaseUser
+        }
+
+        console.log('[CompleteProfile] Session user:', authUser)
 
         if (!authUser) {
           console.warn('[CompleteProfile] No session — redirecting to /login')
@@ -86,24 +76,51 @@ export default function CompleteProfilePage() {
         const rawPhone = authUser.phone || authUser.user_metadata?.phone || ''
         setPhone(rawPhone)
 
-        // If user already has a completed role, redirect to dashboard
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', authUser.id)
-          .maybeSingle()
+        // ── Auto-detection: check if profile already exists in DB ──────────
+        const digits = rawPhone.replace(/\D/g, '').slice(-10)
+        const fullPhone = `+91${digits}`
 
-        const existingRole = profile?.role && profile.role !== '' ? profile.role : null
-        console.log('[CompleteProfile] Existing role from DB:', existingRole)
+        let existingRole: string | null = authUser.user_metadata?.role || null
+
+        if (!existingRole || existingRole === '') {
+          // Query profiles by phone
+          if (digits) {
+            const { data: pByPhone } = await supabase
+              .from('profiles')
+              .select('role, id')
+              .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits}`)
+              .maybeSingle()
+            if (pByPhone?.role && pByPhone.role !== '') {
+              existingRole = pByPhone.role
+            }
+          }
+
+          // Query profiles by ID
+          if (!existingRole && authUser.id) {
+            const { data: pById } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', authUser.id)
+              .maybeSingle()
+            if (pById?.role && pById.role !== '') {
+              existingRole = pById.role
+            }
+          }
+        }
+
+        console.log('[CompleteProfile] Existing role detected:', existingRole)
 
         if (existingRole === 'customer') {
+          writeMockCookie({ ...authUser, user_metadata: { ...(authUser.user_metadata || {}), role: 'customer' } })
           window.location.href = '/customer/dashboard'
           return
         }
         if (existingRole === 'supplier') {
-          window.location.href = '/supplier/pending'
+          writeMockCookie({ ...authUser, user_metadata: { ...(authUser.user_metadata || {}), role: 'supplier' } })
+          window.location.href = '/supplier/dashboard'
           return
         }
+
       } catch (err) {
         console.error('[CompleteProfile] Auth check error:', err)
       } finally {
@@ -113,14 +130,12 @@ export default function CompleteProfilePage() {
     checkSession()
   }, [])
 
-  // ── Submit: Customer ─────────────────────────
+  // ── Submit: Customer ──────────────────────────────────────────────────
   const handleCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!custName.trim()) { toast.error('Full name is required'); return }
     if (!custCity.trim()) { toast.error('City is required'); return }
 
-    console.log('[CompleteProfile] Customer form submitted:', { custName, custEmail, custCity })
-    console.log('[CompleteProfile] Current session user:', user)
     setLoading(true)
 
     try {
@@ -130,47 +145,30 @@ export default function CompleteProfilePage() {
         : getPhoneUuid(digits)
       const formattedPhone = digits ? `+91${digits}` : phone
 
-      console.log('[CompleteProfile] Inserting profile data... userId:', validUserId)
+      console.log('[CompleteProfile] Submitting Customer profile...', { validUserId, custName, custCity, formattedPhone })
 
-      // Use server action to bypass RLS and get REAL user ID
       const { upsertCustomerProfileAction } = await import('./actions')
-      let newUserId = validUserId
-      try {
-        newUserId = await upsertCustomerProfileAction({
-          userId: validUserId,
-          name: custName.trim(),
-          email: custEmail.trim() || null,
-          phone: formattedPhone,
-          city: custCity.trim(),
-        })
-        console.log('[CompleteProfile] Customer profile saved via server action, real ID:', newUserId)
-      } catch (saveErr: any) {
-        console.error('[CompleteProfile] Profile save failed:', saveErr)
-        toast.error('Failed to save profile details.')
-        setLoading(false)
-        return
-      }
+      const realUserId = await upsertCustomerProfileAction({
+        userId: validUserId,
+        name: custName.trim(),
+        phone: formattedPhone,
+        city: custCity.trim(),
+      })
 
-      // 3. CRITICAL: Update cookie BEFORE redirect so middleware sees the role
-      const currentCookieUser = readMockCookie() || {}
       writeMockCookie({
-        ...currentCookieUser,
-        id: newUserId,
+        ...user,
+        id: realUserId,
         user_metadata: {
-          ...(currentCookieUser.user_metadata || {}),
+          ...(user?.user_metadata || {}),
           role: 'customer',
           name: custName.trim(),
           phone: formattedPhone,
         }
       })
 
-      const targetPath = '/customer/dashboard'
-      console.log('[CompleteProfile] Attempting redirect to:', targetPath)
-      toast.success('Profile completed! Welcome to JalSeva 💧')
-
-      // 4. Small delay to ensure cookie write is registered
-      await new Promise(r => setTimeout(r, 300))
-      window.location.href = targetPath
+      toast.success('Profile created! Welcome to JalSeva 💧')
+      await new Promise(r => setTimeout(r, 200))
+      window.location.href = '/customer/dashboard'
 
     } catch (err: any) {
       console.error('[CompleteProfile] Customer submit error:', err)
@@ -179,14 +177,13 @@ export default function CompleteProfilePage() {
     }
   }
 
-  // ── Submit: Supplier ─────────────────────────
+  // ── Submit: Supplier ──────────────────────────────────────────────────
   const handleSupplierSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!bizName.trim()) { toast.error('Business name is required'); return }
     if (!ownerName.trim()) { toast.error('Owner name is required'); return }
     if (!supAddress.trim()) { toast.error('Business address is required'); return }
 
-    console.log('[CompleteProfile] Supplier form submitted:', { bizName, ownerName, supEmail, supAddress, supCity })
     setLoading(true)
 
     try {
@@ -196,56 +193,40 @@ export default function CompleteProfilePage() {
         : getPhoneUuid(digits)
       const formattedPhone = digits ? `+91${digits}` : phone
 
-      // Use server action to bypass RLS
-      const { upsertSupplierProfileAction } = await import('./actions')
-      let newUserId = validUserId
-      try {
-        newUserId = await upsertSupplierProfileAction({
-          userId: validUserId,
-          bizName: bizName.trim(),
-          ownerName: ownerName.trim(),
-          email: supEmail.trim() || null,
-          phone: formattedPhone,
-          address: supAddress.trim(),
-          city: supCity.trim(),
-        })
-        console.log('[CompleteProfile] Supplier profile saved via server action, real ID:', newUserId)
-      } catch (saveErr: any) {
-        console.error('[CompleteProfile] Profile save failed:', saveErr)
-        toast.error('Failed to save supplier details.')
-        setLoading(false)
-        return
-      }
+      console.log('[CompleteProfile] Submitting Supplier profile...', { validUserId, bizName, ownerName, supAddress, supCity })
 
-      // 3. CRITICAL: Update cookie BEFORE redirect
-      const currentCookieUser = readMockCookie() || {}
+      const { upsertSupplierProfileAction } = await import('./actions')
+      const realUserId = await upsertSupplierProfileAction({
+        userId: validUserId,
+        bizName: bizName.trim(),
+        ownerName: ownerName.trim(),
+        phone: formattedPhone,
+        address: supAddress.trim(),
+        city: supCity.trim(),
+      })
+
       writeMockCookie({
-        ...currentCookieUser,
-        id: newUserId,
+        ...user,
+        id: realUserId,
         user_metadata: {
-          ...(currentCookieUser.user_metadata || {}),
+          ...(user?.user_metadata || {}),
           role: 'supplier',
           name: bizName.trim(),
           phone: formattedPhone,
         }
       })
 
-      const targetPath = '/supplier/pending'
-      console.log('[CompleteProfile] Attempting redirect to:', targetPath)
-      toast.success('Application submitted! Admin will review within 2-3 days.')
-
-      // 4. Small delay to ensure cookie write is registered
-      await new Promise(r => setTimeout(r, 300))
-      window.location.href = targetPath
+      toast.success('Supplier profile created! Welcome to JalSeva 🚚')
+      await new Promise(r => setTimeout(r, 200))
+      window.location.href = '/supplier/dashboard'
 
     } catch (err: any) {
       console.error('[CompleteProfile] Supplier submit error:', err)
-      toast.error(`Failed to submit application: ${err?.message || 'Unknown error'}`)
+      toast.error(`Failed to submit supplier details: ${err?.message || 'Unknown error'}`)
       setLoading(false)
     }
   }
 
-  // ─────────────────────────────────────────────
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -254,7 +235,6 @@ export default function CompleteProfilePage() {
     )
   }
 
-  // ─────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -279,7 +259,7 @@ export default function CompleteProfilePage() {
             </div>
           )}
           <h1 className="mt-3 text-2xl font-bold text-foreground">Complete Your Profile</h1>
-          <p className="text-muted-foreground text-xs mt-1">Choose your role on the JalSeva platform</p>
+          <p className="text-muted-foreground text-xs mt-1">Enter your details to register on JalSeva</p>
         </div>
 
         <div className="glass-card p-6 sm:p-8 space-y-6">
@@ -331,7 +311,7 @@ export default function CompleteProfilePage() {
             </div>
           </div>
 
-          {/* ── Customer Form ── */}
+          {/* ── Customer Form (No Email Field) ── */}
           {selectedRole === 'customer' && (
             <form onSubmit={handleCustomerSubmit} className="space-y-4">
               <div className="space-y-1.5">
@@ -350,21 +330,6 @@ export default function CompleteProfilePage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="cust-email">Email <span className="text-muted-foreground text-xs">(Optional)</span></Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="cust-email"
-                    type="email"
-                    value={custEmail}
-                    onChange={e => setCustEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
                 <Label htmlFor="cust-city">City <span className="text-red-400">*</span></Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -372,20 +337,20 @@ export default function CompleteProfilePage() {
                     id="cust-city"
                     value={custCity}
                     onChange={e => setCustCity(e.target.value)}
-                    placeholder="Your city"
+                    placeholder="Your city (e.g. Jodhpur)"
                     className="pl-9"
                     required
                   />
                 </div>
               </div>
 
-              <Button type="submit" className="w-full water-shimmer text-white font-semibold" disabled={loading}>
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <>Continue to Dashboard <ArrowRight className="w-4 h-4 ml-2" /></>}
+              <Button type="submit" className="w-full water-shimmer text-white font-semibold h-11 mt-2" disabled={loading}>
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <>Complete Registration <ArrowRight className="w-4 h-4 ml-2" /></>}
               </Button>
             </form>
           )}
 
-          {/* ── Supplier Form ── */}
+          {/* ── Supplier Form (No Email Field) ── */}
           {selectedRole === 'supplier' && (
             <form onSubmit={handleSupplierSubmit} className="space-y-4">
               <div className="space-y-1.5">
@@ -405,14 +370,6 @@ export default function CompleteProfilePage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="sup-email">Business Email <span className="text-muted-foreground text-xs">(Optional)</span></Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="sup-email" type="email" value={supEmail} onChange={e => setSupEmail(e.target.value)} placeholder="business@email.com" className="pl-9" />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
                 <Label htmlFor="sup-address">Business Address <span className="text-red-400">*</span></Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -428,19 +385,15 @@ export default function CompleteProfilePage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
-                ⚠️ Supplier accounts require admin approval (2–3 days). You can check your status after submitting.
-              </div>
-
-              <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold" disabled={loading}>
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...</> : <>Submit Application <ArrowRight className="w-4 h-4 ml-2" /></>}
+              <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold h-11 mt-2" disabled={loading}>
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...</> : <>Complete Registration <ArrowRight className="w-4 h-4 ml-2" /></>}
               </Button>
             </form>
           )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          Already have an account?{' '}
+          Already registered?{' '}
           <Link href="/login" className="text-sky-400 hover:text-sky-300 font-medium">Sign in</Link>
         </p>
       </div>
