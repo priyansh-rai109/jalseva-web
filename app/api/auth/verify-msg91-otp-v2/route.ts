@@ -4,6 +4,8 @@ import { getPhoneUuid } from '@/lib/utils'
 
 const DEMO_NUMBERS = ['9876543210', '9876543211']
 const TEST_OTP = '123456'
+const DEFAULT_AUTH_KEY = '554916AwikHphHxfS46a699c83P1'
+const DEFAULT_WIDGET_ID = '366743666e48353835303736'
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,16 +56,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const authKey = process.env.MSG91_AUTHKEY || '554916AwikHphHxfS46a699c83P1'
-    const widgetId = process.env.MSG91_WIDGET_ID || '366743666e48353835303736'
+    const envKey = process.env.MSG91_AUTHKEY?.trim()
+    const envWidget = process.env.MSG91_WIDGET_ID?.trim()
 
-    if (!authKey) {
-      console.error('[verify-msg91-otp-v2] MSG91_AUTHKEY missing')
-      return NextResponse.json(
-        { success: false, error: 'SMS service configuration missing' },
-        { status: 500 }
-      )
-    }
+    const authKey = envKey && envKey !== '' ? envKey : DEFAULT_AUTH_KEY
+    const widgetId = envWidget && envWidget !== '' ? envWidget : DEFAULT_WIDGET_ID
 
     const formattedMobile = `91${digits}`
     console.log('[verify-msg91-otp-v2] Verifying OTP via MSG91 API for:', formattedMobile, 'OTP:', enteredOtp)

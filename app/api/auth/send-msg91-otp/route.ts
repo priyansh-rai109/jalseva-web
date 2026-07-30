@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const DEMO_NUMBERS = ['9876543210', '9876543211']
+const DEFAULT_AUTH_KEY = '554916AwikHphHxfS46a699c83P1'
+const DEFAULT_WIDGET_ID = '366743666e48353835303736'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,19 +29,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const authKey = process.env.MSG91_AUTHKEY || '554916AwikHphHxfS46a699c83P1'
-    const widgetId = process.env.MSG91_WIDGET_ID || '366743666e48353835303736'
+    const envKey = process.env.MSG91_AUTHKEY?.trim()
+    const envWidget = process.env.MSG91_WIDGET_ID?.trim()
 
-    if (!authKey) {
-      console.error('[send-msg91-otp] MSG91_AUTHKEY is missing')
-      return NextResponse.json(
-        { success: false, error: 'SMS service configuration missing' },
-        { status: 500 }
-      )
-    }
+    const authKey = envKey && envKey !== '' ? envKey : DEFAULT_AUTH_KEY
+    const widgetId = envWidget && envWidget !== '' ? envWidget : DEFAULT_WIDGET_ID
 
     const formattedMobile = `91${digits}`
-    console.log('[send-msg91-otp] Requesting OTP send for:', formattedMobile)
+    console.log('[send-msg91-otp] Requesting OTP send for:', formattedMobile, 'using authKey:', authKey ? 'present' : 'none')
 
     // ── 2. Widget Send OTP API (uses OTP Widget ₹50 wallet balance) ─────────
     if (widgetId) {
