@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
+import { getFriendlyErrorMessage, SUPPORT_WHATSAPP_URL } from '@/lib/error-utils'
 
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
@@ -81,10 +82,14 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: digits }),
       })
-
       const data = await res.json()
       if (!data.success) {
-        toast.error(data.error || 'Failed to send OTP')
+        toast.error(getFriendlyErrorMessage(data.error, 'auth'), {
+          action: {
+            label: 'Need Help?',
+            onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
+          },
+        })
         setLoading(false)
         return
       }
@@ -105,7 +110,12 @@ export default function LoginPage() {
       setTimeout(() => otpRefs.current[0]?.focus(), 100)
     } catch (err: any) {
       console.error('[Login] Send OTP error:', err)
-      toast.error('Failed to send OTP. Please try again.')
+      toast.error(getFriendlyErrorMessage(err, 'auth'), {
+        action: {
+          label: 'Need Help?',
+          onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
+        },
+      })
     } finally {
       setLoading(false)
     }
@@ -114,7 +124,7 @@ export default function LoginPage() {
   // ── Step 2: Verify OTP via Server API ───────────────────────────────────
   const handleVerifyOtp = async () => {
     const digits = phone.replace(/\D/g, '')
-    if (otpValue.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
+    if (otpValue.length !== 6) { toast.error('Sahi 6-digit OTP daalo'); return }
     setLoading(true)
 
     try {
@@ -131,7 +141,12 @@ export default function LoginPage() {
 
       const data = await res.json()
       if (!data.success) {
-        toast.error(data.error || 'Invalid OTP. Please try again.')
+        toast.error(getFriendlyErrorMessage(data.error, 'auth'), {
+          action: {
+            label: 'Need Help?',
+            onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
+          },
+        })
         setLoading(false)
         return
       }

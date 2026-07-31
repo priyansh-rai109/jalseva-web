@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
+import { getFriendlyErrorMessage, SUPPORT_WHATSAPP_URL } from '@/lib/error-utils'
 
 function readMockCookie(): any | null {
   if (typeof window === 'undefined') return null
@@ -160,7 +161,12 @@ export default function CompleteProfilePage() {
       const res = await response.json()
 
       if (!res.success) {
-        toast.error(res.error || 'Failed to save profile')
+        toast.error(getFriendlyErrorMessage(res.error, 'generic'), {
+          action: {
+            label: 'Need Help?',
+            onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
+          },
+        })
         setLoading(false)
         return
       }
@@ -184,7 +190,12 @@ export default function CompleteProfilePage() {
 
     } catch (err: any) {
       console.error('[CompleteProfile] Customer submit error:', err)
-      toast.error(`Failed to save profile: ${err?.message || 'Unknown error'}`)
+      toast.error(getFriendlyErrorMessage(err, 'generic'), {
+        action: {
+          label: 'Need Help?',
+          onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
+        },
+      })
       setLoading(false)
     }
   }
@@ -224,7 +235,12 @@ export default function CompleteProfilePage() {
       const res = await response.json()
 
       if (!res.success) {
-        toast.error(res.error || 'Failed to save supplier profile')
+        toast.error(getFriendlyErrorMessage(res.error, 'generic'), {
+          action: {
+            label: 'Need Help?',
+            onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
+          },
+        })
         setLoading(false)
         return
       }
