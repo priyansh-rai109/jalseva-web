@@ -9,6 +9,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { AnimatedCounter } from '@/components/shared/AnimatedCounter'
+import { SkeletonCard } from '@/components/shared/SkeletonCard'
 
 interface Stats {
   totalOrders: number
@@ -130,19 +132,33 @@ export default function SupplierAnalyticsPage() {
 
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {[1,2,3,4,5,6].map(i => <div key={i} className="glass-card h-28 animate-pulse" />)}
+          <SkeletonCard type="stat" count={6} />
         </div>
       ) : !stats ? null : (
         <>
           {/* Stat Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {statCards.map((s) => (
+            {[
+              { label: 'Total Orders', num: stats.totalOrders, isCurrency: false, icon: ShoppingCart, color: 'text-sky-400', bg: 'bg-sky-400/10' },
+              { label: 'Delivered', num: stats.deliveredOrders, isCurrency: false, icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-400/10' },
+              { label: 'Total Revenue', num: stats.totalRevenue, isCurrency: true, icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+              { label: 'Avg Order Value', num: Math.round(stats.averageOrderValue), isCurrency: true, icon: BarChart3, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+              { label: 'Avg Rating', num: stats.averageRating, decimals: 1, suffix: ' ★', icon: Star, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
+              { label: 'Cancelled', num: stats.cancelledOrders, isCurrency: false, icon: XCircle, color: 'text-red-400', bg: 'bg-red-400/10' },
+            ].map((s) => (
               <Card key={s.label} className="glass-card hover:border-sky-500/20 transition-all">
                 <CardContent className="p-5">
                   <div className={`w-10 h-10 rounded-lg ${s.bg} flex items-center justify-center mb-3`}>
                     <s.icon className={`w-5 h-5 ${s.color}`} />
                   </div>
-                  <div className="text-2xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>{s.value}</div>
+                  <div className="text-2xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                    <AnimatedCounter
+                      value={s.num}
+                      prefix={s.isCurrency ? '₹' : ''}
+                      suffix={s.suffix || ''}
+                      decimals={s.decimals || 0}
+                    />
+                  </div>
                   <div className="text-sm text-muted-foreground">{s.label}</div>
                 </CardContent>
               </Card>

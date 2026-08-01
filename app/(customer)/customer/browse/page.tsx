@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SkeletonCard } from '@/components/shared/SkeletonCard'
 import Link from 'next/link'
 import type { Supplier, Zone } from '@/types'
 
@@ -90,7 +91,7 @@ export default function CustomerBrowsePage() {
       {/* Suppliers */}
       {loading ? (
         <div className="grid md:grid-cols-2 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="glass-card h-48 animate-pulse" />)}
+          <SkeletonCard type="supplier" count={4} />
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">

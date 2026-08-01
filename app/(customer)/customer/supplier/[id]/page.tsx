@@ -28,6 +28,15 @@ export default function SupplierDetailPage() {
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [products, setProducts] = useState<WaterProduct[]>([])
   const [loading, setLoading] = useState(true)
+  const [cartPop, setCartPop] = useState(false)
+
+  const handleAddToCart = (product: WaterProduct, delta: number) => {
+    addItem(product, delta)
+    if (delta > 0) {
+      setCartPop(true)
+      setTimeout(() => setCartPop(false), 300)
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -161,7 +170,7 @@ export default function SupplierDetailPage() {
                         <Button
                           size="sm"
                           onClick={() => {
-                            addItem(product, 1)
+                            handleAddToCart(product, 1)
                             toast.success(`${product.name} added to cart`)
                           }}
                           className="water-shimmer text-white"
@@ -174,7 +183,7 @@ export default function SupplierDetailPage() {
                             size="icon"
                             variant="outline"
                             className="h-8 w-8"
-                            onClick={() => addItem(product, -1)}
+                            onClick={() => handleAddToCart(product, -1)}
                           >
                             <Minus className="w-3 h-3" />
                           </Button>
@@ -182,7 +191,7 @@ export default function SupplierDetailPage() {
                           <Button
                             size="icon"
                             className="h-8 w-8 water-shimmer text-white"
-                            onClick={() => addItem(product, 1)}
+                            onClick={() => handleAddToCart(product, 1)}
                           >
                             <Plus className="w-3 h-3" />
                           </Button>
@@ -201,9 +210,9 @@ export default function SupplierDetailPage() {
       {getTotalItems() > 0 && supplier_id === id && (
         <div className="fixed bottom-6 left-72 right-6 z-40">
           <Link href="/customer/cart">
-            <div className="bg-sky-600 hover:bg-sky-500 text-white rounded-2xl p-4 shadow-xl flex items-center justify-between cursor-pointer transition-all">
+            <div className={`bg-sky-600 hover:bg-sky-500 text-white rounded-2xl p-4 shadow-xl flex items-center justify-between cursor-pointer transition-all ${cartPop ? 'animate-cart-bounce ring-4 ring-sky-400/40' : ''}`}>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                <div className={`w-8 h-8 bg-white/20 rounded-full flex items-center justify-center transition-transform ${cartPop ? 'scale-125' : ''}`}>
                   <ShoppingCart className="w-4 h-4" />
                 </div>
                 <span className="font-semibold">{getTotalItems()} items in cart</span>

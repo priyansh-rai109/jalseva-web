@@ -46,7 +46,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${rajdhani.variable} dark`}>
       <body className="font-sans min-h-screen bg-background text-foreground">
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-center" />
         <Suspense fallback={null}>
           <SessionToastHandler />
         </Suspense>

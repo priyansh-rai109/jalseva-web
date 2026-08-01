@@ -116,20 +116,36 @@ export default function SupplierOrdersPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => (
-            <Card key={order.id} className="glass-card hover:border-sky-500/20 transition-all">
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="text-3xl">{productTypeIcons[order.water_products?.type] || '💧'}</div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div>
-                        <p className="font-semibold">{order.water_products?.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Customer: {order.customers?.name}
-                          {order.customers?.phone && ` · ${order.customers.phone}`}
-                        </p>
-                      </div>
+          {orders.map((order) => {
+            const isPending = order.status === 'pending'
+            return (
+              <Card
+                key={order.id}
+                className={`glass-card transition-all ${
+                  isPending
+                    ? 'border-amber-500/70 bg-amber-500/5 shadow-lg shadow-amber-500/15 animate-pulse'
+                    : 'hover:border-sky-500/20'
+                }`}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="text-3xl">{productTypeIcons[order.water_products?.type] || '💧'}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold">{order.water_products?.name}</p>
+                            {isPending && (
+                              <Badge className="bg-amber-500 text-black font-extrabold text-[10px] animate-pulse px-2 py-0.5 border-none">
+                                NEW ORDER ⚡
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Customer: {order.customers?.name}
+                            {order.customers?.phone && ` · ${order.customers.phone}`}
+                          </p>
+                        </div>
                       <Badge className={`text-xs border ${getOrderStatusColor(order.status)}`}>
                         {getOrderStatusLabel(order.status)}
                       </Badge>
@@ -181,7 +197,7 @@ export default function SupplierOrdersPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       )}
     </div>

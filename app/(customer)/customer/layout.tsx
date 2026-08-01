@@ -44,7 +44,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
         userEmail={displayEmail}
         notificationCount={notifCount}
       />
-      <main className="flex-1 overflow-x-hidden min-w-0 p-4 md:p-6 lg:p-8">
+      <main className="flex-1 overflow-x-hidden min-w-0 p-4 md:p-6 lg:p-8 animate-in fade-in-50 duration-200">
         {children}
       </main>
     </div>

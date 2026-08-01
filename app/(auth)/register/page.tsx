@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
+import { AnimatedOtpInput } from '@/components/shared/AnimatedOtpInput'
 
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
@@ -31,6 +32,7 @@ function RegisterPageContent() {
   const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>('customer')
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [otpError, setOtpError] = useState(false)
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
   const countdownRef = useRef<NodeJS.Timeout | null>(null)
@@ -130,6 +132,8 @@ function RegisterPageContent() {
 
       const data = await res.json()
       if (!data.success) {
+        setOtpError(true)
+        setTimeout(() => setOtpError(false), 600)
         toast.error(data.error || 'Invalid OTP. Please try again.')
         setLoading(false)
         return
@@ -264,25 +268,14 @@ function RegisterPageContent() {
           {step === 'otp' && (
             <div className="space-y-5">
               <div className="space-y-3">
-                <Label className="text-center block">Enter 6-digit OTP</Label>
-                <div className="flex gap-2 justify-center">
-                  {otp.map((digit, idx) => (
-                    <input
-                      key={idx}
-                      ref={el => { otpRefs.current[idx] = el }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => handleOtpChange(idx, e.target.value)}
-                      onKeyDown={e => handleOtpKeyDown(idx, e)}
-                      onPaste={idx === 0 ? handleOtpPaste : undefined}
-                      className={`w-11 h-12 text-center text-lg font-bold rounded-lg border bg-secondary transition-all outline-none
-                        ${digit ? 'border-sky-500 text-sky-300 shadow-sm shadow-sky-500/20' : 'border-border text-foreground'}
-                        focus:border-sky-400 focus:ring-1 focus:ring-sky-400/40`}
-                    />
-                  ))}
-                </div>
+                <Label className="text-center block font-medium">Enter 6-digit OTP</Label>
+                <AnimatedOtpInput
+                  value={otp}
+                  onChange={(newOtp) => { setOtp(newOtp); setOtpError(false) }}
+                  disabled={loading}
+                  error={otpError}
+                  otpRefs={otpRefs}
+                />
               </div>
 
               <Button

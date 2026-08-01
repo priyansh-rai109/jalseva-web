@@ -21,6 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils'
+import { OrderSuccessModal } from '@/components/shared/OrderSuccessModal'
 import Link from 'next/link'
 
 const checkoutSchema = z.object({
@@ -41,6 +42,7 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalAmount, getTotalItems, supplier_id } = useCartStore()
   const [placing, setPlacing] = useState(false)
   const [step, setStep] = useState<'cart' | 'checkout'>('cart')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -77,8 +79,7 @@ export default function CartPage() {
       const json = await res.json()
       if (res.ok) {
         clearCart()
-        toast.success('🎉 Order placed successfully! Supplier notified via SMS.')
-        router.push('/customer/orders')
+        setShowSuccessModal(true)
       } else {
         toast.error(json.error || 'Failed to place order')
       }
@@ -270,6 +271,11 @@ export default function CartPage() {
           </Card>
         </div>
       </div>
+
+      <OrderSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => router.push('/customer/orders')}
+      />
     </div>
   )
 }

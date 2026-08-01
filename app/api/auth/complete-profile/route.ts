@@ -6,7 +6,7 @@ async function resolveUserId(admin: any, payload: any, role: string, name: strin
   const digits = (payload.phone ?? '').replace(/\D/g, '').slice(-10)
   const fullPhone = `+91${digits}`
   const dummyEmail = `test_91${digits}@jalseva.app`
-  let realUserId = payload.userId
+  const realUserId = payload.userId
 
   console.log('[CompleteProfile] [resolveUserId] Input:', { realUserId, fullPhone, dummyEmail, role, name })
 

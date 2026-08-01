@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { SkeletonCard } from '@/components/shared/SkeletonCard'
 import { formatCurrency } from '@/lib/utils'
 import type { WaterProduct } from '@/types'
 
@@ -254,7 +255,7 @@ export default function SupplierProductsPage() {
       {/* Products grid */}
       {loading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3].map(i => <div key={i} className="glass-card h-48 animate-pulse" />)}
+          <SkeletonCard type="product" count={3} />
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-16">

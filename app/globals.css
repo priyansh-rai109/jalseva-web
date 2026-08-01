@@ -131,3 +131,55 @@
 .animate-pulse-blue {
   animation: pulse-blue 2s ease-in-out infinite;
 }
+
+/* OTP Keyframe Animations */
+@keyframes otp-bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); border-color: rgba(14, 165, 233, 1); box-shadow: 0 0 15px rgba(14, 165, 233, 0.5); }
+  100% { transform: scale(1); }
+}
+
+@keyframes otp-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes otp-pulse-border {
+  0%, 100% { border-color: rgba(14, 165, 233, 0.9); box-shadow: 0 0 12px rgba(14, 165, 233, 0.4); }
+  50% { border-color: rgba(14, 165, 233, 0.4); box-shadow: 0 0 4px rgba(14, 165, 233, 0.15); }
+}
+
+@keyframes otp-success-wave {
+  0% { transform: scale(1); border-color: rgba(14, 165, 233, 0.4); box-shadow: 0 0 0 rgba(14, 165, 233, 0); }
+  50% { transform: scale(1.08); border-color: rgba(14, 165, 233, 1); box-shadow: 0 0 18px rgba(14, 165, 233, 0.6); }
+  100% { transform: scale(1); border-color: rgba(14, 165, 233, 0.8); box-shadow: 0 0 8px rgba(14, 165, 233, 0.3); }
+}
+
+.animate-otp-bounce {
+  animation: otp-bounce 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-otp-shake {
+  animation: otp-shake 400ms ease-in-out;
+}
+
+.animate-otp-pulse-border {
+  animation: otp-pulse-border 1.5s infinite ease-in-out;
+}
+
+.animate-otp-success {
+  animation: otp-success-wave 500ms ease-in-out forwards;
+}
+
+@keyframes cart-bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); box-shadow: 0 0 25px rgba(14, 165, 233, 0.6); }
+  100% { transform: scale(1); }
+}
+
+.animate-cart-bounce {
+  animation: cart-bounce 300ms ease-in-out;
+}

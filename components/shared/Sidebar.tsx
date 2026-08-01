@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
 import type { UserRole } from '@/types'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 // ─── Nav configs per role ──────────────────────────────────────────────────
 const adminNav = [
@@ -77,7 +78,11 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
   const roleLabel = role === 'super_admin' ? 'Super Admin' : role === 'supplier' ? 'Supplier' : 'Customer'
   const roleColor = role === 'super_admin' ? 'bg-purple-500/10 text-purple-400' : role === 'supplier' ? 'bg-amber-500/10 text-amber-400' : 'bg-sky-500/10 text-sky-400'
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
   const handleSignOut = async () => {
+    setLoggingOut(true)
     try {
       useCartStore.getState().clearCart()
       if (typeof window !== 'undefined') {
@@ -89,6 +94,7 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
     } catch (err) {
       console.error('Error during sign out:', err)
     } finally {
+      setLoggingOut(false)
       window.location.href = '/login'
     }
   }
@@ -97,9 +103,9 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
     <div className="flex flex-col h-full bg-card">
       {/* Logo */}
       <div className="p-6 border-b border-border flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
-          <div className="w-8 h-8 rounded-lg water-shimmer flex items-center justify-center">
-            <Droplets className="w-4 h-4 text-white" />
+        <Link href="/" className="flex items-center gap-2.5 group" onClick={() => setMobileOpen(false)}>
+          <div className="w-9 h-9 rounded-xl water-shimmer flex items-center justify-center shadow-md shadow-sky-500/20 group-hover:scale-110 transition-transform duration-300">
+            <Droplets className="w-5 h-5 text-white animate-pulse" />
           </div>
           <span className="text-lg font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             <span className="gradient-text">Jal</span>
@@ -162,7 +168,7 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
       {/* Sign out */}
       <div className="p-3 border-t border-border">
         <button
-          onClick={handleSignOut}
+          onClick={() => setShowLogoutConfirm(true)}
           className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 min-h-[44px]"
         >
           <LogOut className="w-5 h-5" />
@@ -174,6 +180,18 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
 
   return (
     <>
+      <ConfirmDialog
+        isOpen={showLogoutConfirm}
+        title="Logout Confirmation"
+        message="Kya aap sach mein JalSeva se logout karna chahte hain?"
+        confirmText="Haan, Logout"
+        cancelText="Nahi, Rehne do"
+        variant="destructive"
+        loading={loggingOut}
+        onConfirm={handleSignOut}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
+
       {/* Mobile Top Header */}
       <div className="lg:hidden flex items-center justify-between p-4 bg-card border-b border-border sticky top-0 z-30 w-full">
         <div className="flex items-center gap-3">
