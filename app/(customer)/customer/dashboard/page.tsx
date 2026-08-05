@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
+import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel, formatDisplayName } from '@/lib/utils'
 import Link from 'next/link'
 
 export const metadata = { title: 'My Dashboard' }
@@ -105,7 +105,10 @@ export default async function CustomerDashboard() {
       .limit(4)
   ])
 
-  const displayName = customerObj?.name || profile?.name || user.user_metadata?.name || 'Customer'
+  const displayName = formatDisplayName(
+    customerObj?.name || profile?.name || user.user_metadata?.name,
+    user.phone || user.user_metadata?.phone
+  )
 
   const statusIcon = (status: string) => {
     if (status === 'pending') return <Clock className="w-4 h-4 text-yellow-400" />

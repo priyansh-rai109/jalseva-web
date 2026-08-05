@@ -68,12 +68,31 @@ export function truncate(str: string, length: number): string {
 }
 
 export function getInitials(name: string): string {
+  if (!name) return 'U'
   return name
     .split(' ')
-    .map((n) => n[0])
+    .map(n => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
+}
+
+export function formatDisplayName(rawName?: string | null, phone?: string | null): string {
+  const name = (rawName || '').trim()
+
+  if (!name || name.toLowerCase() === 'customer' || name.toLowerCase() === 'customer name') {
+    if (phone) {
+      const digits = phone.replace(/\D/g, '').slice(-10)
+      if (digits) return `Customer (${digits})`
+    }
+    return 'Customer'
+  }
+
+  return name
+    .split(' ')
+    .map(w => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''))
+    .filter(Boolean)
+    .join(' ')
 }
 
 /**

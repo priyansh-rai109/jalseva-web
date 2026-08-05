@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Sidebar } from '@/components/shared/Sidebar'
+import { formatDisplayName } from '@/lib/utils'
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -57,7 +58,10 @@ export default async function CustomerLayout({ children }: { children: React.Rea
     notifCount = count || 0
   } catch {}
 
-  const displayName = customerObj?.name || profileObj?.name || (user as any).user_metadata?.name || 'Customer'
+  const displayName = formatDisplayName(
+    customerObj?.name || profileObj?.name || (user as any).user_metadata?.name,
+    user.phone || (user as any).user_metadata?.phone
+  )
   const displayEmail = customerObj?.email || profileObj?.email || (user as any).email || ''
 
   return (
