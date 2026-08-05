@@ -257,14 +257,26 @@ export default function OrderDetailPage() {
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground block text-xs">Payment Mode</span>
-                  <span className="font-medium capitalize">{order.payment_mode.replace('_', ' ')}</span>
+                  <span className="font-medium capitalize">{order.payment_mode?.replace('_', ' ')}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Payment Status</span>
+                  {(order.payment_status === 'paid' || order.status === 'delivered' || order.payment_mode === 'online' || order.special_instructions?.includes('Razorpay')) ? (
+                    <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-xs mt-1">
+                      ✓ Successful (Paid)
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-xs mt-1">
+                      ⏳ Pending (Pay on Delivery)
+                    </Badge>
+                  )}
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-xs">Order Date</span>
-                  <span className="font-medium">{formatDateTime(order.created_at)}</span>
+                  <span className="font-medium text-xs">{formatDateTime(order.created_at)}</span>
                 </div>
               </div>
 

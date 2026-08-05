@@ -56,9 +56,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orderId, status } = await request.json()
-    if (!orderId || !status) {
-      return NextResponse.json({ error: 'Missing orderId or status' }, { status: 400 })
+    const body = await request.json()
+    const { orderId, status, reason, paymentStatus } = body
+
+    if (!orderId) {
+      return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
     }
 
     const adminSupabase = createAdminClient()
@@ -89,10 +91,15 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Not authorized to update this order' }, { status: 403 })
     }
 
+    const updatePayload: any = {}
+    if (status) updatePayload.status = status
+    if (paymentStatus) updatePayload.payment_status = paymentStatus
+    if (status === 'delivered') updatePayload.payment_status = 'paid'
+
     // 3. Update order status as admin client
     const { data: updatedOrder, error: updateError } = await adminSupabase
       .from('orders')
-      .update({ status })
+      .update(updatePayload)
       .eq('id', orderId)
       .select()
 

@@ -62,17 +62,17 @@ export default function SupplierOrderDetailPage() {
     return () => { supabase.removeChannel(channel) }
   }, [id])
 
-  const updateOrderStatus = async (newStatus: string, reason?: string) => {
+  const updateOrderStatus = async (newStatus?: string, reason?: string, paymentStatus?: string) => {
     setUpdating(true)
     try {
       const res = await fetch('/api/supplier/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: id, status: newStatus, reason }),
+        body: JSON.stringify({ orderId: id, status: newStatus, reason, paymentStatus }),
       })
       const json = await res.json()
-      if (res.ok && json.success) {
-        toast.success(`Order status updated to ${getOrderStatusLabel(newStatus)}`)
+      if (res.ok && (json.order || json.success)) {
+        toast.success(paymentStatus ? 'Payment status updated to Paid' : `Order status updated`)
         fetchOrderDetails()
       } else {
         toast.error(json.error || 'Failed to update order status')
@@ -263,10 +263,33 @@ export default function SupplierOrderDetailPage() {
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground text-xs block">Payment Method</span>
                   <span className="font-semibold capitalize">{order.payment_mode?.replace('_', ' ') || 'Cash on Delivery'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs block">Payment Status</span>
+                  {(order.payment_status === 'paid' || order.status === 'delivered' || order.payment_mode === 'online' || order.special_instructions?.includes('Razorpay')) ? (
+                    <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-xs mt-1">
+                      ✓ Successful (Paid)
+                    </Badge>
+                  ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-xs">
+                        ⏳ Pending (Pay on Delivery)
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[10px] h-6 px-2 text-green-400 border-green-500/20 hover:bg-green-500/10"
+                        disabled={updating}
+                        onClick={() => updateOrderStatus(order.status, undefined, 'paid')}
+                      >
+                        Mark Paid
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="text-muted-foreground text-xs block">Order Date</span>
