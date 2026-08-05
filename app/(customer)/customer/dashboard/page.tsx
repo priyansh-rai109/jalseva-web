@@ -105,6 +105,8 @@ export default async function CustomerDashboard() {
       .limit(4)
   ])
 
+  const displayName = customerObj?.name || profile?.name || user.user_metadata?.name || 'Customer'
+
   const statusIcon = (status: string) => {
     if (status === 'pending') return <Clock className="w-4 h-4 text-yellow-400" />
     if (status === 'confirmed') return <CheckCircle2 className="w-4 h-4 text-blue-400" />
@@ -118,7 +120,7 @@ export default async function CustomerDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-            Welcome, {profile?.name?.split(' ')[0] || 'there'}! 👋
+            Hey {displayName} 👋
           </h1>
           <p className="text-muted-foreground mt-1">Your water delivery dashboard</p>
         </div>
