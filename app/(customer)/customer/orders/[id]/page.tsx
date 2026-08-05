@@ -38,34 +38,20 @@ export default function OrderDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false)
 
   const fetchOrderDetails = async () => {
-    const [{ data: orderData }, { data: trackingData }, { data: reviewData }] = await Promise.all([
-      supabase
-        .from('orders')
-        .select(`
-          id, total_amount, status, quantity, payment_mode, delivery_address, created_at, special_instructions,
-          suppliers(id, business_name, phone, owner_name),
-          water_products(name, type, capacity_liters, price)
-        `)
-        .eq('id', id)
-        .maybeSingle(),
-      supabase
-        .from('order_tracking')
-        .select('*')
-        .eq('order_id', id)
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('reviews')
-        .select('*')
-        .eq('order_id', id)
-        .maybeSingle(),
-    ])
-
-    setOrder(orderData)
-    setTracking(trackingData || [])
-    setReview(reviewData)
-    if (reviewData) {
-      setRating(reviewData.rating)
-      setComment(reviewData.comment || '')
+    try {
+      const res = await fetch(`/api/orders/${id}`)
+      const json = await res.json()
+      if (res.ok && json.order) {
+        setOrder(json.order)
+        setTracking(json.tracking || [])
+        setReview(json.review || null)
+        if (json.review) {
+          setRating(json.review.rating)
+          setComment(json.review.comment || '')
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching order details:', err)
     }
     setLoading(false)
   }

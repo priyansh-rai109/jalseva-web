@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import {
   ShoppingCart,
@@ -18,16 +19,43 @@ import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabe
 import Link from 'next/link'
 
 export const metadata = { title: 'My Dashboard' }
+export const dynamic = 'force-dynamic'
 
 export default async function CustomerDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: customer }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-    supabase.from('customers').select('*').eq('user_id', user.id).maybeSingle(),
-  ])
+  const adminSupabase = createAdminClient()
+  const phoneToUse = user.phone || user.user_metadata?.phone
+
+  let customerObj: any = null
+
+  const { data: profile } = await adminSupabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const { data: byUser } = await adminSupabase
+    .from('customers')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (byUser) {
+    customerObj = byUser
+  } else if (phoneToUse) {
+    const digits = phoneToUse.slice(-10)
+    const { data: byPhone } = await adminSupabase
+      .from('customers')
+      .select('*')
+      .ilike('phone', `%${digits}%`)
+      .maybeSingle()
+    if (byPhone) customerObj = byPhone
+  }
+
+  const customerId = customerObj?.id
 
   const [
     { data: activeOrders },
@@ -36,40 +64,40 @@ export default async function CustomerDashboard() {
     { count: deliveredOrders },
     { data: suppliers }
   ] = await Promise.all([
-    supabase
+    customerId ? adminSupabase
       .from('orders')
       .select(`
         id, total_amount, status, quantity, created_at,
         suppliers(business_name),
         water_products(name, type)
       `)
-      .eq('customer_id', customer?.id)
+      .eq('customer_id', customerId)
       .in('status', ['pending', 'confirmed', 'out_for_delivery'])
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
 
-    supabase
+    customerId ? adminSupabase
       .from('orders')
       .select(`
         id, total_amount, status, quantity, created_at,
         suppliers(business_name),
         water_products(name, type)
       `)
-      .eq('customer_id', customer?.id)
+      .eq('customer_id', customerId)
       .order('created_at', { ascending: false })
-      .limit(5),
+      .limit(5) : Promise.resolve({ data: [] }),
 
-    supabase
+    customerId ? adminSupabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
-      .eq('customer_id', customer?.id),
+      .eq('customer_id', customerId) : Promise.resolve({ count: 0 }),
 
-    supabase
+    customerId ? adminSupabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
-      .eq('customer_id', customer?.id)
-      .eq('status', 'delivered'),
+      .eq('customer_id', customerId)
+      .eq('status', 'delivered') : Promise.resolve({ count: 0 }),
 
-    supabase
+    adminSupabase
       .from('suppliers')
       .select('*, zones(name)')
       .eq('status', 'approved')

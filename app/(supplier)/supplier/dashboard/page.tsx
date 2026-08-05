@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import {
   ShoppingCart,
@@ -10,9 +11,12 @@ import {
   Clock,
   CheckCircle2,
   Truck,
+  XCircle,
+  MapPin,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -25,8 +29,10 @@ export default async function SupplierDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const adminSupabase = createAdminClient()
+
   // Get supplier record
-  const { data: rawSupplier } = await supabase
+  const { data: rawSupplier } = await adminSupabase
     .from('suppliers')
     .select('*, zones(name)')
     .eq('user_id', user.id)
@@ -49,7 +55,7 @@ export default async function SupplierDashboard() {
     { count: totalOrders },
     { count: productCount }
   ] = await Promise.all([
-    supabase
+    adminSupabase
       .from('orders')
       .select(`
         id, total_amount, status, quantity, created_at,
@@ -60,25 +66,24 @@ export default async function SupplierDashboard() {
       .order('created_at', { ascending: false })
       .limit(6),
 
-    supabase
+    adminSupabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
       .eq('supplier_id', supplier.id)
       .eq('status', 'pending'),
 
-    supabase
+    adminSupabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
       .eq('supplier_id', supplier.id)
-      .eq('status', 'delivered')
-      .gte('created_at', new Date().toISOString().split('T')[0]),
+      .eq('status', 'delivered'),
 
-    supabase
+    adminSupabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
       .eq('supplier_id', supplier.id),
 
-    supabase
+    adminSupabase
       .from('water_products')
       .select('*', { count: 'exact', head: true })
       .eq('supplier_id', supplier.id)

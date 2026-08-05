@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import {
   ShoppingCart, Clock, CheckCircle2, Truck, XCircle, ArrowUpRight, Droplets
@@ -9,23 +10,46 @@ import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabe
 import Link from 'next/link'
 
 export const metadata = { title: 'My Orders' }
+export const dynamic = 'force-dynamic'
 
 export default async function CustomerOrdersPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: customer } = await supabase.from('customers').select('id').eq('user_id', user.id).single()
+  const adminSupabase = createAdminClient()
+  const phoneToUse = user.phone || user.user_metadata?.phone
 
-  const { data: orders } = await supabase
+  let customerId: string | null = null
+
+  // 1. Resolve customer by user_id
+  const { data: byUser } = await adminSupabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (byUser?.id) {
+    customerId = byUser.id
+  } else if (phoneToUse) {
+    const digits = phoneToUse.slice(-10)
+    const { data: byPhone } = await adminSupabase
+      .from('customers')
+      .select('id')
+      .ilike('phone', `%${digits}%`)
+      .maybeSingle()
+    if (byPhone?.id) customerId = byPhone.id
+  }
+
+  const { data: orders } = customerId ? await adminSupabase
     .from('orders')
     .select(`
       id, total_amount, status, quantity, payment_mode, created_at, delivered_at,
       suppliers(business_name, phone),
       water_products(name, type, capacity_liters)
     `)
-    .eq('customer_id', customer?.id)
-    .order('created_at', { ascending: false })
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false }) : { data: [] }
 
   const statusIcon = (status: string) => {
     if (status === 'pending') return <Clock className="w-4 h-4 text-yellow-400" />

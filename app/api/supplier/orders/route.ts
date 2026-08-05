@@ -3,6 +3,53 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyCustomerStatusChange } from '@/lib/services/notification-service'
 
+export async function GET(request: Request) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const statusFilter = searchParams.get('status') || 'all'
+
+    const adminSupabase = createAdminClient()
+
+    // Get supplier row for this user
+    const { data: supplier } = await adminSupabase
+      .from('suppliers')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const supplierId = supplier?.id || user.id
+
+    let query = adminSupabase
+      .from('orders')
+      .select(`
+        id, total_amount, status, quantity, payment_mode, delivery_address, created_at, special_instructions,
+        customers(name, phone),
+        water_products(name, type, capacity_liters)
+      `)
+      .eq('supplier_id', supplierId)
+      .order('created_at', { ascending: false })
+
+    if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter)
+    }
+
+    const { data: orders, error } = await query
+    if (error) throw error
+
+    return NextResponse.json({ orders: orders || [] })
+  } catch (err: any) {
+    console.error('[Supplier Orders GET Exception]', err)
+    return NextResponse.json({ error: err.message || 'Internal Error' }, { status: 500 })
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const supabase = await createClient()

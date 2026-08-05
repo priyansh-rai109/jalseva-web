@@ -24,34 +24,22 @@ export default function SupplierOrdersPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: supplier } = await supabase.from('suppliers').select('id').eq('user_id', user.id).single()
-      if (supplier) { setSupplierId(supplier.id); fetchOrders(supplier.id) }
-    }
-    init()
-  }, [])
+    fetchOrders()
+  }, [statusFilter])
 
-  const fetchOrders = async (sid: string) => {
+  const fetchOrders = async () => {
     setLoading(true)
-    let query = supabase
-      .from('orders')
-      .select(`
-        id, total_amount, status, quantity, payment_mode, delivery_address, created_at, special_instructions,
-        customers(name, phone),
-        water_products(name, type, capacity_liters)
-      `)
-      .eq('supplier_id', sid)
-      .order('created_at', { ascending: false })
-
-    if (statusFilter !== 'all') query = query.eq('status', statusFilter)
-    const { data } = await query
-    setOrders(data || [])
+    try {
+      const res = await fetch(`/api/supplier/orders?status=${statusFilter}`)
+      const json = await res.json()
+      if (res.ok) {
+        setOrders(json.orders || [])
+      }
+    } catch (err) {
+      console.error('Error fetching supplier orders:', err)
+    }
     setLoading(false)
   }
-
-  useEffect(() => { if (supplierId) fetchOrders(supplierId) }, [statusFilter, supplierId])
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId)
@@ -64,7 +52,7 @@ export default function SupplierOrdersPage() {
       const json = await res.json()
       if (res.ok) {
         toast.success(`Order marked as ${newStatus.replace('_', ' ')}`)
-        fetchOrders(supplierId!)
+        fetchOrders()
       } else {
         toast.error(json.error || 'Failed to update order')
       }
