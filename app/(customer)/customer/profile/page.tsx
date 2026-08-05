@@ -40,37 +40,47 @@ export default function CustomerProfilePage() {
     defaultValues: { city: 'Jodhpur', label: 'Home' },
   })
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const [{ data: p }, { data: c }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-        supabase.from('customers').select('*').eq('user_id', user.id).maybeSingle(),
-      ])
-      setProfile(p)
-      setCustomer(c)
-      setName(p?.name || '')
-      setPhone(p?.phone || '')
-      setLoading(false)
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch('/api/customer/profile')
+      const json = await res.json()
+      if (res.ok) {
+        setProfile(json.profile)
+        setCustomer(json.customer)
+        setName(json.name || '')
+        setPhone(json.phone || '')
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err)
     }
-    init()
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchProfile()
   }, [])
 
   const saveProfile = async () => {
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await Promise.all([
-      supabase.from('profiles').update({ name, phone }).eq('id', user.id),
-      supabase.from('customers').update({ name, phone }).eq('user_id', user.id),
-    ])
-    toast.success('Profile updated!')
+    try {
+      const res = await fetch('/api/customer/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone }),
+      })
+      if (res.ok) {
+        toast.success('Profile updated!')
+        fetchProfile()
+      } else {
+        toast.error('Failed to update profile')
+      }
+    } catch (err) {
+      toast.error('Failed to update profile')
+    }
     setSaving(false)
   }
 
   const addAddress = async (data: AddressForm) => {
-    const customerId = customer?.id || 'customer-1'
     const newAddr: Address = {
       id: crypto.randomUUID(),
       label: data.label,
@@ -80,26 +90,36 @@ export default function CustomerProfilePage() {
       is_default: !customer?.addresses?.length,
     }
     const updatedAddresses = [...(customer?.addresses || []), newAddr]
-    await supabase.from('customers').update({ addresses: updatedAddresses }).eq('id', customerId)
-    setCustomer({ ...(customer || { id: customerId }), addresses: updatedAddresses })
+    await fetch('/api/customer/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addresses: updatedAddresses }),
+    })
+    setCustomer({ ...(customer || {}), addresses: updatedAddresses })
     toast.success('Address added!')
     setAddressDialog(false)
     reset()
   }
 
   const removeAddress = async (addressId: string) => {
-    const customerId = customer?.id || 'customer-1'
     const updated = (customer?.addresses || []).filter((a: Address) => a.id !== addressId)
-    await supabase.from('customers').update({ addresses: updated }).eq('id', customerId)
-    setCustomer({ ...(customer || { id: customerId }), addresses: updated })
+    await fetch('/api/customer/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addresses: updated }),
+    })
+    setCustomer({ ...(customer || {}), addresses: updated })
     toast.success('Address removed')
   }
 
   const setDefaultAddress = async (addressId: string) => {
-    const customerId = customer?.id || 'customer-1'
     const updated = (customer?.addresses || []).map((a: Address) => ({ ...a, is_default: a.id === addressId }))
-    await supabase.from('customers').update({ addresses: updated }).eq('id', customerId)
-    setCustomer({ ...(customer || { id: customerId }), addresses: updated })
+    await fetch('/api/customer/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addresses: updated }),
+    })
+    setCustomer({ ...(customer || {}), addresses: updated })
     toast.success('Default address updated')
   }
 

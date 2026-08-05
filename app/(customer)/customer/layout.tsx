@@ -1,30 +1,55 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Sidebar } from '@/components/shared/Sidebar'
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Middleware already guards this route — if we get here, user is authenticated.
-  // Only redirect to /register/complete-profile (not /login!) if truly no session.
   if (!user) redirect('/register/complete-profile')
 
-  const { data: profile } = await supabase
+  const adminSupabase = createAdminClient()
+  const phoneToUse = user.phone || user.user_metadata?.phone
+
+  let profileObj: any = null
+  let customerObj: any = null
+
+  const { data: profile } = await adminSupabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .maybeSingle()
 
-  // If profile is missing or wrong role, send to complete-profile (not /login — avoids loop)
-  // Middleware will catch any real unauthorized access before we get here.
-  if (profile && profile.role && profile.role !== 'customer') {
+  profileObj = profile
+
+  const { data: byUser } = await adminSupabase
+    .from('customers')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (byUser) {
+    customerObj = byUser
+  } else if (phoneToUse) {
+    const digits = phoneToUse.replace(/\D/g, '').slice(-10)
+    if (digits) {
+      const { data: byPhone } = await adminSupabase
+        .from('customers')
+        .select('*')
+        .ilike('phone', `%${digits}%`)
+        .maybeSingle()
+      if (byPhone) customerObj = byPhone
+    }
+  }
+
+  if (profileObj && profileObj.role && profileObj.role !== 'customer') {
     redirect('/register/complete-profile')
   }
 
   let notifCount = 0
   try {
-    const { count } = await supabase
+    const { count } = await adminSupabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
@@ -32,9 +57,8 @@ export default async function CustomerLayout({ children }: { children: React.Rea
     notifCount = count || 0
   } catch {}
 
-  // Graceful fallback: use mock session name/email if profile is null
-  const displayName = profile?.name || (user as any).user_metadata?.name || 'Customer'
-  const displayEmail = profile?.email || (user as any).email || ''
+  const displayName = customerObj?.name || profileObj?.name || (user as any).user_metadata?.name || 'Customer'
+  const displayEmail = customerObj?.email || profileObj?.email || (user as any).email || ''
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background">
