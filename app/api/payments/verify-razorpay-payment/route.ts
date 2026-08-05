@@ -43,7 +43,8 @@ export async function POST(request: Request) {
         .from('orders')
         .update({
           status: 'confirmed',
-          payment_mode: 'online_razorpay',
+          payment_mode: 'online',
+          payment_status: 'paid',
           special_instructions: `[Paid via Razorpay - Payment ID: ${razorpay_payment_id}]`,
         })
         .eq('id', orderId)

@@ -125,6 +125,16 @@ export async function POST(request: Request) {
       const unitPrice = item.product.price
       const totalAmount = unitPrice * item.quantity
 
+      let dbPaymentMode = paymentMode || 'cash_on_delivery'
+      let updatedInstructions = specialInstructions || null
+
+      if (dbPaymentMode === 'razorpay' || dbPaymentMode === 'online_razorpay') {
+        dbPaymentMode = 'online'
+        updatedInstructions = updatedInstructions
+          ? `${updatedInstructions} [Paid via Razorpay Online]`
+          : '[Paid via Razorpay Online]'
+      }
+
       const { data: newOrder, error: insertErr } = await adminSupabase
         .from('orders')
         .insert({
@@ -135,10 +145,10 @@ export async function POST(request: Request) {
           unit_price: unitPrice,
           total_amount: totalAmount,
           status: 'pending',
-          payment_mode: paymentMode || 'cash_on_delivery',
-          payment_status: 'pending',
+          payment_mode: dbPaymentMode,
+          payment_status: dbPaymentMode === 'online' ? 'pending' : 'pending',
           delivery_address: deliveryAddress,
-          special_instructions: specialInstructions || null,
+          special_instructions: updatedInstructions,
         })
         .select()
         .single()
