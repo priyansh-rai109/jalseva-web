@@ -176,7 +176,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errorsList.join(', ') || 'Failed to place orders' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, orders: placedOrders })
+    return NextResponse.json({ success: true, orders: placedOrders, order: placedOrders[0] || null })
   } catch (err: any) {
     console.error('[Orders POST Exception]', err)
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })

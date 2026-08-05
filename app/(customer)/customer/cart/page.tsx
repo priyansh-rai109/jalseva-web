@@ -95,13 +95,14 @@ export default function CartPage() {
 
       const json = await res.json()
 
-      if (!res.ok || !json.order) {
+      const createdOrders = json.orders || (json.order ? [json.order] : [])
+      const createdOrderId = createdOrders[0]?.id
+
+      if (!res.ok || !createdOrderId) {
         toast.error(json.error || 'Failed to place order')
         setPlacing(false)
         return
       }
-
-      const createdOrderId = json.order.id
 
       // 2. If Razorpay is chosen, launch Razorpay Checkout Modal
       if (data.payment_mode === 'razorpay') {
