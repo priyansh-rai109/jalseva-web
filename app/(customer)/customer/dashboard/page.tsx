@@ -142,15 +142,17 @@ export default async function CustomerDashboard() {
           { label: 'Delivered', value: deliveredOrders ?? 0, icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-400/10' },
           { label: 'Active Orders', value: activeOrders?.length ?? 0, icon: Truck, color: 'text-purple-400', bg: 'bg-purple-400/10' },
         ].map((stat) => (
-          <Card key={stat.label} className="glass-card">
-            <CardContent className="p-5">
-              <div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center mb-3`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
-              </div>
-              <div className="text-2xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>{stat.value}</div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-            </CardContent>
-          </Card>
+          <Link key={stat.label} href="/customer/orders">
+            <Card className="glass-card hover:border-sky-500/30 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer">
+              <CardContent className="p-5">
+                <div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center mb-3`}>
+                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                </div>
+                <div className="text-2xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>{stat.value}</div>
+                <div className="text-sm text-muted-foreground">{stat.label}</div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
@@ -250,7 +252,11 @@ export default async function CustomerDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             {recentOrders.map((order: any) => (
-              <div key={order.id} className="flex items-center gap-4 p-3 rounded-lg bg-secondary/50">
+              <Link
+                key={order.id}
+                href={`/customer/orders/${order.id}`}
+                className="flex items-center gap-4 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer"
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{(order.water_products as any)?.name}</p>
                   <p className="text-xs text-muted-foreground">{(order.suppliers as any)?.business_name} · {formatDateTime(order.created_at)}</p>
@@ -261,7 +267,8 @@ export default async function CustomerDashboard() {
                     {getOrderStatusLabel(order.status)}
                   </Badge>
                 </div>
-              </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              </Link>
             ))}
           </CardContent>
         </Card>
