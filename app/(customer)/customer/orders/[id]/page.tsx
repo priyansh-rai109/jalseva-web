@@ -6,13 +6,14 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Clock, CheckCircle2, Truck, XCircle,
-  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList
+  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -31,6 +32,10 @@ export default function OrderDetailPage() {
   const [tracking, setTracking] = useState<any[]>([])
   const [review, setReview] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+
+  // Cancel modal state
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   // Review form state
   const [rating, setRating] = useState(5)
@@ -104,6 +109,28 @@ export default function OrderDetailPage() {
     setSubmittingReview(false)
   }
 
+  const handleCancelOrder = async (reason?: string) => {
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', reason }),
+      })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        toast.success('Order cancel kar diya gaya hai')
+        fetchOrderDetails()
+      } else {
+        toast.error(json.error || 'Failed to cancel order')
+      }
+    } catch (err) {
+      toast.error('Error cancelling order')
+    }
+    setCancelling(false)
+    setConfirmCancelOpen(false)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -118,6 +145,7 @@ export default function OrderDetailPage() {
 
   const currentStepIdx = steps.findIndex(s => s.status === order.status)
   const isCancelled = order.status === 'cancelled'
+  const canCancel = order.status === 'pending' || order.status === 'confirmed'
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-3xl mx-auto">
@@ -133,9 +161,22 @@ export default function OrderDetailPage() {
           </h1>
           <p className="text-muted-foreground text-xs mt-1">Order ID: {order.id}</p>
         </div>
-        <Badge className={`text-sm py-1 border ${getOrderStatusColor(order.status)}`}>
-          {getOrderStatusLabel(order.status)}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge className={`text-sm py-1 border ${getOrderStatusColor(order.status)}`}>
+            {getOrderStatusLabel(order.status)}
+          </Badge>
+          {canCancel && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+              onClick={() => setConfirmCancelOpen(true)}
+            >
+              <Ban className="w-4 h-4 mr-1.5" />
+              Cancel Order
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stepper */}
@@ -340,6 +381,21 @@ export default function OrderDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Order Cancellation Modal */}
+      <ConfirmDialog
+        isOpen={confirmCancelOpen}
+        title="Order Cancel Karein?"
+        message="Kya aap sach mein apna order cancel karna chahte hain? Confirm karne ke liye kripya cancel karne ka reason likhein."
+        confirmText="Haan, Cancel Karo"
+        cancelText="Wapas chalo"
+        variant="destructive"
+        requireReason={true}
+        reasonPlaceholder="Cancel karne ka reason (e.g., Galti se order ho gaya, Plan change)..."
+        loading={cancelling}
+        onConfirm={(reason) => handleCancelOrder(reason)}
+        onCancel={() => setConfirmCancelOpen(false)}
+      />
     </div>
   )
 }

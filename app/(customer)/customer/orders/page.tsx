@@ -1,13 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import {
-  ShoppingCart, Clock, CheckCircle2, Truck, XCircle, ArrowUpRight, Droplets
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
+import { Droplets } from 'lucide-react'
 import Link from 'next/link'
+import { CustomerOrdersClient } from './CustomerOrdersClient'
 
 export const metadata = { title: 'My Orders' }
 export const dynamic = 'force-dynamic'
@@ -51,21 +47,6 @@ export default async function CustomerOrdersPage() {
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false }) : { data: [] }
 
-  const statusIcon = (status: string) => {
-    if (status === 'pending') return <Clock className="w-4 h-4 text-yellow-400" />
-    if (status === 'confirmed') return <CheckCircle2 className="w-4 h-4 text-blue-400" />
-    if (status === 'out_for_delivery') return <Truck className="w-4 h-4 text-purple-400" />
-    if (status === 'delivered') return <CheckCircle2 className="w-4 h-4 text-green-400" />
-    if (status === 'cancelled') return <XCircle className="w-4 h-4 text-red-400" />
-    return null
-  }
-
-  const productTypeIcon = (type: string) => {
-    if (type === 'tanker') return '🚛'
-    if (type === 'can') return '🫙'
-    return '💧'
-  }
-
   return (
     <div className="p-6 md:p-8 space-y-6">
       <div>
@@ -82,39 +63,7 @@ export default async function CustomerOrdersPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-4">
-          {orders.map((order: any) => (
-            <Card key={order.id} className="glass-card hover:border-sky-500/20 transition-all">
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="text-3xl">{productTypeIcon((order.water_products as any)?.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <h3 className="font-semibold">{(order.water_products as any)?.name}</h3>
-                      <Badge className={`text-xs border ${getOrderStatusColor(order.status)}`}>
-                        {getOrderStatusLabel(order.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">{(order.suppliers as any)?.business_name}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-                      <span>Qty: {order.quantity}</span>
-                      <span>Payment: {order.payment_mode.replace('_', ' ')}</span>
-                      <span>{formatDateTime(order.created_at)}</span>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-lg font-bold gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                      {formatCurrency(order.total_amount)}
-                    </div>
-                    <div className="flex items-center gap-1 mt-1 text-muted-foreground justify-end">
-                      {statusIcon(order.status)}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <CustomerOrdersClient initialOrders={orders} />
       )}
     </div>
   )
