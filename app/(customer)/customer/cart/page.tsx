@@ -28,13 +28,27 @@ const checkoutSchema = z.object({
   line1: z.string().min(5, 'Address required'),
   pincode: z.string().min(6, 'Valid pincode required'),
   city: z.string().min(2, 'City required'),
-  payment_mode: z.enum(['cash_on_delivery', 'upi']),
+  payment_mode: z.enum(['cash_on_delivery', 'upi', 'razorpay']),
   special_instructions: z.string().optional(),
 })
 
 type CheckoutForm = z.infer<typeof checkoutSchema>
 
 const productTypeIcons: Record<string, string> = { tanker: '🚛', can: '🫙', pouch: '💧' }
+
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && (window as any).Razorpay) {
+      resolve(true)
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
 
 export default function CartPage() {
   const router = useRouter()
@@ -65,6 +79,9 @@ export default function CartPage() {
     }
 
     try {
+      const totalAmt = getTotalAmount()
+
+      // 1. Create order in JalSeva backend
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,12 +94,93 @@ export default function CartPage() {
       })
 
       const json = await res.json()
-      if (res.ok) {
-        clearCart()
-        setShowSuccessModal(true)
-      } else {
+
+      if (!res.ok || !json.order) {
         toast.error(json.error || 'Failed to place order')
+        setPlacing(false)
+        return
       }
+
+      const createdOrderId = json.order.id
+
+      // 2. If Razorpay is chosen, launch Razorpay Checkout Modal
+      if (data.payment_mode === 'razorpay') {
+        const loaded = await loadRazorpayScript()
+        if (!loaded) {
+          toast.error('Failed to load Razorpay SDK. Please check your connection.')
+          setPlacing(false)
+          return
+        }
+
+        const rzpRes = await fetch('/api/payments/create-razorpay-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: totalAmt,
+            orderId: createdOrderId,
+          }),
+        })
+
+        const rzpJson = await rzpRes.json()
+
+        if (!rzpRes.ok || !rzpJson.id) {
+          toast.error(rzpJson.error || 'Failed to initiate Razorpay payment')
+          setPlacing(false)
+          return
+        }
+
+        const options = {
+          key: rzpJson.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_T34XmzvqjTeeXs',
+          amount: rzpJson.amount,
+          currency: rzpJson.currency || 'INR',
+          name: 'JalSeva Water Delivery',
+          description: `Payment for Order #${createdOrderId.slice(0, 8)}`,
+          order_id: rzpJson.id,
+          handler: async (response: any) => {
+            try {
+              const verifyRes = await fetch('/api/payments/verify-razorpay-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  orderId: createdOrderId,
+                }),
+              })
+
+              const verifyJson = await verifyRes.json()
+
+              if (verifyRes.ok && verifyJson.success) {
+                toast.success('🎉 Razorpay Payment Verified Successfully!')
+                clearCart()
+                setShowSuccessModal(true)
+              } else {
+                toast.error(verifyJson.error || 'Payment verification failed')
+              }
+            } catch (err) {
+              toast.error('Error verifying payment')
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              toast.error('Payment cancelled by user')
+              setPlacing(false)
+            },
+          },
+          theme: {
+            color: '#0284c7',
+          },
+        }
+
+        const rzpInstance = new (window as any).Razorpay(options)
+        rzpInstance.open()
+        return
+      }
+
+      // Cash on delivery / UPI offline flow
+      clearCart()
+      setShowSuccessModal(true)
     } catch (err) {
       console.error('[Cart Order Placement Exception]', err)
       toast.error('Failed to place order')
@@ -198,13 +296,14 @@ export default function CartPage() {
 
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {[
+                      { value: 'razorpay', label: '💳 Razorpay Online', desc: 'UPI, Cards, NetBanking' },
                       { value: 'cash_on_delivery', label: '💵 Cash on Delivery', desc: 'Pay when delivered' },
-                      { value: 'upi', label: '📱 UPI', desc: 'Google Pay / PhonePe' },
+                      { value: 'upi', label: '📱 Manual UPI', desc: 'Google Pay / PhonePe' },
                     ].map((opt) => (
                       <button key={opt.value} type="button"
-                        onClick={() => setValue('payment_mode', opt.value as 'cash_on_delivery' | 'upi')}
+                        onClick={() => setValue('payment_mode', opt.value as 'cash_on_delivery' | 'upi' | 'razorpay')}
                         className={`p-3 rounded-lg border text-left transition-all ${
                           paymentMode === opt.value
                             ? 'border-sky-500 bg-sky-500/10'
