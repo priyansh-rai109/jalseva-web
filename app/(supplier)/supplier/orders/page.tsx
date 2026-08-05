@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
+import Link from 'next/link'
 
 const STATUS_OPTIONS = ['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled']
 
@@ -156,6 +157,14 @@ export default function SupplierOrdersPage() {
                     {order.special_instructions && (
                       <p className="text-xs text-amber-400 mt-1">📝 {order.special_instructions}</p>
                     )}
+
+                    <div className="mt-3">
+                      <Link href={`/supplier/orders/${order.id}`}>
+                        <Button variant="outline" size="sm" className="text-xs">
+                          View Summary & Details →
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="text-xl font-bold gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>

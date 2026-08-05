@@ -21,6 +21,7 @@ export async function GET(
         .from('orders')
         .select(`
           id, total_amount, status, quantity, payment_mode, delivery_address, created_at, special_instructions,
+          customers(id, name, phone, email),
           suppliers(id, business_name, phone, owner_name),
           water_products(name, type, capacity_liters, price)
         `)
