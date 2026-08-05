@@ -32,78 +32,15 @@ export default function SupplierAnalyticsPage() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: supplier } = await supabase
-        .from('suppliers')
-        .select('id, rating')
-        .eq('user_id', user.id)
-        .single()
-      if (!supplier) return
-
-      const [
-        { data: allOrders },
-        { data: reviews },
-        { data: products },
-      ] = await Promise.all([
-        supabase.from('orders')
-          .select('status, total_amount, created_at, product_id, water_products(name, type)')
-          .eq('supplier_id', supplier.id),
-        supabase.from('reviews').select('rating').eq('supplier_id', supplier.id),
-        supabase.from('water_products').select('id, name, type').eq('supplier_id', supplier.id),
-      ])
-
-      const orders = allOrders || []
-      const delivered = orders.filter((o: any) => o.status === 'delivered')
-      const totalRevenue = delivered.reduce((sum: number, o: any) => sum + o.total_amount, 0)
-
-      // Top products by order count
-      const productMap: Record<string, { name: string; type: string; count: number; revenue: number }> = {}
-      orders.forEach((o: any) => {
-        const pid = o.product_id
-        if (!productMap[pid]) {
-          productMap[pid] = {
-            name: (o.water_products as any)?.name || 'Unknown',
-            type: (o.water_products as any)?.type || 'can',
-            count: 0, revenue: 0,
-          }
+      try {
+        const res = await fetch('/api/supplier/analytics')
+        const json = await res.json()
+        if (res.ok) {
+          setStats(json)
         }
-        productMap[pid].count++
-        if (o.status === 'delivered') productMap[pid].revenue += o.total_amount
-      })
-      const topProducts = Object.values(productMap).sort((a, b) => b.count - a.count).slice(0, 5)
-
-      // Last 7 days revenue
-      const last7 = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date()
-        d.setDate(d.getDate() - (6 - i))
-        return d.toISOString().split('T')[0]
-      })
-      const recentRevenue = last7.map(date => ({
-        date,
-        amount: delivered
-          .filter((o: any) => o.created_at?.startsWith(date))
-          .reduce((sum: number, o: any) => sum + o.total_amount, 0),
-      }))
-
-      const reviewsData = reviews || []
-      const avgRating = reviewsData.length
-        ? reviewsData.reduce((s: number, r: any) => s + r.rating, 0) / reviewsData.length
-        : 0
-
-      setStats({
-        totalOrders: orders.length,
-        deliveredOrders: delivered.length,
-        cancelledOrders: orders.filter((o: any) => o.status === 'cancelled').length,
-        pendingOrders: orders.filter((o: any) => o.status === 'pending').length,
-        totalRevenue,
-        averageOrderValue: delivered.length ? totalRevenue / delivered.length : 0,
-        averageRating: avgRating,
-        totalReviews: reviewsData.length,
-        topProducts,
-        recentRevenue,
-      })
+      } catch (err) {
+        console.error('Error fetching analytics:', err)
+      }
       setLoading(false)
     }
     fetchStats()

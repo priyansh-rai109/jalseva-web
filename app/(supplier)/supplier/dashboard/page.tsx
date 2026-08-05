@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
 import Link from 'next/link'
 
+import { getSupplierForUser } from '@/lib/supabase/supplier-helper'
+
 export const metadata = { title: 'Supplier Dashboard' }
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -30,13 +32,7 @@ export default async function SupplierDashboard() {
   if (!user) redirect('/login')
 
   const adminSupabase = createAdminClient()
-
-  // Get supplier record
-  const { data: rawSupplier } = await adminSupabase
-    .from('suppliers')
-    .select('*, zones(name)')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const rawSupplier = await getSupplierForUser(user)
 
   const supplier = rawSupplier || {
     id: user.id,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSupplierForUser } from '@/lib/supabase/supplier-helper'
 import { notifyCustomerStatusChange } from '@/lib/services/notification-service'
 
 export async function GET(request: Request) {
@@ -16,15 +17,11 @@ export async function GET(request: Request) {
     const statusFilter = searchParams.get('status') || 'all'
 
     const adminSupabase = createAdminClient()
+    const supplier = await getSupplierForUser(user)
 
-    // Get supplier row for this user
-    const { data: supplier } = await adminSupabase
-      .from('suppliers')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    const supplierId = supplier?.id || user.id
+    if (!supplier) {
+      return NextResponse.json({ orders: [] })
+    }
 
     let query = adminSupabase
       .from('orders')
@@ -33,7 +30,7 @@ export async function GET(request: Request) {
         customers(name, phone),
         water_products(name, type, capacity_liters)
       `)
-      .eq('supplier_id', supplierId)
+      .eq('supplier_id', supplier.id)
       .order('created_at', { ascending: false })
 
     if (statusFilter !== 'all') {
