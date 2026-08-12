@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       ownerName,
       address,
       city = 'Jodhpur',
+      zoneId,
     } = body
 
     const digits = (rawPhone ?? '').replace(/\D/g, '').slice(-10)
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     const profileName = (role === 'supplier' ? (bizName || name) : name) || 'JalSeva User'
     const dummyEmail = `test_91${digits}@jalseva.app`
 
-    console.log('[CompleteProfile] Session/user check:', { rawUserId, rawPhone, digits, fullPhone, profileName })
+    console.log('[CompleteProfile] Session/user check:', { rawUserId, rawPhone, digits, fullPhone, profileName, zoneId })
 
     const admin = createAdminClient()
     const realUserId = await resolveUserId(admin, { userId: rawUserId, phone: fullPhone }, role, profileName)
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
         email: dummyEmail,
         address: address || city,
         city: city,
+        zone_id: zoneId || null,
         status: 'approved',
       }).select()
       console.log('[CompleteProfile] Insert result (suppliers):', sData)

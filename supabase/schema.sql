@@ -282,8 +282,11 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "profiles_own_read" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "profiles_own_update" ON profiles FOR UPDATE USING (auth.uid() = id);
 
--- Zones: public read
+-- Zones: public read and admin manage
 CREATE POLICY "zones_public_read" ON zones FOR SELECT USING (TRUE);
+CREATE POLICY "zones_admin_manage" ON zones FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+);
 
 -- Water products: public read for active products
 CREATE POLICY "products_public_read" ON water_products FOR SELECT USING (is_active = TRUE);

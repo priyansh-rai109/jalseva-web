@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Droplets, User, MapPin, Building2,
-  CheckCircle2, ArrowRight, Loader2
+  CheckCircle2, ArrowRight, Loader2, Compass
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getPhoneUuid } from '@/lib/utils'
 import { getFriendlyErrorMessage, SUPPORT_WHATSAPP_URL } from '@/lib/error-utils'
 
@@ -47,6 +48,21 @@ export default function CompleteProfilePage() {
   const [ownerName, setOwnerName] = useState('')
   const [supAddress, setSupAddress] = useState('')
   const [supCity, setSupCity] = useState('Jodhpur')
+  const [supZoneId, setSupZoneId] = useState('')
+  const [zones, setZones] = useState<any[]>([])
+
+  // ── Load available delivery zones ─────────────────────────────────────────
+  useEffect(() => {
+    async function loadZones() {
+      try {
+        const { data } = await supabase.from('zones').select('*').eq('is_active', true).order('name')
+        if (data) setZones(data)
+      } catch (e) {
+        console.warn('Could not load zones:', e)
+      }
+    }
+    loadZones()
+  }, [])
 
   // ── On mount: check session & auto-detect registered user ───────────────
   useEffect(() => {
@@ -229,6 +245,7 @@ export default function CompleteProfilePage() {
           phone: formattedPhone,
           address: supAddress.trim(),
           city: supCity.trim(),
+          zoneId: supZoneId || null,
         }),
       })
 
@@ -425,6 +442,23 @@ export default function CompleteProfilePage() {
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input id="sup-city" value={supCity} onChange={e => setSupCity(e.target.value)} placeholder="Your city" className="pl-9" required />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="sup-zone">Primary Delivery Zone</Label>
+                <Select value={supZoneId} onValueChange={(v) => setSupZoneId(v ?? '')}>
+                  <SelectTrigger id="sup-zone" className="w-full bg-secondary">
+                    <SelectValue placeholder="Select your delivery zone (e.g. Sardarpura)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {zones.map((z) => (
+                      <SelectItem key={z.id} value={z.id}>
+                        {z.name} ({z.city})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">Newly added zones by Admin will appear here automatically.</p>
               </div>
 
               <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold h-11 mt-2" disabled={loading}>
