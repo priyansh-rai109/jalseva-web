@@ -84,28 +84,26 @@ export default function OrderDetailPage() {
 
   const submitReview = async () => {
     setSubmittingReview(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: customer } = await supabase.from('customers').select('id').eq('user_id', user.id).single()
-    if (!customer) return
-
-    const { error } = await supabase.from('reviews').insert({
-      order_id: order.id,
-      customer_id: customer.id,
-      supplier_id: order.suppliers.id,
-      rating,
-      comment: comment || null,
-    })
-
-    if (error) {
-      toast.error('Failed to submit review')
-      setSubmittingReview(false)
-      return
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          rating,
+          comment: comment || null,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        toast.success('Thank you for your review! ⭐')
+        await fetchOrderDetails()
+      } else {
+        toast.error(json.error || 'Failed to submit review')
+      }
+    } catch (err) {
+      toast.error('Error submitting review')
     }
-
-    toast.success('Thank you for your review!')
-    await fetchOrderDetails()
     setSubmittingReview(false)
   }
 
@@ -317,7 +315,7 @@ export default function OrderDetailPage() {
             <Card className="glass-card border-amber-500/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  <Star className="w-4 h-4 text-amber-400" /> {review ? 'Your Review' : 'Rate Your Delivery'}
+                  <Star className="w-4 h-4 text-amber-400" /> {review ? 'Your Review & Rating' : 'Rate Your Delivery'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -327,7 +325,7 @@ export default function OrderDetailPage() {
                       key={s}
                       disabled={!!review}
                       onClick={() => setRating(s)}
-                      className="p-1 hover:scale-110 transition-transform"
+                      className="p-1 hover:scale-110 transition-transform disabled:hover:scale-100"
                     >
                       <Star className={`w-8 h-8 ${
                         s <= rating
@@ -338,22 +336,43 @@ export default function OrderDetailPage() {
                   ))}
                 </div>
 
-                <div className="space-y-2">
-                  <span className="text-xs text-muted-foreground block">Review Comment</span>
-                  <Textarea
-                    disabled={!!review}
-                    value={comment}
-                    onChange={e => setComment(e.target.value)}
-                    placeholder="Tell us about the water purity, delivery punctuality, or service quality..."
-                    className="bg-secondary resize-none"
-                    rows={3}
-                  />
-                </div>
+                {review ? (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-secondary/50 text-sm">
+                      <span className="text-xs text-muted-foreground block mb-1 font-semibold">Your Review:</span>
+                      <p className="text-foreground">
+                        &quot;{(review.comment || '').split('\n\n[Supplier Reply]: ')[0] || 'No written comment'}&quot;
+                      </p>
+                    </div>
 
-                {!review && (
-                  <Button onClick={submitReview} disabled={submittingReview} className="w-full water-shimmer text-white">
-                    {submittingReview ? 'Submitting...' : 'Submit Review'}
-                  </Button>
+                    {(review.comment || '').includes('\n\n[Supplier Reply]: ') && (
+                      <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs space-y-1">
+                        <span className="font-bold text-sky-400 flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5" /> Supplier Greeting Response:
+                        </span>
+                        <p className="text-foreground italic">
+                          &quot;{(review.comment || '').split('\n\n[Supplier Reply]: ')[1]}&quot;
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <span className="text-xs text-muted-foreground block">Review Comment</span>
+                      <Textarea
+                        value={comment}
+                        onChange={e => setComment(e.target.value)}
+                        placeholder="Tell us about the water purity, delivery punctuality, or service quality..."
+                        className="bg-secondary resize-none"
+                        rows={3}
+                      />
+                    </div>
+
+                    <Button onClick={submitReview} disabled={submittingReview} className="w-full water-shimmer text-white">
+                      {submittingReview ? 'Submitting...' : 'Submit Review'}
+                    </Button>
+                  </>
                 )}
               </CardContent>
             </Card>

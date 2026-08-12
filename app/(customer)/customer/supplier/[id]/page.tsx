@@ -27,6 +27,7 @@ export default function SupplierDetailPage() {
 
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [products, setProducts] = useState<WaterProduct[]>([])
+  const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [cartPop, setCartPop] = useState(false)
 
@@ -40,12 +41,14 @@ export default function SupplierDetailPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: sup }, { data: prods }] = await Promise.all([
+      const [{ data: sup }, { data: prods }, { data: revs }] = await Promise.all([
         supabase.from('suppliers').select('*, zones(name)').eq('id', id).maybeSingle(),
         supabase.from('water_products').select('*').eq('supplier_id', id).eq('is_active', true).order('type'),
+        supabase.from('reviews').select('*, customers(name)').eq('supplier_id', id).order('created_at', { ascending: false }),
       ])
       setSupplier(sup)
       setProducts(prods || [])
+      setReviews(revs || [])
       setLoading(false)
     }
     fetchData()
@@ -206,7 +209,58 @@ export default function SupplierDetailPage() {
         )}
       </div>
 
-      {/* Floating Cart */}
+      {/* Customer Reviews & Ratings */}
+      <div className="space-y-4 pt-4 border-t border-border">
+        <h2 className="text-xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          Customer Reviews & Ratings ({reviews.length})
+        </h2>
+
+        {reviews.length === 0 ? (
+          <div className="p-6 text-center glass-card text-muted-foreground text-sm">
+            No customer reviews for this supplier yet. Be the first to order and review!
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reviews.map((rev: any) => {
+              const rawComment = rev.comment || ''
+              const parts = rawComment.split('\n\n[Supplier Reply]: ')
+              const custComment = parts[0]
+              const supplierReply = parts[1] || null
+
+              return (
+                <Card key={rev.id} className="glass-card">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm">{(rev.customers as any)?.name || 'Customer'}</span>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`w-3.5 h-3.5 ${
+                              s <= rev.rating ? 'text-amber-400 fill-amber-400' : 'text-border'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {custComment && (
+                      <p className="text-xs text-muted-foreground">&quot;{custComment}&quot;</p>
+                    )}
+
+                    {supplierReply && (
+                      <div className="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs space-y-1 mt-2">
+                        <span className="font-bold text-sky-400 block">💬 Supplier Response:</span>
+                        <p className="text-foreground italic">&quot;{supplierReply}&quot;</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </div>
       {getTotalItems() > 0 && supplier_id === id && (
         <div className="fixed bottom-6 left-72 right-6 z-40">
           <Link href="/customer/cart">
