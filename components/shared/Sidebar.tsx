@@ -45,6 +45,7 @@ const adminNav = [
 const supplierNav = [
   { href: '/supplier/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/supplier/orders', label: 'Orders', icon: ShoppingCart },
+  { href: '/supplier/notifications', label: 'Notifications', icon: Bell },
   { href: '/supplier/products', label: 'Products', icon: Package },
   { href: '/supplier/reviews', label: 'Reviews', icon: Star },
   { href: '/supplier/zone', label: 'Delivery Zone', icon: MapPin },
