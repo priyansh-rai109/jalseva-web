@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { notifySupplierNewOrder } from '@/lib/services/notification-service'
+import { notifySupplierNewOrder, notifyCustomerOrderPlaced } from '@/lib/services/notification-service'
 
 export async function POST(request: Request) {
   try {
@@ -161,7 +161,26 @@ export async function POST(request: Request) {
 
       placedOrders.push(newOrder)
 
-      // 3. Notify Supplier via SMS + In-App Notification
+      // 3. Record initial tracking entry
+      try {
+        await adminSupabase.from('order_tracking').insert({
+          order_id: newOrder.id,
+          status: 'pending',
+          notes: 'Order placed by customer. Awaiting supplier confirmation.',
+        })
+      } catch {}
+
+      // 4. Notify Customer In-App Notification
+      await notifyCustomerOrderPlaced({
+        orderId: newOrder.id,
+        customerId: customer.id,
+        userId: user.id || customer.id,
+        productName: item.product.name,
+        quantity: item.quantity,
+        totalAmount,
+      })
+
+      // 5. Notify Supplier via SMS + In-App Notification
       await notifySupplierNewOrder({
         orderId: newOrder.id,
         supplierId: item.product.supplier_id,

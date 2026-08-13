@@ -37,6 +37,7 @@ export async function sendSMS({ toPhone, message }: SendSmsOptions) {
   }
 }
 
+// 1. Notify Supplier on New Order Received
 export async function notifySupplierNewOrder({
   orderId,
   supplierId,
@@ -56,27 +57,44 @@ export async function notifySupplierNewOrder({
     const adminSupabase = createAdminClient()
 
     // 1. Get supplier row to obtain user_id & phone number
-    const { data: supplier } = await adminSupabase
+    let { data: supplier } = await adminSupabase
       .from('suppliers')
-      .select('user_id, phone, business_name')
+      .select('id, user_id, phone, business_name')
       .eq('id', supplierId)
       .maybeSingle()
 
-    if (!supplier) return
+    if (!supplier) {
+      ;({ data: supplier } = await adminSupabase
+        .from('suppliers')
+        .select('id, user_id, phone, business_name')
+        .eq('user_id', supplierId)
+        .maybeSingle())
+    }
+
+    if (!supplier) {
+      console.warn('[Notify Supplier] Supplier not found for ID:', supplierId)
+      return
+    }
 
     const shortId = orderId.slice(0, 8).toUpperCase()
     const title = `🚨 New Order #${shortId} Received!`
-    const body = `New order from ${customerName} (${customerPhone || 'No phone'}) for ${productName} (Total: ₹${totalAmount}). Please confirm.`
+    const body = `New order from ${customerName} (${customerPhone || 'No phone'}) for ${productName} (Total: ₹${totalAmount}). Please confirm delivery.`
 
-    // 2. In-App Notification
-    if (supplier.user_id) {
-      await adminSupabase.from('notifications').insert({
-        user_id: supplier.user_id,
+    // 2. In-App Notification (Insert for user_id and/or supplier.id)
+    const targetUserId = supplier.user_id || supplier.id
+    if (targetUserId) {
+      const { error: notifErr } = await adminSupabase.from('notifications').insert({
+        user_id: targetUserId,
         title,
         body,
         type: 'order',
         reference_id: orderId,
       })
+      if (notifErr) {
+        console.error('[Notify Supplier In-App Insert Error]', notifErr)
+      } else {
+        console.log('[Notify Supplier In-App Insert Success] for user:', targetUserId)
+      }
     }
 
     // 3. SMS Notification to Supplier Mobile Number
@@ -88,6 +106,51 @@ export async function notifySupplierNewOrder({
   }
 }
 
+// 2. Notify Customer when Order is Placed
+export async function notifyCustomerOrderPlaced({
+  orderId,
+  customerId,
+  userId,
+  productName,
+  quantity,
+  totalAmount,
+  supplierName,
+}: {
+  orderId: string
+  customerId?: string
+  userId?: string
+  productName: string
+  quantity: number
+  totalAmount: number
+  supplierName?: string
+}) {
+  try {
+    const adminSupabase = createAdminClient()
+    const targetUserId = userId || customerId
+    if (!targetUserId) return
+
+    const shortId = orderId.slice(0, 8).toUpperCase()
+    const title = `💧 Order #${shortId} Placed!`
+    const body = `Your order for ${productName} (Qty: ${quantity}, Total: ₹${totalAmount}) has been sent${supplierName ? ` to ${supplierName}` : ''}. Waiting for confirmation.`
+
+    const { error: notifErr } = await adminSupabase.from('notifications').insert({
+      user_id: targetUserId,
+      title,
+      body,
+      type: 'order',
+      reference_id: orderId,
+    })
+    if (notifErr) {
+      console.error('[Notify Customer Placed In-App Error]', notifErr)
+    } else {
+      console.log('[Notify Customer Placed In-App Success] for user:', targetUserId)
+    }
+  } catch (err) {
+    console.error('[Notify Customer Order Placed Error]', err)
+  }
+}
+
+// 3. Notify Customer on Status Change (Confirmed, Out for Delivery, Delivered, Cancelled)
 export async function notifyCustomerStatusChange({
   orderId,
   customerId,
@@ -103,13 +166,24 @@ export async function notifyCustomerStatusChange({
     const adminSupabase = createAdminClient()
 
     // 1. Get customer row to obtain user_id & phone
-    const { data: customer } = await adminSupabase
+    let { data: customer } = await adminSupabase
       .from('customers')
-      .select('user_id, phone, name')
+      .select('id, user_id, phone, name')
       .eq('id', customerId)
       .maybeSingle()
 
-    if (!customer) return
+    if (!customer) {
+      ;({ data: customer } = await adminSupabase
+        .from('customers')
+        .select('id, user_id, phone, name')
+        .eq('user_id', customerId)
+        .maybeSingle())
+    }
+
+    if (!customer) {
+      console.warn('[Notify Customer] Customer not found for ID:', customerId)
+      return
+    }
 
     const shortId = orderId.slice(0, 8).toUpperCase()
 
@@ -119,33 +193,39 @@ export async function notifyCustomerStatusChange({
 
     if (status === 'confirmed') {
       title = `✅ Order #${shortId} Confirmed!`
-      body = `Your water order #${shortId} has been confirmed by ${supplierName}.`
+      body = `Your water order #${shortId} has been confirmed by ${supplierName}. Preparation has started.`
       smsMessage = `[JalSeva] 💧 Your Water Order #${shortId} has been CONFIRMED by ${supplierName}. Delivery preparation started.`
     } else if (status === 'out_for_delivery') {
       title = `🚚 Order #${shortId} Out for Delivery!`
       body = `Your water delivery #${shortId} from ${supplierName} is on its way!`
-      smsMessage = `[JalSeva] 🚛 Your Water Order #${shortId} is OUT FOR DELIVERY by ${supplierName}! Executive will arrive shortly.`
+      smsMessage = `[JalSeva] 🚛 Your Water Order #${shortId} is OUT FOR DELIVERY by ${supplierName}! Delivery executive will arrive shortly.`
     } else if (status === 'delivered') {
       title = `🎉 Order #${shortId} Delivered!`
-      body = `Your water order #${shortId} has been marked as delivered by ${supplierName}.`
-      smsMessage = `[JalSeva] 🎉 Your Water Order #${shortId} from ${supplierName} has been DELIVERED! Thank you for using JalSeva.`
+      body = `Your water order #${shortId} from ${supplierName} has been delivered! Please share your rating & review.`
+      smsMessage = `[JalSeva] 🎉 Your Water Order #${shortId} from ${supplierName} has been DELIVERED! Thank you for choosing JalSeva.`
     } else if (status === 'cancelled') {
       title = `❌ Order #${shortId} Cancelled`
-      body = `Order #${shortId} from ${supplierName} has been cancelled.`
+      body = `Your water order #${shortId} from ${supplierName} has been cancelled.`
       smsMessage = `[JalSeva] ❌ Your Water Order #${shortId} from ${supplierName} was cancelled.`
     } else {
       return
     }
 
-    // 2. In-App Notification
-    if (customer.user_id) {
-      await adminSupabase.from('notifications').insert({
-        user_id: customer.user_id,
+    // 2. In-App Notification (Insert for user_id or customer.id)
+    const targetUserId = customer.user_id || customer.id
+    if (targetUserId) {
+      const { error: notifErr } = await adminSupabase.from('notifications').insert({
+        user_id: targetUserId,
         title,
         body,
         type: 'order',
         reference_id: orderId,
       })
+      if (notifErr) {
+        console.error('[Notify Customer Status In-App Error]', notifErr)
+      } else {
+        console.log('[Notify Customer Status In-App Success] for user:', targetUserId)
+      }
     }
 
     // 3. SMS Notification to Customer Mobile Number

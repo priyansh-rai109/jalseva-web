@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getSupplierForUser } from '@/lib/supabase/supplier-helper'
 import { Sidebar } from '@/components/shared/Sidebar'
 
 export default async function SupplierLayout({ children }: { children: React.ReactNode }) {
@@ -10,7 +12,9 @@ export default async function SupplierLayout({ children }: { children: React.Rea
   // Only redirect to /register/complete-profile (not /login!) if truly no session.
   if (!user) redirect('/register/complete-profile')
 
-  const { data: profile } = await supabase
+  const adminSupabase = createAdminClient()
+
+  const { data: profile } = await adminSupabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
@@ -21,19 +25,22 @@ export default async function SupplierLayout({ children }: { children: React.Rea
     redirect('/register/complete-profile')
   }
 
+  const supplier = await getSupplierForUser(user)
+
   let notifCount = 0
   try {
-    const { count } = await supabase
+    const candidateIds = Array.from(new Set([user.id, supplier?.id, supplier?.user_id].filter(Boolean)))
+    const { count } = await adminSupabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .in('user_id', candidateIds)
       .eq('is_read', false)
     notifCount = count || 0
   } catch {}
 
   // Graceful fallback: use mock session name/email if profile is null
-  const displayName = profile?.name || (user as any).user_metadata?.name || 'Supplier'
-  const displayEmail = profile?.email || (user as any).email || ''
+  const displayName = profile?.name || supplier?.business_name || (user as any).user_metadata?.name || 'Supplier'
+  const displayEmail = profile?.email || supplier?.email || (user as any).email || ''
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background">

@@ -50,10 +50,11 @@ export default async function CustomerLayout({ children }: { children: React.Rea
 
   let notifCount = 0
   try {
+    const candidateIds = Array.from(new Set([user.id, customerObj?.id, customerObj?.user_id].filter(Boolean)))
     const { count } = await adminSupabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .in('user_id', candidateIds)
       .eq('is_read', false)
     notifCount = count || 0
   } catch {}

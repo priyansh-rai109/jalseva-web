@@ -331,8 +331,9 @@ CREATE POLICY "reviews_customer_insert" ON reviews FOR INSERT WITH CHECK (
 CREATE POLICY "customers_own" ON customers FOR ALL USING (user_id = auth.uid());
 CREATE POLICY "customers_public_read" ON customers FOR SELECT USING (TRUE);
 
--- Notifications: own only
+-- Notifications: own only + public select
 CREATE POLICY "notifications_own" ON notifications FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "notifications_public_read" ON notifications FOR SELECT USING (TRUE);
 
 -- ═══════════════════════════════════════
 -- REALTIME (enable for live updates)
