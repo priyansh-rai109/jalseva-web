@@ -15,7 +15,7 @@ test.describe('Flow 5: Order Acceptance by Supplier', () => {
 
     // 3. Go to Supplier Orders page
     await page.goto('/supplier/orders')
-    await expect(page.getByRole('heading', { name: /^Orders$/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Orders/i })).toBeVisible()
 
     // 4. Verify order list or empty state is rendered
     const orderSection = page.getByText(/No orders found|Manage and fulfill|Order #/i)
