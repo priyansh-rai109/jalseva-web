@@ -27,7 +27,7 @@ export default function CustomerBrowsePage() {
       const [{ data: supplierData }, { data: zoneData }] = await Promise.all([
         supabase
           .from('suppliers')
-          .select('*, zones(name), water_products(type, price, is_active)')
+          .select('*, zones(name), water_products(type, price, is_active), reviews(rating)')
           .eq('status', 'approved')
           .order('rating', { ascending: false }),
         supabase.from('zones').select('*').eq('is_active', true),
@@ -37,7 +37,7 @@ export default function CustomerBrowsePage() {
       setLoading(false)
     }
     fetchData()
-  }, [])
+  }, [supabase])
 
   const filtered = suppliers.filter((s) => {
     const matchSearch =
@@ -69,7 +69,6 @@ export default function CustomerBrowsePage() {
           />
         </div>
         <Select value={selectedZone} onValueChange={(v) => setSelectedZone(v ?? 'all')}>
-
           <SelectTrigger className="w-full sm:w-[200px] bg-secondary">
             <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="Filter by zone" />
@@ -105,6 +104,8 @@ export default function CustomerBrowsePage() {
             const products = (supplier as any).water_products || []
             const activeProducts = products.filter((p: any) => p.is_active)
             const types = Array.from(new Set(activeProducts.map((p: any) => p.type))) as string[]
+            const reviews = (supplier as any).reviews || []
+            const reviewsCount = reviews.length
 
             const minPrice = activeProducts.length > 0 ? Math.min(...activeProducts.map((p: any) => p.price)) : null
 
@@ -114,17 +115,22 @@ export default function CustomerBrowsePage() {
                   <CardContent className="p-5">
                     {/* Header */}
                     <div className="flex items-start gap-3 mb-4">
-                      <div className="w-14 h-14 rounded-xl water-shimmer flex items-center justify-center flex-shrink-0">
+                      <div className="w-14 h-14 rounded-xl water-shimmer flex items-center justify-center flex-shrink-0 shadow-sm">
                         <Building2 className="w-7 h-7 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-base truncate">{supplier.business_name}</h3>
                         <p className="text-xs text-muted-foreground">{supplier.owner_name}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex items-center gap-0.5 text-amber-400">
-                            <Star className="w-3 h-3 fill-amber-400" />
-                            <span className="text-xs font-medium">{supplier.rating?.toFixed(1) || '0.0'}</span>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <div className="flex items-center gap-0.5 text-amber-400 font-semibold text-xs">
+                            <Star className="w-3.5 h-3.5 fill-amber-400" />
+                            <span>{supplier.rating?.toFixed(1) || '0.0'}</span>
                           </div>
+                          {reviewsCount > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              ({reviewsCount} {reviewsCount === 1 ? 'review' : 'reviews'})
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground">·</span>
                           <span className="text-xs text-muted-foreground">{supplier.total_orders} orders</span>
                         </div>
@@ -134,15 +140,15 @@ export default function CustomerBrowsePage() {
 
                     {/* Address */}
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-                      <MapPin className="w-3 h-3 flex-shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-sky-400" />
                       <span className="truncate">{supplier.address}</span>
                     </div>
 
                     {/* Zone + product types */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {(supplier.zone as any)?.name && (
+                      {((supplier as any).zones?.name || (supplier as any).zone?.name) && (
                         <Badge className="text-xs bg-sky-500/10 text-sky-400 border-sky-500/20">
-                          📍 {(supplier.zone as any).name}
+                          📍 {(supplier as any).zones?.name || (supplier as any).zone?.name}
                         </Badge>
                       )}
                       {types.map((t) => (

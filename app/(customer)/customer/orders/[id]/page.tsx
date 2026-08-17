@@ -1,19 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Clock, CheckCircle2, Truck, XCircle,
-  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban
+  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban, Sparkles, Edit3
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ReviewModal } from '@/components/shared/ReviewModal'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -37,12 +37,11 @@ export default function OrderDetailPage() {
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
-  // Review form state
-  const [rating, setRating] = useState(5)
-  const [comment, setComment] = useState('')
-  const [submittingReview, setSubmittingReview] = useState(false)
+  // Review modal state
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const autoPromptTriggered = useRef(false)
 
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = async (isInitial = false) => {
     try {
       const res = await fetch(`/api/orders/${id}`)
       const json = await res.json()
@@ -50,9 +49,19 @@ export default function OrderDetailPage() {
         setOrder(json.order)
         setTracking(json.tracking || [])
         setReview(json.review || null)
-        if (json.review) {
-          setRating(json.review.rating)
-          setComment(json.review.comment || '')
+
+        // Auto-prompt review if delivered and unreviewed on initial load
+        if (
+          isInitial &&
+          json.order.status === 'delivered' &&
+          !json.review &&
+          !autoPromptTriggered.current
+        ) {
+          autoPromptTriggered.current = true
+          // Short delay for smooth UI transition
+          setTimeout(() => {
+            setReviewModalOpen(true)
+          }, 600)
         }
       }
     } catch (err) {
@@ -62,50 +71,34 @@ export default function OrderDetailPage() {
   }
 
   useEffect(() => {
-    fetchOrderDetails()
+    fetchOrderDetails(true)
 
     // Realtime tracking subscription
     const channel = supabase
       .channel(`order-details-${id}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${id}` },
-        () => fetchOrderDetails()
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${id}` },
+        (payload: any) => {
+          console.log('[OrderDetail Realtime Order Update]', payload)
+          if (payload.new?.status === 'delivered') {
+            toast.success('🎉 Your water order has been delivered! Please share your rating.')
+            setReviewModalOpen(true)
+          }
+          fetchOrderDetails(false)
+        }
       )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'order_tracking', filter: `order_id=eq.${id}` },
-        () => fetchOrderDetails()
+        () => fetchOrderDetails(false)
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
-  }, [id])
-
-  const submitReview = async () => {
-    setSubmittingReview(true)
-    try {
-      const res = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: order.id,
-          rating,
-          comment: comment || null,
-        }),
-      })
-      const json = await res.json()
-      if (res.ok && json.success) {
-        toast.success('Thank you for your review! ⭐')
-        await fetchOrderDetails()
-      } else {
-        toast.error(json.error || 'Failed to submit review')
-      }
-    } catch (err) {
-      toast.error('Error submitting review')
+    return () => {
+      supabase.removeChannel(channel)
     }
-    setSubmittingReview(false)
-  }
+  }, [id])
 
   const handleCancelOrder = async (reason?: string) => {
     setCancelling(true)
@@ -118,7 +111,7 @@ export default function OrderDetailPage() {
       const json = await res.json()
       if (res.ok && json.success) {
         toast.success('Order cancel kar diya gaya hai')
-        fetchOrderDetails()
+        fetchOrderDetails(false)
       } else {
         toast.error(json.error || 'Failed to cancel order')
       }
@@ -141,14 +134,17 @@ export default function OrderDetailPage() {
     return <div className="p-8 text-center text-muted-foreground">Order not found</div>
   }
 
-  const currentStepIdx = steps.findIndex(s => s.status === order.status)
+  const currentStepIdx = steps.findIndex((s) => s.status === order.status)
   const isCancelled = order.status === 'cancelled'
   const canCancel = order.status === 'pending' || order.status === 'confirmed'
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-3xl mx-auto">
       {/* Back */}
-      <Link href="/customer/orders" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        href="/customer/orders"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="w-4 h-4" /> Back to orders
       </Link>
 
@@ -189,12 +185,14 @@ export default function OrderDetailPage() {
                 <div
                   className="absolute left-4 top-4 md:left-6 md:top-5 h-full md:h-0.5 bg-sky-500 -z-10 transition-all duration-500"
                   style={{
-                    height: typeof window !== 'undefined' && window.innerWidth < 768
-                      ? `${(currentStepIdx / (steps.length - 1)) * 100}%`
-                      : 'auto',
-                    width: typeof window !== 'undefined' && window.innerWidth >= 768
-                      ? `${(currentStepIdx / (steps.length - 1)) * 100}%`
-                      : 'auto',
+                    height:
+                      typeof window !== 'undefined' && window.innerWidth < 768
+                        ? `${(currentStepIdx / (steps.length - 1)) * 100}%`
+                        : 'auto',
+                    width:
+                      typeof window !== 'undefined' && window.innerWidth >= 768
+                        ? `${(currentStepIdx / (steps.length - 1)) * 100}%`
+                        : 'auto',
                   }}
                 />
               )}
@@ -202,27 +200,37 @@ export default function OrderDetailPage() {
               {steps.map((step, idx) => {
                 const isCompleted = idx < currentStepIdx
                 const isActive = idx === currentStepIdx
-                const isFuture = idx > currentStepIdx
 
                 return (
-                  <div key={step.status} className="flex md:flex-col items-start md:items-center text-left md:text-center gap-3 md:gap-2 flex-1">
-                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                      isCompleted
-                        ? 'bg-sky-500 border-sky-500 text-white'
-                        : isActive
-                        ? 'bg-sky-500/20 border-sky-500 text-sky-400'
-                        : 'bg-card border-border text-muted-foreground'
-                    }`}>
+                  <div
+                    key={step.status}
+                    className="flex md:flex-col items-start md:items-center text-left md:text-center gap-3 md:gap-2 flex-1"
+                  >
+                    <div
+                      className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                        isCompleted
+                          ? 'bg-sky-500 border-sky-500 text-white'
+                          : isActive
+                          ? 'bg-sky-500/20 border-sky-500 text-sky-400'
+                          : 'bg-card border-border text-muted-foreground'
+                      }`}
+                    >
                       {step.status === 'pending' && <ClipboardList className="w-4 h-4" />}
                       {step.status === 'confirmed' && <CheckCircle2 className="w-4 h-4" />}
                       {step.status === 'out_for_delivery' && <Truck className="w-4 h-4" />}
                       {step.status === 'delivered' && <CheckCircle2 className="w-4 h-4" />}
                     </div>
                     <div>
-                      <p className={`text-sm font-semibold ${isActive ? 'text-sky-400' : 'text-foreground'}`}>
+                      <p
+                        className={`text-sm font-semibold ${
+                          isActive ? 'text-sky-400' : 'text-foreground'
+                        }`}
+                      >
                         {step.label}
                       </p>
-                      <p className="text-xs text-muted-foreground hidden md:block mt-0.5 leading-tight">{step.desc}</p>
+                      <p className="text-xs text-muted-foreground hidden md:block mt-0.5 leading-tight">
+                        {step.desc}
+                      </p>
                     </div>
                   </div>
                 )
@@ -237,19 +245,28 @@ export default function OrderDetailPage() {
         <div className="md:col-span-2 space-y-6">
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle style={{ fontFamily: 'Rajdhani, sans-serif' }}>Product & Supplier</CardTitle>
+              <CardTitle style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                Product & Supplier
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-semibold text-lg">{order.water_products?.name}</h3>
-                  <p className="text-sm text-muted-foreground">Supplier: {order.suppliers?.business_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Supplier: {order.suppliers?.business_name}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-bold gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  <div
+                    className="text-xl font-bold gradient-text"
+                    style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  >
                     {formatCurrency(order.total_amount)}
                   </div>
-                  <p className="text-xs text-muted-foreground">{order.quantity} units @ {formatCurrency(order.water_products?.price)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {order.quantity} units @ {formatCurrency(order.water_products?.price)}
+                  </p>
                 </div>
               </div>
 
@@ -258,11 +275,16 @@ export default function OrderDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground block text-xs">Payment Mode</span>
-                  <span className="font-medium capitalize">{order.payment_mode?.replace('_', ' ')}</span>
+                  <span className="font-medium capitalize">
+                    {order.payment_mode?.replace('_', ' ')}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-xs">Payment Status</span>
-                  {(order.payment_status === 'paid' || order.status === 'delivered' || order.payment_mode === 'online' || order.special_instructions?.includes('Razorpay')) ? (
+                  {order.payment_status === 'paid' ||
+                  order.status === 'delivered' ||
+                  order.payment_mode === 'online' ||
+                  order.special_instructions?.includes('Razorpay') ? (
                     <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-xs mt-1">
                       ✓ Successful (Paid)
                     </Badge>
@@ -283,7 +305,10 @@ export default function OrderDetailPage() {
                   <Phone className="w-4 h-4 text-sky-400" />
                   <div className="text-sm">
                     <span className="text-muted-foreground">Supplier Phone: </span>
-                    <a href={`tel:${order.suppliers.phone}`} className="font-semibold text-sky-400 hover:underline">
+                    <a
+                      href={`tel:${order.suppliers.phone}`}
+                      className="font-semibold text-sky-400 hover:underline"
+                    >
                       {order.suppliers.phone}
                     </a>
                   </div>
@@ -295,13 +320,18 @@ export default function OrderDetailPage() {
           {/* Delivery Address */}
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+              <CardTitle
+                className="flex items-center gap-2 text-base"
+                style={{ fontFamily: 'Rajdhani, sans-serif' }}
+              >
                 <MapPin className="w-4 h-4 text-sky-400" /> Delivery Address
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
               <p className="font-medium">{order.delivery_address?.line1}</p>
-              <p className="text-muted-foreground">{order.delivery_address?.city} - {order.delivery_address?.pincode}</p>
+              <p className="text-muted-foreground">
+                {order.delivery_address?.city} - {order.delivery_address?.pincode}
+              </p>
               {order.special_instructions && (
                 <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg text-amber-400 text-xs">
                   <strong>Instructions: </strong> {order.special_instructions}
@@ -310,45 +340,62 @@ export default function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Leave a review once delivered */}
+          {/* Reviews & Ratings Section once delivered */}
           {order.status === 'delivered' && (
-            <Card className="glass-card border-amber-500/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  <Star className="w-4 h-4 text-amber-400" /> {review ? 'Your Review & Rating' : 'Rate Your Delivery'}
+            <Card className="glass-card border-amber-500/30 shadow-lg shadow-amber-500/5">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle
+                  className="flex items-center gap-2 text-base"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                >
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />{' '}
+                  {review ? 'Your Rating & Feedback' : 'Rate Your Delivery Experience'}
                 </CardTitle>
+                {review && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setReviewModalOpen(true)}
+                    className="text-xs text-sky-400 hover:text-sky-300 h-8"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit Review
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-1.5">
-                  {[1,2,3,4,5].map(s => (
-                    <button
-                      key={s}
-                      disabled={!!review}
-                      onClick={() => setRating(s)}
-                      className="p-1 hover:scale-110 transition-transform disabled:hover:scale-100"
-                    >
-                      <Star className={`w-8 h-8 ${
-                        s <= rating
-                          ? 'text-amber-400 fill-amber-400'
-                          : 'text-muted hover:text-amber-400'
-                      }`} />
-                    </button>
-                  ))}
-                </div>
-
                 {review ? (
                   <div className="space-y-3">
-                    <div className="p-3 rounded-lg bg-secondary/50 text-sm">
-                      <span className="text-xs text-muted-foreground block mb-1 font-semibold">Your Review:</span>
-                      <p className="text-foreground">
-                        &quot;{(review.comment || '').split('\n\n[Supplier Reply]: ')[0] || 'No written comment'}&quot;
+                    <div className="p-4 rounded-xl bg-secondary/50 border border-border/50 text-sm space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-4 h-4 ${
+                                s <= review.rating
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-border'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs text-muted-foreground font-semibold">
+                          {review.rating}/5 Stars
+                        </span>
+                      </div>
+
+                      <p className="text-foreground text-xs leading-relaxed">
+                        &quot;
+                        {(review.comment || '').split('\n\n[Supplier Reply]: ')[0] ||
+                          'Verified Order Feedback'}
+                        &quot;
                       </p>
                     </div>
 
                     {(review.comment || '').includes('\n\n[Supplier Reply]: ') && (
-                      <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs space-y-1">
+                      <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs space-y-1">
                         <span className="font-bold text-sky-400 flex items-center gap-1.5">
-                          <MessageSquare className="w-3.5 h-3.5" /> Supplier Greeting Response:
+                          <MessageSquare className="w-3.5 h-3.5" /> Supplier Response:
                         </span>
                         <p className="text-foreground italic">
                           &quot;{(review.comment || '').split('\n\n[Supplier Reply]: ')[1]}&quot;
@@ -357,22 +404,24 @@ export default function OrderDetailPage() {
                     )}
                   </div>
                 ) : (
-                  <>
-                    <div className="space-y-2">
-                      <span className="text-xs text-muted-foreground block">Review Comment</span>
-                      <Textarea
-                        value={comment}
-                        onChange={e => setComment(e.target.value)}
-                        placeholder="Tell us about the water purity, delivery punctuality, or service quality..."
-                        className="bg-secondary resize-none"
-                        rows={3}
-                      />
+                  <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 to-sky-500/10 border border-amber-500/20 text-center space-y-3">
+                    <Sparkles className="w-7 h-7 text-amber-400 mx-auto animate-pulse" />
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground">
+                        How was the water delivery?
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Your review helps {order.suppliers?.business_name} and fellow customers in Jodhpur!
+                      </p>
                     </div>
 
-                    <Button onClick={submitReview} disabled={submittingReview} className="w-full water-shimmer text-white">
-                      {submittingReview ? 'Submitting...' : 'Submit Review'}
+                    <Button
+                      onClick={() => setReviewModalOpen(true)}
+                      className="water-shimmer text-white font-bold text-xs shadow-md"
+                    >
+                      <Star className="w-3.5 h-3.5 fill-white mr-1.5" /> Rate & Review Order Now
                     </Button>
-                  </>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -398,12 +447,17 @@ export default function OrderDetailPage() {
                 </div>
               ) : (
                 tracking.map((t) => (
-                  <div key={t.id} className="flex gap-3 items-start text-xs border-l border-border pl-4 relative last:border-0 pb-2">
+                  <div
+                    key={t.id}
+                    className="flex gap-3 items-start text-xs border-l border-border pl-4 relative last:border-0 pb-2"
+                  >
                     <div className="absolute -left-1 top-1 w-2 h-2 rounded-full bg-sky-500" />
                     <div>
                       <p className="font-semibold capitalize">{t.status.replace('_', ' ')}</p>
                       {t.note && <p className="text-muted-foreground mt-0.5">{t.note}</p>}
-                      <p className="text-muted-foreground/50 mt-1">{formatDateTime(t.created_at)}</p>
+                      <p className="text-muted-foreground/50 mt-1">
+                        {formatDateTime(t.created_at)}
+                      </p>
                     </div>
                   </div>
                 ))
@@ -412,6 +466,15 @@ export default function OrderDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Review Modal Dialog */}
+      <ReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        order={order}
+        existingReview={review}
+        onSuccess={() => fetchOrderDetails(false)}
+      />
 
       {/* Order Cancellation Modal */}
       <ConfirmDialog

@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   Truck,
   ChevronRight,
+  Star,
+  Sparkles,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -60,6 +62,7 @@ export default async function CustomerDashboard() {
   const [
     { data: activeOrders },
     { data: recentOrders },
+    { data: deliveredOrdersList },
     { count: totalOrders },
     { count: deliveredOrders },
     { data: suppliers }
@@ -88,6 +91,19 @@ export default async function CustomerDashboard() {
 
     customerId ? adminSupabase
       .from('orders')
+      .select(`
+        id, total_amount, status, quantity, created_at,
+        suppliers(id, business_name),
+        water_products(name, type),
+        reviews(id, rating)
+      `)
+      .eq('customer_id', customerId)
+      .eq('status', 'delivered')
+      .order('created_at', { ascending: false })
+      .limit(3) : Promise.resolve({ data: [] }),
+
+    customerId ? adminSupabase
+      .from('orders')
       .select('*', { count: 'exact', head: true })
       .eq('customer_id', customerId) : Promise.resolve({ count: 0 }),
 
@@ -104,6 +120,13 @@ export default async function CustomerDashboard() {
       .order('rating', { ascending: false })
       .limit(4)
   ])
+
+  // Find any delivered order that hasn't received a review yet
+  const unreviewedOrder = (deliveredOrdersList || []).find((ord: any) => {
+    if (!ord.reviews) return true
+    if (Array.isArray(ord.reviews) && ord.reviews.length === 0) return true
+    return false
+  })
 
   const displayName = formatDisplayName(
     customerObj?.name || profile?.name || user.user_metadata?.name,
@@ -134,6 +157,30 @@ export default async function CustomerDashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Prominent Delivered Order Review Banner */}
+      {unreviewedOrder && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-sky-500/10 to-transparent border border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 shadow-inner">
+              <Sparkles className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                How was your delivery from {(unreviewedOrder.suppliers as any)?.business_name || 'your supplier'}?
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {(unreviewedOrder.water_products as any)?.name} was delivered! Rate your experience to help others in Jodhpur.
+              </p>
+            </div>
+          </div>
+          <Link href={`/customer/orders/${unreviewedOrder.id}`} className="self-end sm:self-auto flex-shrink-0">
+            <Button size="sm" className="water-shimmer text-white text-xs font-bold rounded-xl shadow-md shadow-sky-500/20">
+              <Star className="w-3.5 h-3.5 fill-white mr-1.5" /> Rate Delivery ⭐
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -220,8 +267,8 @@ export default async function CustomerDashboard() {
                         <p className="font-semibold truncate">{supplier.business_name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{supplier.address}</p>
                         <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs text-amber-400 flex items-center gap-0.5">
-                            ★ {supplier.rating?.toFixed(1) || '0.0'}
+                          <span className="text-xs text-amber-400 flex items-center gap-0.5 font-medium">
+                            <Star className="w-3.5 h-3.5 fill-amber-400" /> {supplier.rating?.toFixed(1) || '0.0'}
                           </span>
                           <span className="text-xs text-muted-foreground">{supplier.total_orders} orders</span>
                           {supplier.zones && (

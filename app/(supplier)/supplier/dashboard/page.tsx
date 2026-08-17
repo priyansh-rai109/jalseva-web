@@ -49,7 +49,8 @@ export default async function SupplierDashboard() {
     { count: pendingCount },
     { count: todayDelivered },
     { count: totalOrders },
-    { count: productCount }
+    { count: productCount },
+    { count: reviewCount }
   ] = await Promise.all([
     adminSupabase
       .from('orders')
@@ -83,7 +84,12 @@ export default async function SupplierDashboard() {
       .from('water_products')
       .select('*', { count: 'exact', head: true })
       .eq('supplier_id', supplier.id)
-      .eq('is_active', true)
+      .eq('is_active', true),
+
+    adminSupabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', supplier.id)
   ])
 
   const statCards = [
@@ -125,7 +131,7 @@ export default async function SupplierDashboard() {
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             {supplier.business_name}
@@ -142,10 +148,11 @@ export default async function SupplierDashboard() {
           }>
             {supplier.status === 'approved' ? '✓ Approved' : supplier.status === 'pending' ? '⏳ Pending Approval' : '✗ Suspended'}
           </Badge>
-          <div className="flex items-center gap-1 mt-2 text-sm text-amber-400 justify-end">
+          <Link href="/supplier/reviews" className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-amber-400 justify-end hover:underline">
             <Star className="w-3.5 h-3.5 fill-amber-400" />
             <span>{supplier.rating?.toFixed(1) || '0.0'} rating</span>
-          </div>
+            <span className="text-muted-foreground font-normal">({reviewCount ?? 0} {reviewCount === 1 ? 'review' : 'reviews'})</span>
+          </Link>
         </div>
       </div>
 

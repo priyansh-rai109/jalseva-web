@@ -235,3 +235,66 @@ export async function notifyCustomerStatusChange({
     console.error('[Notify Customer Error]', err)
   }
 }
+
+// 4. Notify Supplier on New Review Received
+export async function notifySupplierNewReview({
+  orderId,
+  supplierId,
+  customerName,
+  rating,
+  comment,
+}: {
+  orderId: string
+  supplierId: string
+  customerName: string
+  rating: number
+  comment?: string | null
+}) {
+  try {
+    const adminSupabase = createAdminClient()
+
+    let { data: supplier } = await adminSupabase
+      .from('suppliers')
+      .select('id, user_id, phone, business_name')
+      .eq('id', supplierId)
+      .maybeSingle()
+
+    if (!supplier) {
+      ;({ data: supplier } = await adminSupabase
+        .from('suppliers')
+        .select('id, user_id, phone, business_name')
+        .eq('user_id', supplierId)
+        .maybeSingle())
+    }
+
+    if (!supplier) {
+      console.warn('[Notify Supplier Review] Supplier not found for ID:', supplierId)
+      return
+    }
+
+    const shortId = orderId.slice(0, 8).toUpperCase()
+    const stars = '⭐'.repeat(Math.min(5, Math.max(1, rating)))
+    const title = `${stars} New ${rating}-Star Review Received!`
+    const body = `${customerName} rated Order #${shortId} with ${rating}/5 stars: "${comment || 'Verified Water Delivery'}"`
+
+    // In-App Notification
+    const targetUserId = supplier.user_id || supplier.id
+    if (targetUserId) {
+      await adminSupabase.from('notifications').insert({
+        user_id: targetUserId,
+        title,
+        body,
+        type: 'order',
+        reference_id: orderId,
+      })
+    }
+
+    // SMS to Supplier
+    const supplierPhone = supplier.phone || '9876543210'
+    const smsMessage = `[JalSeva] 🌟 New ${rating}-Star Review from ${customerName} for Order #${shortId}! "${comment || 'Order Delivered'}". Check your reviews in JalSeva.`
+    await sendSMS({ toPhone: supplierPhone, message: smsMessage })
+  } catch (err) {
+    console.error('[Notify Supplier Review Error]', err)
+  }
+}
+

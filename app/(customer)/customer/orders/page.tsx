@@ -41,8 +41,9 @@ export default async function CustomerOrdersPage() {
     .from('orders')
     .select(`
       id, total_amount, status, quantity, payment_mode, created_at, delivered_at,
-      suppliers(business_name, phone),
-      water_products(name, type, capacity_liters)
+      suppliers(id, business_name, phone),
+      water_products(name, type, capacity_liters),
+      reviews(id, rating, comment)
     `)
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false }) : { data: [] }
