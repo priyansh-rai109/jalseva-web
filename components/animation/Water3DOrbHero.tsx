@@ -5,7 +5,11 @@ import { Droplets, Sparkles, ShieldCheck, HeartHandshake, Waves } from 'lucide-r
 import { Badge } from '@/components/ui/badge'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 
-export function Water3DOrbHero() {
+interface Water3DOrbHeroProps {
+  variant?: 'compact' | 'full'
+}
+
+export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
   const { language } = useLanguage()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -13,6 +17,9 @@ export function Water3DOrbHero() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [isHovered, setIsHovered] = useState(false)
   const [pulseCount, setPulseCount] = useState(0)
+
+  const isCompact = variant === 'compact'
+  const orbSize = isCompact ? 'w-44 h-44 sm:w-52 sm:h-52' : 'w-64 h-64 sm:w-72 sm:h-72'
 
   // 3D Tilt calculation based on mouse position
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -181,7 +188,7 @@ export function Water3DOrbHero() {
         <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-sky-500/30 via-cyan-400/20 to-blue-600/30 blur-2xl animate-pulse pointer-events-none" />
 
         {/* Outer Gyro Ring */}
-        <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-full p-2.5 bg-gradient-to-tr from-sky-500/40 via-cyan-400/10 to-blue-600/50 border border-sky-400/40 shadow-[0_0_50px_rgba(14,165,233,0.35)] backdrop-blur-md flex items-center justify-center">
+        <div className={`relative ${orbSize} rounded-full p-2.5 bg-gradient-to-tr from-sky-500/40 via-cyan-400/10 to-blue-600/50 border border-sky-400/40 shadow-[0_0_50px_rgba(14,165,233,0.35)] backdrop-blur-md flex items-center justify-center`}>
           {/* Orbital Particle Satellite 1 */}
           <div className="absolute inset-0 rounded-full animate-spin-slow pointer-events-none">
             <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-cyan-300 shadow-[0_0_12px_#38bdf8] flex items-center justify-center">

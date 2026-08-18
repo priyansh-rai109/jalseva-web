@@ -9,7 +9,6 @@ import { toast } from 'sonner'
 import { useCartStore } from '@/lib/stores/cart-store'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { type TranslationKey } from '@/lib/i18n/translations'
-import { LanguageToggle } from '@/components/shared/LanguageToggle'
 import {
   Droplets,
   LayoutDashboard,
@@ -180,11 +179,8 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
         })}
       </nav>
 
-      {/* Language Toggle & Sign out */}
-      <div className="p-3 border-t border-border space-y-2">
-        <div className="px-1">
-          <LanguageToggle className="w-full justify-center" />
-        </div>
+      {/* Sign out */}
+      <div className="p-3 border-t border-border">
         <button
           onClick={() => setShowLogoutConfirm(true)}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 min-h-[40px]"
@@ -231,7 +227,6 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <LanguageToggle variant="compact" />
           {notificationCount > 0 && (
             <Link
               href={role === 'customer' ? '/customer/notifications' : role === 'supplier' ? '/supplier/notifications' : '/admin/dashboard'}

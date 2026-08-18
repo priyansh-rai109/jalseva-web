@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
+import { Water3DOrbHero } from '@/components/animation/Water3DOrbHero'
 
 interface CustomerDashboardClientProps {
   displayName: string
@@ -105,6 +106,44 @@ export function CustomerDashboardClient({
           </Link>
         </div>
       )}
+
+      {/* 3D Water Orb & Conservation Showcase */}
+      <Card className="glass-card border-sky-500/30 bg-gradient-to-r from-sky-950/40 via-blue-950/40 to-slate-900/60 overflow-hidden shadow-xl shadow-sky-500/5">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 text-center md:text-left flex-1">
+              <Badge className="bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs">
+                💧 {language === 'hi' ? '3D लाइव वाटर एनिमेशन व शुद्धता' : '3D Live Water Physics'}
+              </Badge>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                {language === 'hi' ? 'मारवाड़ जल सेवा — शुद्ध जल, हर घर तक' : 'Marwar JalSeva — Pure Certified Water'}
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-xl">
+                {language === 'hi'
+                  ? 'हर बूंद की शुद्धता 85 PPM टीडीएस के साथ प्रमाणित है। माउस को 3D स्फीयर पर घुमाकर वाटर वेव्स और रिपल्स को महसूस करें।'
+                  : 'Certified 85 PPM TDS purity. Hover and tilt the 3D water orb to interact with real-time fluid waves.'}
+              </p>
+              <div className="pt-2 flex items-center justify-center md:justify-start gap-3">
+                <Link href="/customer/browse">
+                  <Button size="sm" className="water-shimmer text-white font-semibold text-xs rounded-xl shadow-md shadow-sky-500/20">
+                    <Droplets className="w-3.5 h-3.5 mr-1" />
+                    {language === 'hi' ? 'पानी ऑर्डर करें' : 'Order Pure Water'}
+                  </Button>
+                </Link>
+                <Link href="/customer/subscriptions">
+                  <Button size="sm" variant="outline" className="text-xs rounded-xl border-sky-500/30 text-sky-400 hover:bg-sky-500/10">
+                    {language === 'hi' ? 'मंथली पास देखें' : 'Monthly Pass'}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="flex-shrink-0">
+              <Water3DOrbHero variant="compact" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">

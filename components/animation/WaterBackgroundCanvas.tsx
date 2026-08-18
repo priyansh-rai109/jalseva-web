@@ -114,18 +114,18 @@ export function WaterBackgroundCanvas() {
         ctx.save()
         ctx.beginPath()
         ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2)
-        ctx.strokeStyle = `rgba(56, 189, 248, ${r.opacity * 0.45})`
-        ctx.lineWidth = 1.5
+        ctx.strokeStyle = `rgba(56, 189, 248, ${r.opacity * 0.75})`
+        ctx.lineWidth = 2
         ctx.shadowColor = '#0ea5e9'
-        ctx.shadowBlur = 8
+        ctx.shadowBlur = 12
         ctx.stroke()
 
         // Outer secondary refraction wave
-        if (r.radius > 8) {
+        if (r.radius > 6) {
           ctx.beginPath()
-          ctx.arc(r.x, r.y, r.radius - 6, 0, Math.PI * 2)
-          ctx.strokeStyle = `rgba(14, 165, 233, ${r.opacity * 0.25})`
-          ctx.lineWidth = 1
+          ctx.arc(r.x, r.y, r.radius - 4, 0, Math.PI * 2)
+          ctx.strokeStyle = `rgba(14, 165, 233, ${r.opacity * 0.45})`
+          ctx.lineWidth = 1.5
           ctx.stroke()
         }
         ctx.restore()
@@ -141,17 +141,17 @@ export function WaterBackgroundCanvas() {
           d.y = -10
           d.x = Math.random() * width
           // Create small subtle ripple on drop impact
-          if (Math.random() < 0.3) {
-            addRipple(d.x, height - 10, 30)
+          if (Math.random() < 0.4) {
+            addRipple(d.x, height - 10, 40)
           }
         }
 
         ctx.save()
         ctx.beginPath()
         ctx.arc(d.x, d.y, d.radius, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(186, 230, 253, ${d.opacity})`
+        ctx.fillStyle = `rgba(186, 230, 253, ${d.opacity * 1.4})`
         ctx.shadowColor = '#38bdf8'
-        ctx.shadowBlur = d.glow
+        ctx.shadowBlur = d.glow * 1.5
         ctx.fill()
         ctx.restore()
       }
@@ -178,7 +178,7 @@ export function WaterBackgroundCanvas() {
     >
       <canvas
         ref={canvasRef}
-        className="h-full w-full opacity-60 transition-opacity duration-1000"
+        className="h-full w-full opacity-85 transition-opacity duration-1000"
       />
     </div>
   )
