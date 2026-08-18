@@ -13,8 +13,11 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getSupplierStatusColor } from '@/lib/utils'
 import type { Zone } from '@/types'
+import { LanguageSettingsCard } from '@/components/shared/LanguageSettingsCard'
+import { useLanguage } from '@/lib/i18n/LanguageContext'
 
 export default function SupplierProfilePage() {
+  const { language, t } = useLanguage()
   const supabase = createClient()
   const [supplier, setSupplier] = useState<any>(null)
   const [zones, setZones] = useState<Zone[]>([])
@@ -66,8 +69,8 @@ export default function SupplierProfilePage() {
       license_no: licenseNo || null,
     }).eq('id', supplier.id)
 
-    if (error) { toast.error('Failed to update profile'); setSaving(false); return }
-    toast.success('Profile updated!')
+    if (error) { toast.error(language === 'hi' ? 'प्रोफ़ाइल अपडेट विफल' : 'Failed to update profile'); setSaving(false); return }
+    toast.success(language === 'hi' ? 'सप्लायर प्रोफ़ाइल अपडेट हो गई!' : 'Profile updated!')
     setSaving(false)
   }
 
@@ -80,9 +83,16 @@ export default function SupplierProfilePage() {
   return (
     <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Business Profile</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage your supplier information</p>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          {language === 'hi' ? 'व्यवसाय प्रोफ़ाइल व सेटिंग्स' : 'Business Profile & Settings'}
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {language === 'hi' ? 'अपनी सप्लायर जानकारी और भाषा सेटिंग्स प्रबंधित करें' : 'Manage your supplier information and language settings'}
+        </p>
       </div>
+
+      {/* Language Preferences Card */}
+      <LanguageSettingsCard />
 
       {/* Status + Rating Banner */}
       <Card className="glass-card">

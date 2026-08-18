@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   Bell, Globe, Shield, Database, Mail, Save, Loader2, Droplets, Info
 } from 'lucide-react'
+import { LanguageSettingsCard } from '@/components/shared/LanguageSettingsCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,11 +41,14 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-2xl">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Platform Settings</h1>
-        <p className="text-muted-foreground mt-1">Configure JalSeva platform settings</p>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Platform Settings</h1>
+        <p className="text-muted-foreground text-sm mt-1">Configure JalSeva platform & language settings</p>
       </div>
+
+      {/* Language Preferences */}
+      <LanguageSettingsCard />
 
       {/* Platform Info */}
       <Card className="glass-card">

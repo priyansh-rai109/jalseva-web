@@ -58,8 +58,8 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
     { href: '/admin/dashboard', labelKey: 'navHome', icon: LayoutDashboard },
     { href: '/admin/suppliers', labelKey: 'navSuppliers', icon: Building2 },
     { href: '/admin/orders', labelKey: 'navOrders', icon: ShoppingCart },
-    { href: '/admin/zones', labelKey: 'navZones', icon: MapPin },
     { href: '/admin/analytics', labelKey: 'navAnalytics', icon: BarChart3 },
+    { href: '/admin/settings', labelKey: 'navSettings', icon: Settings },
   ]
 
   const items = role === 'super_admin' ? adminItems : role === 'supplier' ? supplierItems : customerItems

@@ -189,6 +189,16 @@ export const translations = {
     orderId: 'Order ID',
     noOrdersYet: 'No orders found',
     supplierDetails: 'Supplier Details',
+    // Settings & Language Preferences
+    languageSettingsTitle: 'Language Preferences',
+    languageSettingsSubtitle: 'Choose your preferred display language for JalSeva',
+    currentLanguageBadge: 'Active Language',
+    hindiLanguageName: '🇮🇳 हिन्दी (Hindi)',
+    hindiLanguageDesc: 'Marwar and Hindi language interface for all features',
+    englishLanguageName: '🌐 English',
+    englishLanguageDesc: 'Standard English interface for all operations',
+    languageChangedToHindi: 'भाषा बदलकर हिन्दी कर दी गई है!',
+    languageChangedToEnglish: 'Language changed to English successfully!',
   },
 
   hi: {
@@ -379,6 +389,16 @@ export const translations = {
     orderId: 'ऑर्डर क्रमांक',
     noOrdersYet: 'कोई ऑर्डर नहीं मिला',
     supplierDetails: 'सप्लायर विवरण',
+    // Settings & Language Preferences
+    languageSettingsTitle: 'भाषा प्राथमिकताएं (Language Settings)',
+    languageSettingsSubtitle: 'JalSeva पोर्टल के लिए अपनी पसंदीदा भाषा चुनें',
+    currentLanguageBadge: 'सक्रिय भाषा',
+    hindiLanguageName: '🇮🇳 हिन्दी (Hindi)',
+    hindiLanguageDesc: 'जोधपुर व मारवाड़ क्षेत्र के लिए पूर्ण हिन्दी समर्थन',
+    englishLanguageName: '🌐 English',
+    englishLanguageDesc: 'सभी कार्यों के लिए मानक अंग्रेजी इंटरफेस',
+    languageChangedToHindi: 'भाषा बदलकर हिन्दी कर दी गई है!',
+    languageChangedToEnglish: 'Language changed to English successfully!',
   },
 } as const
 

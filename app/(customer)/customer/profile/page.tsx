@@ -15,6 +15,8 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Address } from '@/types'
 import { getInitials } from '@/lib/utils'
+import { LanguageSettingsCard } from '@/components/shared/LanguageSettingsCard'
+import { useLanguage } from '@/lib/i18n/LanguageContext'
 
 const addressSchema = z.object({
   label: z.string().min(1, 'Label required'),
@@ -26,6 +28,7 @@ const addressSchema = z.object({
 type AddressForm = z.infer<typeof addressSchema>
 
 export default function CustomerProfilePage() {
+  const { language, t } = useLanguage()
   const supabase = createClient()
   const [profile, setProfile] = useState<any>(null)
   const [customer, setCustomer] = useState<any>(null)
@@ -69,10 +72,10 @@ export default function CustomerProfilePage() {
         body: JSON.stringify({ name, phone }),
       })
       if (res.ok) {
-        toast.success('Profile updated!')
+        toast.success(language === 'hi' ? 'प्रोफ़ाइल अपडेट हो गई!' : 'Profile updated!')
         fetchProfile()
       } else {
-        toast.error('Failed to update profile')
+        toast.error(language === 'hi' ? 'प्रोफ़ाइल अपडेट विफल' : 'Failed to update profile')
       }
     } catch (err) {
       toast.error('Failed to update profile')
@@ -96,31 +99,34 @@ export default function CustomerProfilePage() {
       body: JSON.stringify({ addresses: updatedAddresses }),
     })
     setCustomer({ ...(customer || {}), addresses: updatedAddresses })
-    toast.success('Address added!')
+    toast.success(language === 'hi' ? 'पता सुरक्षित हो गया!' : 'Address added!')
     setAddressDialog(false)
     reset()
   }
 
-  const removeAddress = async (addressId: string) => {
-    const updated = (customer?.addresses || []).filter((a: Address) => a.id !== addressId)
+  const removeAddress = async (id: string) => {
+    const updated = (customer?.addresses || []).filter((a: Address) => a.id !== id)
     await fetch('/api/customer/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ addresses: updated }),
     })
     setCustomer({ ...(customer || {}), addresses: updated })
-    toast.success('Address removed')
+    toast.success(language === 'hi' ? 'पता हटा दिया गया' : 'Address removed')
   }
 
-  const setDefaultAddress = async (addressId: string) => {
-    const updated = (customer?.addresses || []).map((a: Address) => ({ ...a, is_default: a.id === addressId }))
+  const setDefaultAddress = async (id: string) => {
+    const updated = (customer?.addresses || []).map((a: Address) => ({
+      ...a,
+      is_default: a.id === id,
+    }))
     await fetch('/api/customer/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ addresses: updated }),
     })
     setCustomer({ ...(customer || {}), addresses: updated })
-    toast.success('Default address updated')
+    toast.success(language === 'hi' ? 'डिफ़ॉल्ट पता अपडेट हुआ' : 'Default address updated')
   }
 
   if (loading) return (
@@ -132,9 +138,16 @@ export default function CustomerProfilePage() {
   return (
     <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Profile</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage your account details and addresses</p>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          {language === 'hi' ? 'खाता व सेटिंग्स' : 'Profile & Settings'}
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {language === 'hi' ? 'अपनी खाता जानकारी, भाषा व पते प्रबंधित करें' : 'Manage your account details, language, and addresses'}
+        </p>
       </div>
+
+      {/* Language Preferences Card */}
+      <LanguageSettingsCard />
 
       {/* Avatar + Info */}
       <Card className="glass-card">

@@ -61,7 +61,7 @@ const supplierNav: NavItemConfig[] = [
   { href: '/supplier/reviews', labelKey: 'navReviews', icon: Star },
   { href: '/supplier/zone', labelKey: 'navZones', icon: MapPin },
   { href: '/supplier/analytics', labelKey: 'navAnalytics', icon: BarChart3 },
-  { href: '/supplier/profile', labelKey: 'navProfile', icon: Settings },
+  { href: '/supplier/profile', labelKey: 'navSettings', icon: Settings },
 ]
 
 const customerNav: NavItemConfig[] = [
@@ -70,7 +70,7 @@ const customerNav: NavItemConfig[] = [
   { href: '/customer/subscriptions', labelKey: 'navSubscriptions', icon: RefreshCw },
   { href: '/customer/orders', labelKey: 'navOrders', icon: FileText },
   { href: '/customer/notifications', labelKey: 'navNotifications', icon: Bell },
-  { href: '/customer/profile', labelKey: 'navProfile', icon: Settings },
+  { href: '/customer/profile', labelKey: 'navSettings', icon: Settings },
 ]
 
 interface SidebarProps {
