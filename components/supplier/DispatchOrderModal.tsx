@@ -170,29 +170,51 @@ export function DispatchOrderModal({
           </div>
 
           {/* Buttons */}
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
-            {customerPhone && (
-              <a
-                href={`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${dispatchWhatsappMessage}`}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full sm:w-auto flex-1"
-              >
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full text-xs h-11 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center justify-center gap-1.5"
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {customerPhone && (
+                <a
+                  href={`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${dispatchWhatsappMessage}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full"
                 >
-                  <MessageSquare className="w-4 h-4 text-emerald-400" />
-                  <span>{language === 'hi' ? 'ग्राहक को व्हाट्सएप भेजें' : 'Send WhatsApp'}</span>
-                </Button>
-              </a>
-            )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full text-xs h-10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center justify-center gap-1.5"
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                    <span>{language === 'hi' ? 'ग्राहक को व्हाट्सएप' : 'WhatsApp Customer'}</span>
+                  </Button>
+                </a>
+              )}
+
+              {driverPhone && (
+                <a
+                  href={`https://wa.me/${driverPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                    `🚚 *JalSeva Delivery Task*\n📦 Order #${shortId}\n👤 Customer: ${customerName} (${customerPhone || 'N/A'})\n💵 Collect: ₹${order.total_amount} (${order.payment_method?.toUpperCase() || 'COD'})\n📲 1-Click Map Navigation & PIN Handover Screen:\nhttps://jalseva-web.vercel.app/delivery/${order.id}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full"
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full text-xs h-10 border-sky-500/40 text-sky-400 hover:bg-sky-500/10 flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-4 h-4 text-sky-400" />
+                    <span>{language === 'hi' ? 'ड्राइवर को लिंक भेजें' : 'Send Driver PWA Link'}</span>
+                  </Button>
+                </a>
+              )}
+            </div>
 
             <Button
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto flex-1 water-shimmer text-white font-bold text-xs h-11 shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2"
+              className="w-full water-shimmer text-white font-bold text-xs h-11 shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 mt-1"
             >
               {loading ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> {language === 'hi' ? 'डिस्पैच हो रहा है...' : 'Dispatching...'}</>

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Clock, CheckCircle2, Truck, XCircle,
-  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban, Sparkles, Edit3, Navigation, Compass
+  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban, Sparkles, Edit3, Navigation, Compass, FileText, KeyRound, ShieldCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,8 +15,9 @@ import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ReviewModal } from '@/components/shared/ReviewModal'
 import { LiveGpsMapModal } from '@/components/shared/LiveGpsMapModal'
+import { TaxInvoiceModal } from '@/components/shared/TaxInvoiceModal'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
-import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
+import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel, getDeliveryPin } from '@/lib/utils'
 import Link from 'next/link'
 
 export default function OrderDetailPage() {
@@ -33,9 +34,10 @@ export default function OrderDetailPage() {
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
-  // Review modal state
+  // Modals state
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [gpsModalOpen, setGpsModalOpen] = useState(false)
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
   const autoPromptTriggered = useRef(false)
 
   const steps = [
@@ -205,6 +207,17 @@ export default function OrderDetailPage() {
           <Badge className={`text-xs sm:text-sm py-1 border ${getOrderStatusColor(order.status)}`}>
             {getTranslatedStatus(order.status)}
           </Badge>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-sky-500/30 text-sky-400 hover:bg-sky-500/10 text-xs min-h-[36px] gap-1.5"
+            onClick={() => setInvoiceOpen(true)}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>{language === 'hi' ? 'जीएसटी रसीद / Invoice' : 'Tax Invoice'}</span>
+          </Button>
+
           {canCancel && (
             <Button
               variant="destructive"
@@ -248,6 +261,36 @@ export default function OrderDetailPage() {
               })}
             </div>
           </CardContent>
+        </Card>
+      )}
+
+      {/* 4-Digit Delivery Security PIN Card */}
+      {!isCancelled && !isDelivered && (
+        <Card className="bg-gradient-to-r from-amber-500/15 via-sky-500/10 to-transparent border-amber-500/40 p-4 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <span>{language === 'hi' ? 'डिलीवरी सुरक्षा पिन (Delivery Security PIN)' : 'Delivery Security PIN'}</span>
+                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] py-0">Secret PIN</Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {language === 'hi'
+                    ? 'पानी का जार प्राप्त होने पर यह 4-अंकों का पिन डिलीवरी ड्राइवर को बताएं'
+                    : 'Share this 4-digit PIN with your delivery driver when water arrives'}
+                </p>
+              </div>
+            </div>
+            <div className="self-end sm:self-center bg-card/90 border border-amber-500/50 rounded-xl px-4 py-2 text-center shadow-inner">
+              <span className="text-[10px] text-muted-foreground block font-medium">YOUR PIN</span>
+              <span className="text-2xl font-black font-mono tracking-[0.25em] text-amber-400">
+                {getDeliveryPin(order.id)}
+              </span>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -440,6 +483,15 @@ export default function OrderDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Tax Invoice Modal */}
+      {order && (
+        <TaxInvoiceModal
+          isOpen={invoiceOpen}
+          onClose={() => setInvoiceOpen(false)}
+          order={order}
+        />
+      )}
 
       {/* Review Modal */}
       {order && (

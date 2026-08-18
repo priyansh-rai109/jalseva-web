@@ -52,6 +52,9 @@ function Navbar() {
             <a href="#how-it-works" className="hover:text-foreground transition-colors">{t('howItWorks')}</a>
             <a href="#products" className="hover:text-foreground transition-colors">{t('waterProducts')}</a>
             <a href="#suppliers" className="hover:text-foreground transition-colors">{t('customerStories')}</a>
+            <Link href="/corporate" className="text-sky-400 font-semibold hover:text-sky-300 transition-colors flex items-center gap-1">
+              <span>B2B Corporate 🏢</span>
+            </Link>
           </div>
 
           {/* Language Toggle & CTAs */}

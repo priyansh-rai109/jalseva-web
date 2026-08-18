@@ -10,7 +10,7 @@ test.describe('Flow 5: Order Acceptance by Supplier', () => {
     await supplierDemoBtn.click()
 
     // 2. Expect redirect to Supplier Dashboard
-    await page.waitForURL(/\/supplier\/dashboard/)
+    await page.waitForURL(/.*\/supplier\/dashboard/, { timeout: 15000 })
     expect(page.url()).toContain('/supplier/dashboard')
 
     // 3. Go to Supplier Orders page

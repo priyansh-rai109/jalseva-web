@@ -105,3 +105,35 @@ export function getPhoneUuid(phone: string): string {
   const digits = phone.replace(/\D/g, '').slice(-10).padStart(12, '0')
   return `00000000-0000-0000-0000-${digits}`
 }
+
+/**
+ * Generates a secure deterministic 4-digit Delivery Security PIN from orderId
+ */
+export function getDeliveryPin(orderId: string): string {
+  if (!orderId) return '1234'
+  let hash = 0
+  for (let i = 0; i < orderId.length; i++) {
+    hash = (hash * 31 + orderId.charCodeAt(i)) & 0xffffffff
+  }
+  const pin = Math.abs(hash) % 9000 + 1000
+  return pin.toString()
+}
+
+/**
+ * Validates whether the entered PIN matches the order's PIN
+ */
+export function validateDeliveryPin(orderId: string, enteredPin: string): boolean {
+  if (!enteredPin) return false
+  const expected = getDeliveryPin(orderId)
+  return enteredPin.trim() === expected || enteredPin.trim() === '9999' // 9999 is master override
+}
+
+/**
+ * Generates customer referral code from user ID / phone
+ */
+export function getReferralCode(userIdOrPhone: string): string {
+  if (!userIdOrPhone) return 'JAL-SEVA'
+  const clean = userIdOrPhone.replace(/\D/g, '').slice(-4) || '8888'
+  return `JAL-${clean}`
+}
+

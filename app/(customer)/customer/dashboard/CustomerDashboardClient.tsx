@@ -14,6 +14,10 @@ import {
   ChevronRight,
   Star,
   Sparkles,
+  BellRing,
+  Zap,
+  Coins,
+  Gift,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -144,6 +148,63 @@ export function CustomerDashboardClient({
           </div>
         </CardContent>
       </Card>
+
+      {/* Smart Refill Alarm & JalDrop Coins Quick Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        {/* 1. Smart Refill Alarm */}
+        <Card className="glass-card border-sky-500/30 bg-gradient-to-r from-sky-950/30 to-slate-900/60 p-4 flex items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center flex-shrink-0">
+              <BellRing className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-foreground">
+                  {language === 'hi' ? 'स्मार्ट वाटर रीफिल अलार्म' : 'Smart Water Refill Alarm'}
+                </span>
+                <Badge className="bg-sky-500/20 text-sky-300 border-sky-500/30 text-[9px] py-0">Auto-Alert</Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {language === 'hi'
+                  ? 'अनुमान: आपका 20L पानी का जार ~24 घंटे में खत्म हो सकता है'
+                  : 'Estimated: Your 20L water can may finish in ~24 hours'}
+              </p>
+            </div>
+          </div>
+          <Link href="/customer/browse" className="flex-shrink-0">
+            <Button size="sm" className="water-shimmer text-white text-xs h-8 px-3 gap-1 font-semibold rounded-xl">
+              <Zap className="w-3.5 h-3.5" />
+              <span>{language === 'hi' ? '1-क्लिक रीऑर्डर' : 'Quick Refill'}</span>
+            </Button>
+          </Link>
+        </Card>
+
+        {/* 2. JalDrop Rewards Quick Card */}
+        <Card className="glass-card border-amber-500/30 bg-gradient-to-r from-amber-950/20 to-slate-900/60 p-4 flex items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
+              <Coins className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-foreground">
+                  {language === 'hi' ? 'JalDrop कॉइन्स: 150 (₹150)' : 'JalDrop Coins: 150 (₹150)'}
+                </span>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] py-0">Active</Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {language === 'hi' ? 'दोस्तों को रेफर करें और ₹50 कॉइन्स कमाएं' : 'Refer neighbors to earn 50 Coins per order'}
+              </p>
+            </div>
+          </div>
+          <Link href="/customer/wallet" className="flex-shrink-0">
+            <Button size="sm" variant="outline" className="text-xs h-8 px-3 gap-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 rounded-xl">
+              <Gift className="w-3.5 h-3.5" />
+              <span>{language === 'hi' ? 'रेफर करें' : 'Refer & Earn'}</span>
+            </Button>
+          </Link>
+        </Card>
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">

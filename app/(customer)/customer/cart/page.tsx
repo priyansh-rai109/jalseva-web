@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import {
   ShoppingCart, Trash2, Plus, Minus, MapPin,
-  Loader2, ChevronRight, Package, Droplets, Info, CheckCircle2, ArrowLeft, Zap, ShieldAlert
+  Loader2, ChevronRight, Package, Droplets, Info, CheckCircle2, ArrowLeft, Zap, ShieldAlert, Coins, Sparkles
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,6 +59,7 @@ export default function CartPage() {
   const [step, setStep] = useState<'cart' | 'checkout'>('cart')
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [isEmergency, setIsEmergency] = useState(false)
+  const [useCoins, setUseCoins] = useState(false)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -81,7 +82,7 @@ export default function CartPage() {
     }
 
     try {
-      const totalAmt = getTotalAmount()
+      const totalAmt = Math.max(10, getTotalAmount() + (isEmergency ? 50 : 0) - (useCoins ? 50 : 0))
 
       // 1. Create order in JalSeva backend
       const res = await fetch('/api/orders', {
@@ -434,11 +435,47 @@ export default function CartPage() {
                 </div>
               )}
 
+              {/* JalDrop Coins Redemption Toggle */}
+              <div
+                onClick={() => setUseCoins(!useCoins)}
+                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                  useCoins
+                    ? 'border-amber-500/50 bg-amber-500/15 shadow-sm shadow-amber-500/10'
+                    : 'border-border bg-secondary/40 hover:bg-secondary'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <span>{language === 'hi' ? 'JalDrop कॉइन्स लगाएं' : 'Apply JalDrop Coins'}</span>
+                      <Badge className="bg-amber-500/20 text-amber-300 text-[9px] py-0 px-1">Save ₹50</Badge>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Available: 150 Coins</div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={useCoins}
+                  onChange={() => {}}
+                  className="rounded border-amber-400 text-amber-500 focus:ring-amber-400 pointer-events-none"
+                />
+              </div>
+
+              {useCoins && (
+                <div className="flex justify-between text-xs text-emerald-400 font-semibold">
+                  <span>🪙 {language === 'hi' ? 'JalDrop कॉइन्स डिस्काउंट' : 'JalDrop Discount'}</span>
+                  <span>-₹50</span>
+                </div>
+              )}
+
               <Separator />
               <div className="flex justify-between font-bold text-base sm:text-lg">
                 <span>{t('total')}</span>
                 <span className="gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  {formatCurrency(getTotalAmount() + (isEmergency ? 50 : 0))}
+                  {formatCurrency(Math.max(10, getTotalAmount() + (isEmergency ? 50 : 0) - (useCoins ? 50 : 0)))}
                 </span>
               </div>
               <div className="p-2.5 rounded-lg bg-sky-500/5 border border-sky-500/10 text-xs text-sky-400 leading-relaxed">

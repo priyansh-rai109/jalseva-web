@@ -38,6 +38,7 @@ export const translations = {
     navSettings: 'Settings',
     navNotifications: 'Notifications',
     navSubscriptions: 'Water Pass 🔄',
+    navWallet: 'JalDrop Wallet 🪙',
 
     // Landing Page
     heroServingBadge: 'Serving Jodhpur, Rajasthan',
@@ -238,6 +239,7 @@ export const translations = {
     navSettings: 'सेटिंग्स',
     navNotifications: 'सूचनाएं',
     navSubscriptions: 'वॉटर पास 🔄',
+    navWallet: 'रिवॉर्ड वॉलेट 🪙',
 
     // Landing Page
     heroServingBadge: 'जोधपुर, राजस्थान में सेवारत',
