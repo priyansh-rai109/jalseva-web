@@ -43,7 +43,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
     { href: '/customer/browse', labelKey: 'navBrowse', icon: Building2 },
     { href: '/customer/cart', labelKey: 'navCart', icon: ShoppingCart, badge: cartItemCount },
     { href: '/customer/orders', labelKey: 'navOrders', icon: FileText },
-    { href: '/customer/profile', labelKey: 'navProfile', icon: User },
+    { href: '/customer/settings', labelKey: 'navSettings', icon: Settings },
   ]
 
   const supplierItems: NavItem[] = [
@@ -51,7 +51,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
     { href: '/supplier/orders', labelKey: 'navOrders', icon: ShoppingCart },
     { href: '/supplier/products', labelKey: 'navProducts', icon: Package },
     { href: '/supplier/reviews', labelKey: 'navReviews', icon: Star },
-    { href: '/supplier/profile', labelKey: 'navProfile', icon: Settings },
+    { href: '/supplier/settings', labelKey: 'navSettings', icon: Settings },
   ]
 
   const adminItems: NavItem[] = [
