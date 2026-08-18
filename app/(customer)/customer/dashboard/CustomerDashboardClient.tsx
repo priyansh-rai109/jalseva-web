@@ -116,12 +116,12 @@ export function CustomerDashboardClient({
                 💧 {language === 'hi' ? '3D लाइव वाटर एनिमेशन व शुद्धता' : '3D Live Water Physics'}
               </Badge>
               <h2 className="text-xl sm:text-2xl font-bold text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                {language === 'hi' ? 'मारवाड़ जल सेवा — शुद्ध जल, हर घर तक' : 'Marwar JalSeva — Pure Certified Water'}
+                {language === 'hi' ? 'जलसेवा — शुद्ध जल डिलीवरी व जल संरक्षण' : 'JalSeva — Pure Water Delivery Marketplace'}
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-xl">
                 {language === 'hi'
-                  ? 'हर बूंद की शुद्धता 85 PPM टीडीएस के साथ प्रमाणित है। माउस को 3D स्फीयर पर घुमाकर वाटर वेव्स और रिपल्स को महसूस करें।'
-                  : 'Certified 85 PPM TDS purity. Hover and tilt the 3D water orb to interact with real-time fluid waves.'}
+                  ? 'हर बूंद की शुद्धता प्रमाणित है। 3D सिमुलेटर में पानी की बूंदें डालें (+5%) और लाइव टीडीएस व तरंगों का अनुभव करें।'
+                  : 'Certified 85 PPM purity. Click "+ Add Drop" to fill pure water and interact with real-time fluid waves.'}
               </p>
               <div className="pt-2 flex items-center justify-center md:justify-start gap-3">
                 <Link href="/customer/browse">

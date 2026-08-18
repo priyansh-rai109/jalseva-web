@@ -461,7 +461,7 @@ export default function OrderDetailPage() {
           isOpen={gpsModalOpen}
           onClose={() => setGpsModalOpen(false)}
           orderId={order.id}
-          supplierName={order.suppliers?.business_name || 'Marwar Pure Water Hub'}
+          supplierName={order.suppliers?.business_name || 'JalSeva Verified Plant'}
           customerAddress={
             typeof order.delivery_address === 'object'
               ? `${order.delivery_address?.line1 || ''}, ${order.delivery_address?.city || ''}`

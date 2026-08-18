@@ -1,8 +1,12 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Droplets, Sparkles, ShieldCheck, HeartHandshake, Waves } from 'lucide-react'
+import {
+  Droplets, Sparkles, ShieldCheck, Waves,
+  Plus, RotateCcw, Award, CheckCircle2, Zap, Play
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 
 interface Water3DOrbHeroProps {
@@ -16,17 +20,20 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [isHovered, setIsHovered] = useState(false)
-  const [pulseCount, setPulseCount] = useState(0)
+  const [waterLevel, setWaterLevel] = useState(65) // 0 - 100%
+  const [dropsCount, setDropsCount] = useState(0)
+  const [tdsValue, setTdsValue] = useState(82)
+  const [isPouring, setIsPouring] = useState(false)
+  const [splashes, setSplashes] = useState<{ id: number; x: number; y: number }[]>([])
 
   const isCompact = variant === 'compact'
-  const orbSize = isCompact ? 'w-44 h-44 sm:w-52 sm:h-52' : 'w-64 h-64 sm:w-72 sm:h-72'
 
-  // 3D Tilt calculation based on mouse position
+  // 3D Tilt calculation
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 30 // -15deg to +15deg
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -30
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 24
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -24
     setMousePos({ x, y })
   }
 
@@ -35,7 +42,28 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
     setIsHovered(false)
   }
 
-  // 3D Liquid Canvas Wave Simulation inside the Orb
+  // Pour / Drop Water Action
+  const triggerWaterDrop = (e?: React.MouseEvent) => {
+    setIsPouring(true)
+    setDropsCount((prev) => prev + 1)
+    setWaterLevel((prev) => Math.min(95, prev + 5))
+    setTdsValue(Math.floor(75 + Math.random() * 12))
+
+    const splashId = Date.now()
+    setSplashes((prev) => [...prev.slice(-4), { id: splashId, x: 50, y: 50 }])
+
+    setTimeout(() => {
+      setIsPouring(false)
+    }, 600)
+  }
+
+  const resetWater = () => {
+    setWaterLevel(65)
+    setTdsValue(82)
+    setDropsCount(0)
+  }
+
+  // Fluid Canvas Animation
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -43,98 +71,117 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
     if (!ctx) return
 
     let animationFrameId: number
-    const size = 260
+    const size = isCompact ? 220 : 280
     canvas.width = size * 2
     canvas.height = size * 2
     ctx.scale(2, 2)
 
     let step = 0
-    // Floating mineral micro-bubbles
-    const bubbles = Array.from({ length: 12 }, () => ({
+
+    // Rising mineral micro-bubbles
+    const bubbles = Array.from({ length: 16 }, () => ({
       x: Math.random() * size,
-      y: Math.random() * (size * 0.5) + size * 0.4,
-      radius: Math.random() * 2.5 + 1,
-      speed: Math.random() * 0.8 + 0.4,
-      opacity: Math.random() * 0.5 + 0.3,
+      y: Math.random() * size,
+      radius: Math.random() * 2.2 + 0.8,
+      speed: Math.random() * 0.9 + 0.4,
+      opacity: Math.random() * 0.6 + 0.2,
+      wobble: Math.random() * Math.PI * 2,
     }))
 
     const render = () => {
-      step += 0.04
+      step += 0.045
       ctx.clearRect(0, 0, size, size)
 
       const centerX = size / 2
       const centerY = size / 2
-      const radius = size / 2 - 10
+      const radius = size / 2 - 8
 
-      // Create Circular Clipping Path for 3D sphere
+      // Spherical Clipping
       ctx.save()
       ctx.beginPath()
       ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
       ctx.clip()
 
-      // Deep water base gradient
+      // Deep water flask background
       const bgGrad = ctx.createLinearGradient(0, 0, 0, size)
-      bgGrad.addColorStop(0, 'rgba(8, 47, 73, 0.4)')
-      bgGrad.addColorStop(0.5, 'rgba(14, 116, 144, 0.6)')
-      bgGrad.addColorStop(1, 'rgba(3, 105, 161, 0.85)')
+      bgGrad.addColorStop(0, '#041726')
+      bgGrad.addColorStop(0.5, '#07324f')
+      bgGrad.addColorStop(1, '#02182b')
       ctx.fillStyle = bgGrad
       ctx.fillRect(0, 0, size, size)
 
-      // 1. Primary Liquid Wave
+      // Calculate current fluid line
+      const targetSurfaceY = size - (waterLevel / 100) * (size - 20)
+
+      // 1. Back fluid layer
       ctx.beginPath()
-      const waterLevel = centerY + 15
       ctx.moveTo(0, size)
-      ctx.lineTo(0, waterLevel)
-
-      for (let x = 0; x <= size; x += 5) {
-        const wave1 = Math.sin(x * 0.03 + step) * 9
-        const wave2 = Math.cos(x * 0.015 - step * 0.8) * 5
-        ctx.lineTo(x, waterLevel + wave1 + wave2)
+      ctx.lineTo(0, targetSurfaceY)
+      for (let x = 0; x <= size; x += 4) {
+        const wave = Math.cos(x * 0.028 - step * 1.3) * (isPouring ? 12 : 6)
+        ctx.lineTo(x, targetSurfaceY + wave)
       }
+      ctx.lineTo(size, size)
+      ctx.closePath()
+      const backGrad = ctx.createLinearGradient(0, targetSurfaceY, 0, size)
+      backGrad.addColorStop(0, 'rgba(14, 165, 233, 0.45)')
+      backGrad.addColorStop(1, 'rgba(3, 105, 161, 0.85)')
+      ctx.fillStyle = backGrad
+      ctx.fill()
 
+      // 2. Primary Foreground Fluid Wave
+      ctx.beginPath()
+      ctx.moveTo(0, size)
+      ctx.lineTo(0, targetSurfaceY)
+      for (let x = 0; x <= size; x += 4) {
+        const wave1 = Math.sin(x * 0.035 + step) * (isPouring ? 14 : 7)
+        const wave2 = Math.cos(x * 0.018 - step * 0.7) * 4
+        ctx.lineTo(x, targetSurfaceY + wave1 + wave2)
+      }
       ctx.lineTo(size, size)
       ctx.closePath()
 
-      const waveGrad = ctx.createLinearGradient(0, waterLevel - 15, 0, size)
-      waveGrad.addColorStop(0, 'rgba(56, 189, 248, 0.85)')
-      waveGrad.addColorStop(0.5, 'rgba(14, 165, 233, 0.75)')
-      waveGrad.addColorStop(1, 'rgba(2, 132, 199, 0.95)')
+      const waveGrad = ctx.createLinearGradient(0, targetSurfaceY - 15, 0, size)
+      waveGrad.addColorStop(0, '#38bdf8')
+      waveGrad.addColorStop(0.3, '#0284c7')
+      waveGrad.addColorStop(1, '#0369a1')
       ctx.fillStyle = waveGrad
       ctx.fill()
 
-      // 2. Secondary Translucent Front Foam Wave
+      // 3. Fluid Crest Highlight
       ctx.beginPath()
-      ctx.moveTo(0, size)
-      ctx.lineTo(0, waterLevel)
-      for (let x = 0; x <= size; x += 5) {
-        const wave = Math.sin(x * 0.025 - step * 1.2) * 6
-        ctx.lineTo(x, waterLevel + wave)
+      for (let x = 0; x <= size; x += 4) {
+        const wave = Math.sin(x * 0.035 + step) * (isPouring ? 14 : 7) + Math.cos(x * 0.018 - step * 0.7) * 4
+        if (x === 0) ctx.moveTo(x, targetSurfaceY + wave)
+        else ctx.lineTo(x, targetSurfaceY + wave)
       }
-      ctx.lineTo(size, size)
-      ctx.closePath()
-      ctx.fillStyle = 'rgba(224, 242, 254, 0.25)'
-      ctx.fill()
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)'
+      ctx.lineWidth = 2
+      ctx.shadowColor = '#38bdf8'
+      ctx.shadowBlur = 8
+      ctx.stroke()
 
-      // 3. Floating rising mineral bubbles
+      // 4. Floating Oxygen & Pure Mineral Bubbles
       for (let i = 0; i < bubbles.length; i++) {
         const b = bubbles[i]
-        b.y -= b.speed
-        b.x += Math.sin(step + i) * 0.3
+        b.y -= b.speed * (isPouring ? 2.5 : 1)
+        b.wobble += 0.05
+        const wobbleX = Math.sin(b.wobble) * 1.5
 
-        if (b.y < waterLevel) {
-          b.y = size - 15
+        if (b.y < targetSurfaceY) {
+          b.y = size - 10
           b.x = Math.random() * size
         }
 
         ctx.beginPath()
-        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(240, 249, 255, ${b.opacity})`
+        ctx.arc(b.x + wobbleX, b.y, b.radius, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(224, 242, 254, ${b.opacity})`
         ctx.shadowColor = '#38bdf8'
         ctx.shadowBlur = 4
         ctx.fill()
       }
 
-      // 4. 3D Spherical Specular Light Reflection (Top Left Curvature)
+      // 5. Specular 3D Glass Light Curved Reflection
       const specGrad = ctx.createRadialGradient(
         centerX - radius * 0.35,
         centerY - radius * 0.35,
@@ -143,21 +190,21 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
         centerY - radius * 0.35,
         radius * 0.65
       )
-      specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)')
-      specGrad.addColorStop(0.3, 'rgba(224, 242, 254, 0.4)')
+      specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.75)')
+      specGrad.addColorStop(0.3, 'rgba(186, 230, 253, 0.3)')
       specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)')
       ctx.fillStyle = specGrad
       ctx.beginPath()
       ctx.arc(centerX - radius * 0.35, centerY - radius * 0.35, radius * 0.6, 0, Math.PI * 2)
       ctx.fill()
 
-      // 5. 3D Glass Edge Fresnel Rim
+      // 6. Glass Fresnel Rim
       ctx.beginPath()
       ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
-      ctx.strokeStyle = 'rgba(186, 230, 253, 0.6)'
-      ctx.lineWidth = 3
+      ctx.strokeStyle = 'rgba(186, 230, 253, 0.5)'
+      ctx.lineWidth = 2.5
       ctx.shadowColor = '#0ea5e9'
-      ctx.shadowBlur = 12
+      ctx.shadowBlur = 10
       ctx.stroke()
 
       ctx.restore()
@@ -167,84 +214,111 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
 
     animationFrameId = requestAnimationFrame(render)
     return () => cancelAnimationFrame(animationFrameId)
-  }, [])
+  }, [waterLevel, isPouring, isCompact])
 
   return (
-    <div className="relative flex flex-col items-center justify-center my-6 sm:my-8 select-none">
-      {/* 3D Container with Perspective */}
+    <div className="flex flex-col items-center justify-center select-none py-2">
+      {/* 3D Vessel with Perspective Tilt */}
       <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleMouseLeave}
-        onClick={() => setPulseCount((prev) => prev + 1)}
+        onClick={() => triggerWaterDrop()}
         className="relative cursor-pointer transition-transform duration-200 ease-out"
         style={{
           perspective: '1000px',
-          transform: `rotateY(${mousePos.x}deg) rotateX(${mousePos.y}deg) scale(${isHovered ? 1.04 : 1})`,
+          transform: `rotateY(${mousePos.x}deg) rotateX(${mousePos.y}deg) scale(${isHovered ? 1.03 : 1})`,
         }}
       >
-        {/* Ambient Glowing Aura */}
-        <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-sky-500/30 via-cyan-400/20 to-blue-600/30 blur-2xl animate-pulse pointer-events-none" />
+        {/* Glowing Aura Ring */}
+        <div className="absolute -inset-4 rounded-full bg-gradient-to-tr from-sky-500/25 via-cyan-400/20 to-blue-600/25 blur-xl animate-pulse pointer-events-none" />
 
-        {/* Outer Gyro Ring */}
-        <div className={`relative ${orbSize} rounded-full p-2.5 bg-gradient-to-tr from-sky-500/40 via-cyan-400/10 to-blue-600/50 border border-sky-400/40 shadow-[0_0_50px_rgba(14,165,233,0.35)] backdrop-blur-md flex items-center justify-center`}>
-          {/* Orbital Particle Satellite 1 */}
+        {/* Outer 3D Gyro Vessel Ring */}
+        <div className={`relative ${isCompact ? 'w-48 h-48 sm:w-56 sm:h-56' : 'w-64 h-64 sm:w-72 sm:h-72'} rounded-full p-2 bg-gradient-to-b from-sky-400/40 via-cyan-500/10 to-blue-700/50 border border-sky-400/50 shadow-[0_0_40px_rgba(14,165,233,0.3)] backdrop-blur-md flex items-center justify-center`}>
+          
+          {/* Orbital Cyan Satellite */}
           <div className="absolute inset-0 rounded-full animate-spin-slow pointer-events-none">
-            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-cyan-300 shadow-[0_0_12px_#38bdf8] flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-white" />
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-cyan-300 shadow-[0_0_12px_#38bdf8] flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
             </div>
           </div>
 
-          {/* Orbital Particle Satellite 2 */}
-          <div className="absolute inset-0 rounded-full animate-spin-slow pointer-events-none" style={{ animationDirection: 'reverse', animationDuration: '14s' }}>
-            <div className="absolute -bottom-1 left-1/3 w-3 h-3 rounded-full bg-sky-400 shadow-[0_0_10px_#0ea5e9]" />
-          </div>
-
-          {/* The 3D Liquid Canvas Sphere */}
-          <div className="relative w-full h-full rounded-full overflow-hidden shadow-inner bg-slate-950/80">
+          {/* Liquid Canvas Sphere */}
+          <div className="relative w-full h-full rounded-full overflow-hidden shadow-2xl bg-slate-950">
             <canvas
               ref={canvasRef}
               className="w-full h-full block"
               style={{ width: '100%', height: '100%' }}
             />
 
-            {/* Central 3D Overlay Badge */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 pointer-events-none">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg mb-1.5 animate-bounce">
-                <Droplets className="w-6 h-6 text-cyan-300 fill-cyan-300/40" />
+            {/* Tap Drop Splash Animation */}
+            {isPouring && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-16 h-16 rounded-full border-2 border-cyan-300 animate-ping opacity-75" />
               </div>
-              <span className="text-xs font-bold tracking-wider text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                {language === 'hi' ? 'जल ही जीवन है' : 'Pure Water 3D'}
+            )}
+
+            {/* Central Information Overlay */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-3 pointer-events-none">
+              <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-md mb-1 animate-bounce">
+                <Droplets className="w-5 h-5 text-cyan-300 fill-cyan-300/40" />
+              </div>
+              <span className="text-sm font-bold tracking-wider text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                JalSeva
               </span>
-              <span className="text-[10px] text-cyan-200/90 font-medium drop-shadow">
-                {language === 'hi' ? 'हर बूंद अनमोल है 💧' : 'Save Every Drop 💧'}
+              <span className="text-[11px] text-cyan-200 font-semibold drop-shadow">
+                {waterLevel}% {language === 'hi' ? 'शुद्ध जल' : 'Pure Water'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Interactive Floating Pill Badges */}
-        <div className="absolute -bottom-3 -left-4 sm:-left-8 bg-card/90 backdrop-blur-xl border border-sky-500/30 rounded-2xl py-1.5 px-3 shadow-xl flex items-center gap-2 animate-pulse">
+        {/* Dynamic TDS & Quality Badges */}
+        <div className="absolute -bottom-2 -left-2 sm:-left-4 bg-card/95 backdrop-blur-md border border-sky-500/40 rounded-xl py-1 px-2.5 shadow-lg flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
           <div className="text-left">
-            <div className="text-[10px] font-bold text-foreground">TDS 85 PPM</div>
-            <div className="text-[8px] text-muted-foreground">{language === 'hi' ? 'लैब प्रमाणित शुद्धता' : 'WHO Pure Grade'}</div>
+            <div className="text-[10px] font-bold text-foreground font-mono">TDS {tdsValue} PPM</div>
+            <div className="text-[8px] text-muted-foreground">{language === 'hi' ? 'आदर्श शुद्धता' : 'WHO Standard'}</div>
           </div>
         </div>
 
-        <div className="absolute -top-3 -right-4 sm:-right-8 bg-card/90 backdrop-blur-xl border border-emerald-500/30 rounded-2xl py-1.5 px-3 shadow-xl flex items-center gap-2">
+        <div className="absolute -top-2 -right-2 sm:-right-4 bg-card/95 backdrop-blur-md border border-emerald-500/40 rounded-xl py-1 px-2.5 shadow-lg flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
           <div className="text-left">
             <div className="text-[10px] font-bold text-foreground">100% RO + UV</div>
-            <div className="text-[8px] text-muted-foreground">{language === 'hi' ? 'जोधपुर जल सेवा' : 'Certified Quality'}</div>
+            <div className="text-[8px] text-emerald-400 font-semibold">{language === 'hi' ? 'लैब प्रमाणित' : 'Lab Tested'}</div>
           </div>
         </div>
       </div>
 
-      <p className="text-[11px] text-muted-foreground/80 mt-4 flex items-center gap-1">
-        <Waves className="w-3 h-3 text-sky-400 animate-pulse" />
-        <span>{language === 'hi' ? 'माउस घुमाकर 3D वाटर वेव व शुद्धता का अनुभव करें' : 'Hover & tilt to interact with real-time 3D fluid physics'}</span>
+      {/* Interactive Control Buttons */}
+      <div className="flex items-center gap-2 mt-3.5">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => triggerWaterDrop()}
+          className="water-shimmer text-white text-xs h-7 px-2.5 rounded-lg shadow-sm flex items-center gap-1 font-semibold"
+        >
+          <Plus className="w-3 h-3" />
+          <span>{language === 'hi' ? '💧 बूंद डालें (+5%)' : '💧 Add Drop (+5%)'}</span>
+        </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={resetWater}
+          className="text-xs h-7 px-2 rounded-lg border-border/80 text-muted-foreground hover:text-foreground"
+          title="Reset Level"
+        >
+          <RotateCcw className="w-3 h-3" />
+        </Button>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground/80 mt-1.5 flex items-center gap-1">
+        <Waves className="w-2.5 h-2.5 text-sky-400 animate-pulse" />
+        <span>{language === 'hi' ? 'क्लिक करके पानी डालें और माउस घुमाकर तरंगें देखें' : 'Click to add water drops & hover to tilt waves'}</span>
       </p>
     </div>
   )
