@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   User, Phone, Mail, MapPin, Plus, Trash2, Edit2, Loader2, Save,
-  Settings, Bell, Shield, Globe, Droplets
+  Settings, Bell, Shield, Globe, Droplets, KeyRound, Lock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,6 +89,58 @@ export default function CustomerSettingsPage() {
       toast.error('Failed to update settings')
     }
     setSaving(false)
+  }
+
+  // Security PIN update
+  const [currentPin, setCurrentPin] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [confirmNewPin, setConfirmNewPin] = useState('')
+  const [updatingPin, setUpdatingPin] = useState(false)
+
+  const handleUpdatePin = async () => {
+    if (currentPin.length !== 4) {
+      toast.error(language === 'hi' ? 'कृपया सही वर्तमान 4-अंकों का पिन डालें' : 'Current PIN must be 4 digits')
+      return
+    }
+    if (newPin.length !== 4) {
+      toast.error(language === 'hi' ? 'नया पिन 4 अंकों का होना चाहिए' : 'New PIN must be 4 digits')
+      return
+    }
+    if (newPin !== confirmNewPin) {
+      toast.error(language === 'hi' ? 'दोनों नए पिन मेल नहीं खा रहे हैं' : 'New PINs do not match')
+      return
+    }
+    if (['0000', '1111', '1234', '9999'].includes(newPin)) {
+      toast.error(language === 'hi' ? 'कृपया अधिक सुरक्षित पिन चुनें (उदा. 4582)' : 'Please choose a stronger PIN')
+      return
+    }
+
+    setUpdatingPin(true)
+    try {
+      const res = await fetch('/api/auth/pin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'change-pin',
+          phone: phone,
+          currentPin: currentPin,
+          pin: newPin,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message || (language === 'hi' ? 'सुरक्षा पिन सफलतापूर्वक बदल दिया गया!' : 'Security PIN updated!'))
+        setCurrentPin('')
+        setNewPin('')
+        setConfirmNewPin('')
+      } else {
+        toast.error(data.error || 'Failed to update PIN')
+      }
+    } catch {
+      toast.error('Could not update PIN')
+    } finally {
+      setUpdatingPin(false)
+    }
   }
 
   const addAddress = async (data: AddressForm) => {
@@ -245,7 +297,70 @@ export default function CustomerSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* 4. Saved Addresses */}
+      {/* 4. Security PIN Management */}
+      <Card className="glass-card border-sky-500/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            <KeyRound className="w-4 h-4 text-sky-400" />
+            <span>{language === 'hi' ? 'सुरक्षा पिन प्रबंधन (Security PIN)' : 'Security PIN Settings'}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            {language === 'hi'
+              ? 'अपना 4-अंकों का लॉगिन पिन सुरक्षित रखें। पिन बदलने के लिए वर्तमान पिन दर्ज करें।'
+              : 'Keep your 4-digit login PIN confidential. Enter current PIN to update.'}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">{language === 'hi' ? 'वर्तमान पिन' : 'Current PIN'}</Label>
+              <Input
+                type="password"
+                placeholder="••••"
+                value={currentPin}
+                onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="bg-secondary text-center text-base tracking-widest font-bold h-10"
+                maxLength={4}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">{language === 'hi' ? 'नया 4-अंकों का पिन' : 'New PIN'}</Label>
+              <Input
+                type="password"
+                placeholder="••••"
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="bg-secondary text-center text-base tracking-widest font-bold h-10"
+                maxLength={4}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">{language === 'hi' ? 'नया पिन पुनः दर्ज करें' : 'Confirm New PIN'}</Label>
+              <Input
+                type="password"
+                placeholder="••••"
+                value={confirmNewPin}
+                onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="bg-secondary text-center text-base tracking-widest font-bold h-10"
+                maxLength={4}
+              />
+            </div>
+          </div>
+          <Button
+            onClick={handleUpdatePin}
+            disabled={updatingPin || currentPin.length !== 4 || newPin.length !== 4 || confirmNewPin.length !== 4}
+            className="water-shimmer text-white text-xs h-9 font-semibold"
+          >
+            {updatingPin ? (
+              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> {language === 'hi' ? 'अपडेट हो रहा है...' : 'Updating...'}</>
+            ) : (
+              <><Lock className="w-3.5 h-3.5 mr-1.5" /> {language === 'hi' ? 'पिन अपडेट करें' : 'Update Security PIN'}</>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* 5. Saved Addresses */}
       <Card className="glass-card">
         <CardHeader className="flex flex-row items-center justify-between p-4 sm:p-6">
           <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
