@@ -69,6 +69,23 @@ export function hashPin(pin: string, salt?: string): { hash: string; salt: strin
   return { hash, salt: userSalt }
 }
 
+// ── Shared In-Memory Credential Store (Salted & Hashed) ─────────────────────
+const globalCredentialStore = new Map<string, { hash: string; salt: string }>()
+
+// Pre-seed demo accounts
+const SEED_CUSTOMER = hashPin('1234')
+const SEED_SUPPLIER = hashPin('1234')
+globalCredentialStore.set('9876543210', SEED_CUSTOMER)
+globalCredentialStore.set('9829012345', SEED_SUPPLIER)
+
+export function setCredential(phoneDigits: string, hash: string, salt: string) {
+  globalCredentialStore.set(phoneDigits, { hash, salt })
+}
+
+export function getCredential(phoneDigits: string): { hash: string; salt: string } | null {
+  return globalCredentialStore.get(phoneDigits) || null
+}
+
 export function verifyPinHash(enteredPin: string, storedHash: string, salt: string): boolean {
   try {
     const { hash } = hashPin(enteredPin, salt)

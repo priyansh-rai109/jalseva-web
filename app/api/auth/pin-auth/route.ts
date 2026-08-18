@@ -4,21 +4,13 @@ import { getPhoneUuid } from '@/lib/utils'
 import {
   hashPin,
   verifyPinHash,
+  setCredential,
+  getCredential,
   checkRateLimit,
   recordFailedAttempt,
   resetRateLimit,
   signSessionToken
 } from '@/lib/services/security-service'
-
-// Persistent map for hashed PINs across function lifecycles
-// key: 10-digit phone, value: { hash: string, salt: string }
-const secureCredentialStore = new Map<string, { hash: string; salt: string }>()
-
-// Seed default accounts securely with individual cryptographic salts
-const DEFAULT_CUSTOMER_PIN = hashPin('1234')
-const DEFAULT_SUPPLIER_PIN = hashPin('1234')
-secureCredentialStore.set('9876543210', DEFAULT_CUSTOMER_PIN)
-secureCredentialStore.set('9829012345', DEFAULT_SUPPLIER_PIN)
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,7 +66,7 @@ export async function POST(request: NextRequest) {
 
       // Generate Cryptographic Salt & Hash
       const { hash, salt } = hashPin(pin)
-      secureCredentialStore.set(digits, { hash, salt })
+      setCredential(digits, hash, salt)
 
       // Check if user already exists
       const { data: existingProfile } = await admin
@@ -208,12 +200,12 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       // Lookup stored credentials
-      let cred = secureCredentialStore.get(digits)
+      let cred = getCredential(digits)
 
       // If user exists without custom credentials, check against default legacy seed
       if (!cred) {
         cred = hashPin('1234')
-        secureCredentialStore.set(digits, cred)
+        setCredential(digits, cred.hash, cred.salt)
       }
 
       const isValid = verifyPinHash(pin, cred.hash, cred.salt)
@@ -288,7 +280,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      let cred = secureCredentialStore.get(digits)
+      let cred = getCredential(digits)
       if (!cred) cred = hashPin('1234')
 
       if (!verifyPinHash(currentPin, cred.hash, cred.salt)) {
@@ -300,7 +292,7 @@ export async function POST(request: NextRequest) {
 
       // Hash and store new PIN
       const newCred = hashPin(pin)
-      secureCredentialStore.set(digits, newCred)
+      setCredential(digits, newCred.hash, newCred.salt)
 
       return NextResponse.json({
         success: true,

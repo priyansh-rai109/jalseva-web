@@ -3,6 +3,7 @@ import {
   generateResetToken,
   verifyAndConsumeResetToken,
   hashPin,
+  setCredential,
   checkRateLimit,
   recordFailedAttempt,
   resetRateLimit
@@ -84,7 +85,14 @@ export async function POST(request: NextRequest) {
       const phoneDigits = tokenResult.identifier
       const { hash, salt } = hashPin(newPin)
 
-      // Update in Supabase
+      // 1. Store in shared credential store
+      setCredential(phoneDigits, hash, salt)
+
+      // 2. Clear any rate limits on this phone
+      resetRateLimit(rateLimitKey)
+      resetRateLimit(`${clientIp}:${phoneDigits}`)
+
+      // 3. Update in Supabase
       const admin = createAdminClient()
       const fullPhone = `+91${phoneDigits}`
 
@@ -96,8 +104,6 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.warn('[reset-password] Profile update notice:', e)
       }
-
-      resetRateLimit(rateLimitKey)
 
       return NextResponse.json({
         success: true,
