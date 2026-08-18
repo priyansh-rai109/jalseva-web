@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
-    const { orderId, status, reason, paymentStatus } = body
+    const { orderId, status, reason, paymentStatus, driverName, driverPhone, vehicleNumber, estimatedMins } = body
 
     if (!orderId) {
       return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
@@ -115,6 +115,12 @@ export async function PATCH(request: Request) {
         ? `${order.special_instructions} | [Cancelled by Supplier: ${reason}]`
         : `[Cancelled by Supplier: ${reason}]`
     }
+    if (status === 'out_for_delivery' && driverName) {
+      const driverTag = `[Driver: ${driverName} | Phone: ${driverPhone || ''} | Vehicle: ${vehicleNumber || ''} | ETA: ${estimatedMins || '15-20'} mins]`
+      updatePayload.special_instructions = order.special_instructions
+        ? `${order.special_instructions} ${driverTag}`
+        : driverTag
+    }
 
     // 3. Update order in database
     const { data: updatedOrder, error: updateError } = await adminSupabase
@@ -133,7 +139,9 @@ export async function PATCH(request: Request) {
     if (status) {
       const noteMap: Record<string, string> = {
         confirmed: 'Order confirmed by supplier. Preparation in progress.',
-        out_for_delivery: 'Order dispatched and is out for delivery.',
+        out_for_delivery: driverName
+          ? `Order dispatched with Driver ${driverName} (${driverPhone || 'N/A'}, Vehicle: ${vehicleNumber || 'N/A'}). ETA: ~${estimatedMins || '15-20'} mins.`
+          : 'Order dispatched and is out for delivery.',
         delivered: 'Water order delivered successfully.',
         cancelled: reason ? `Order cancelled: ${reason}` : 'Order cancelled by supplier',
       }
@@ -156,6 +164,10 @@ export async function PATCH(request: Request) {
           customerId: order.customer_id,
           status,
           supplierName: supplier?.business_name || 'Water Supplier',
+          driverName,
+          driverPhone,
+          vehicleNumber,
+          estimatedMins,
         })
       } catch (notifyErr) {
         console.warn('[Customer Notification Warning]', notifyErr)

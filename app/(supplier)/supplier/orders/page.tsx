@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { DispatchOrderModal } from '@/components/supplier/DispatchOrderModal'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel, formatDisplayName } from '@/lib/utils'
 import Link from 'next/link'
@@ -25,6 +26,7 @@ export default function SupplierOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [cancelDialogOrder, setCancelDialogOrder] = useState<any | null>(null)
+  const [dispatchModalOrder, setDispatchModalOrder] = useState<any | null>(null)
 
   const fetchOrders = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -86,6 +88,43 @@ export default function SupplierOrdersPage() {
     }
     setUpdatingId(null)
     setCancelDialogOrder(null)
+  }
+
+  const handleConfirmDispatch = async (
+    orderId: string,
+    driverDetails: { driverName: string; driverPhone: string; vehicleNumber: string; estimatedMins: string }
+  ) => {
+    setUpdatingId(orderId)
+    try {
+      const res = await fetch('/api/supplier/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          status: 'out_for_delivery',
+          driverName: driverDetails.driverName,
+          driverPhone: driverDetails.driverPhone,
+          vehicleNumber: driverDetails.vehicleNumber,
+          estimatedMins: driverDetails.estimatedMins,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && (json.success || json.order)) {
+        toast.success(
+          language === 'hi'
+            ? `ऑर्डर #${orderId.slice(0, 8).toUpperCase()} ड्राइवर ${driverDetails.driverName} (${driverDetails.driverPhone}) को सौंपकर डिस्पैच कर दिया गया! 🚚`
+            : `Order #${orderId.slice(0, 8).toUpperCase()} dispatched with driver ${driverDetails.driverName}! 🚚`
+        )
+        await fetchOrders(false)
+        setDispatchModalOrder(null)
+      } else {
+        toast.error(json.error || 'Failed to dispatch order')
+      }
+    } catch (err) {
+      console.error('Error dispatching order:', err)
+      toast.error('Network error dispatching order')
+    }
+    setUpdatingId(null)
   }
 
   const getTranslatedStatus = (status: string) => {
@@ -301,7 +340,7 @@ export default function SupplierOrdersPage() {
                           <Button
                             size="sm"
                             disabled={isUpdating}
-                            onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}
+                            onClick={() => setDispatchModalOrder(order)}
                             className="w-full md:w-auto bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/20 min-h-[38px]"
                           >
                             {isUpdating ? (
@@ -343,6 +382,15 @@ export default function SupplierOrdersPage() {
           })}
         </div>
       )}
+
+      {/* Driver Assignment & Dispatch Modal */}
+      <DispatchOrderModal
+        isOpen={!!dispatchModalOrder}
+        onClose={() => setDispatchModalOrder(null)}
+        order={dispatchModalOrder}
+        loading={updatingId === dispatchModalOrder?.id}
+        onConfirmDispatch={handleConfirmDispatch}
+      />
 
       {/* Cancel Confirmation Modal */}
       {cancelDialogOrder && (

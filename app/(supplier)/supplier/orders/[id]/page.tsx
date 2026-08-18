@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { DispatchOrderModal } from '@/components/supplier/DispatchOrderModal'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel, formatDisplayName } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -26,6 +27,7 @@ export default function SupplierOrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false)
+  const [dispatchModalOpen, setDispatchModalOpen] = useState(false)
 
   const fetchOrderDetails = async () => {
     try {
@@ -82,6 +84,38 @@ export default function SupplierOrderDetailPage() {
     }
     setUpdating(false)
     setConfirmCancelOpen(false)
+  }
+
+  const handleConfirmDispatch = async (
+    orderId: string,
+    driverDetails: { driverName: string; driverPhone: string; vehicleNumber: string; estimatedMins: string }
+  ) => {
+    setUpdating(true)
+    try {
+      const res = await fetch('/api/supplier/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          status: 'out_for_delivery',
+          driverName: driverDetails.driverName,
+          driverPhone: driverDetails.driverPhone,
+          vehicleNumber: driverDetails.vehicleNumber,
+          estimatedMins: driverDetails.estimatedMins,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && (json.success || json.order)) {
+        toast.success(`Order assigned to driver ${driverDetails.driverName} & dispatched! 🚚`)
+        await fetchOrderDetails()
+        setDispatchModalOpen(false)
+      } else {
+        toast.error(json.error || 'Failed to dispatch order')
+      }
+    } catch (err) {
+      toast.error('Error dispatching order')
+    }
+    setUpdating(false)
   }
 
   if (loading) {
@@ -164,7 +198,7 @@ export default function SupplierOrderDetailPage() {
               size="sm"
               className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white min-h-[38px]"
               disabled={updating}
-              onClick={() => updateOrderStatus('out_for_delivery')}
+              onClick={() => setDispatchModalOpen(true)}
             >
               <Truck className="w-4 h-4 mr-1.5" /> Dispatch / Out for Delivery
             </Button>
@@ -340,6 +374,15 @@ export default function SupplierOrderDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Dispatch Driver Assignment Modal */}
+      <DispatchOrderModal
+        isOpen={dispatchModalOpen}
+        onClose={() => setDispatchModalOpen(false)}
+        order={order}
+        loading={updating}
+        onConfirmDispatch={handleConfirmDispatch}
+      />
 
       {/* Confirmation Modal for Order Cancellation */}
       <ConfirmDialog

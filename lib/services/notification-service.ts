@@ -156,11 +156,19 @@ export async function notifyCustomerStatusChange({
   customerId,
   status,
   supplierName,
+  driverName,
+  driverPhone,
+  vehicleNumber,
+  estimatedMins,
 }: {
   orderId: string
   customerId: string
   status: string
   supplierName: string
+  driverName?: string
+  driverPhone?: string
+  vehicleNumber?: string
+  estimatedMins?: string
 }) {
   try {
     const adminSupabase = createAdminClient()
@@ -196,9 +204,11 @@ export async function notifyCustomerStatusChange({
       body = `Your water order #${shortId} has been confirmed by ${supplierName}. Preparation has started.`
       smsMessage = `[JalSeva] 💧 Your Water Order #${shortId} has been CONFIRMED by ${supplierName}. Delivery preparation started.`
     } else if (status === 'out_for_delivery') {
+      const driverInfo = driverName ? ` with Driver ${driverName} (${driverPhone || 'N/A'}) in vehicle ${vehicleNumber || 'RJ-19'}` : ''
+      const etaInfo = estimatedMins ? ` (ETA: ~${estimatedMins} mins)` : ''
       title = `🚚 Order #${shortId} Out for Delivery!`
-      body = `Your water delivery #${shortId} from ${supplierName} is on its way!`
-      smsMessage = `[JalSeva] 🚛 Your Water Order #${shortId} is OUT FOR DELIVERY by ${supplierName}! Delivery executive will arrive shortly.`
+      body = `Your water delivery #${shortId} from ${supplierName} is on its way${driverInfo}.${etaInfo}`
+      smsMessage = `[JalSeva] 🚛 Water Order #${shortId} is OUT FOR DELIVERY by ${supplierName}! Driver: ${driverName || 'Assigned Driver'} (${driverPhone || 'N/A'}), Vehicle: ${vehicleNumber || 'RJ-19'}, ETA: ~${estimatedMins || '15-20'} mins.`
     } else if (status === 'delivered') {
       title = `🎉 Order #${shortId} Delivered!`
       body = `Your water order #${shortId} from ${supplierName} has been delivered! Please share your rating & review.`

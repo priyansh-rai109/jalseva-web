@@ -72,6 +72,21 @@ export default function OrderDetailPage() {
     return getOrderStatusLabel(status)
   }
 
+  // Helper to extract driver details if assigned by supplier
+  const parseDriverDetails = (instructions?: string) => {
+    if (!instructions) return null
+    const match = instructions.match(/\[Driver:\s*([^|]+)\s*\|\s*Phone:\s*([^|]+)\s*\|\s*Vehicle:\s*([^|]+)\s*\|\s*ETA:\s*([^\]]+)\]/)
+    if (match) {
+      return {
+        driverName: match[1]?.trim(),
+        driverPhone: match[2]?.trim(),
+        vehicleNumber: match[3]?.trim(),
+        eta: match[4]?.trim(),
+      }
+    }
+    return null
+  }
+
   const fetchOrderDetails = async (isInitial = false) => {
     try {
       const res = await fetch(`/api/orders/${id}`)
@@ -237,9 +252,10 @@ export default function OrderDetailPage() {
       )}
 
       {/* Live GPS Route Tracking Banner */}
+      {/* Real Live GPS Map Tracker Trigger Banner */}
       {!isCancelled && !isDelivered && (
         <Card className="glass-card border-sky-500/40 bg-gradient-to-r from-sky-950/40 via-blue-950/50 to-slate-900 overflow-hidden shadow-lg shadow-sky-500/10">
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="p-4 sm:p-5 space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
                 <div className="w-12 h-12 rounded-2xl water-shimmer flex items-center justify-center text-white flex-shrink-0 shadow-md shadow-sky-500/20">
@@ -248,7 +264,7 @@ export default function OrderDetailPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-base text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                      {language === 'hi' ? '🛰️ लाइव जीपीएस रूट ट्रैकिंग (Live GPS Map)' : '🛰️ Live GPS Driver Tracking'}
+                      {language === 'hi' ? '🛰️ लाइव जीपीएस डिलीवरी ट्रैकिंग (Live GPS Map)' : '🛰️ Live GPS Delivery Tracking'}
                     </h3>
                     <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] py-0 px-2 animate-pulse">
                       ● LIVE
@@ -256,8 +272,8 @@ export default function OrderDetailPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {language === 'hi'
-                      ? 'पानी का वाहन रास्ते में है (~14 मिनट में पहुंचेगा)। मैप पर लाइव लोकेशन देखें।'
-                      : 'Delivery vehicle is on the way (~14 mins ETA). Click below to view live telemetry map.'}
+                      ? `पानी का वाहन रास्ते में है${parseDriverDetails(order.special_instructions)?.eta ? ` (~${parseDriverDetails(order.special_instructions)?.eta} में पहुंचेगा)` : ' (~14 मिनट)'}। मैप पर लाइव लोकेशन देखें।`
+                      : `Delivery vehicle is on the way${parseDriverDetails(order.special_instructions)?.eta ? ` (ETA: ~${parseDriverDetails(order.special_instructions)?.eta})` : ' (~14 mins)'}. Click below to view live telemetry map.`}
                   </p>
                 </div>
               </div>
@@ -270,6 +286,48 @@ export default function OrderDetailPage() {
                 <span>{language === 'hi' ? 'लाइव मैप खोलें 🗺️' : 'Open Live GPS Map 🗺️'}</span>
               </Button>
             </div>
+
+            {/* Assigned Driver Box (if dispatched with driver details) */}
+            {parseDriverDetails(order.special_instructions) && (
+              <div className="p-3 rounded-xl bg-secondary/70 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-lg flex-shrink-0">
+                    👨‍✈️
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground flex items-center gap-2">
+                      <span>{parseDriverDetails(order.special_instructions)?.driverName}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono bg-card/60 px-1.5 py-0.5 rounded border border-border/50">
+                        {parseDriverDetails(order.special_instructions)?.vehicleNumber}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-400 font-medium mt-0.5">
+                      📞 {parseDriverDetails(order.special_instructions)?.driverPhone}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a href={`tel:${parseDriverDetails(order.special_instructions)?.driverPhone}`} className="flex-1 sm:flex-initial">
+                    <Button size="sm" className="w-full sm:w-auto water-shimmer text-white text-xs h-8">
+                      <Phone className="w-3 h-3 mr-1" />
+                      {language === 'hi' ? 'ड्राइवर को कॉल' : 'Call Driver'}
+                    </Button>
+                  </a>
+                  <a
+                    href={`https://wa.me/${parseDriverDetails(order.special_instructions)?.driverPhone.replace(/\D/g, '')}?text=Hello,%20regarding%20my%20water%20order%20%23${order.id.slice(0, 8)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 sm:flex-initial"
+                  >
+                    <Button size="sm" variant="outline" className="w-full sm:w-auto text-xs h-8 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10">
+                      <MessageSquare className="w-3 h-3 mr-1" />
+                      WhatsApp
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -409,9 +467,21 @@ export default function OrderDetailPage() {
               ? `${order.delivery_address?.line1 || ''}, ${order.delivery_address?.city || ''}`
               : String(order.delivery_address || '')
           }
-          driverName={`${order.suppliers?.business_name || 'Supplier'} (Delivery Executive)`}
-          driverPhone={order.suppliers?.phone || '+919876543210'}
-          vehicleNumber="RJ-19-GA-5420"
+          driverName={
+            parseDriverDetails(order.special_instructions)?.driverName ||
+            (language === 'hi'
+              ? `${order.suppliers?.business_name || 'सप्लायर'} (डिलीवरी टीम)`
+              : `${order.suppliers?.business_name || 'Supplier'} (Delivery Executive)`)
+          }
+          driverPhone={
+            parseDriverDetails(order.special_instructions)?.driverPhone ||
+            order.suppliers?.phone ||
+            '+919876543210'
+          }
+          vehicleNumber={
+            parseDriverDetails(order.special_instructions)?.vehicleNumber ||
+            'RJ-19-GA-5420'
+          }
           productType={order.water_products?.type || 'can'}
         />
       )}
