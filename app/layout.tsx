@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Rajdhani } from 'next/font/google'
 import './globals.css'
+import 'leaflet/dist/leaflet.css'
 import { Toaster } from '@/components/ui/sonner'
 
 export const viewport: Viewport = {
