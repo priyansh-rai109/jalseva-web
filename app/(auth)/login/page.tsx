@@ -1,20 +1,19 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
-  Droplets, Phone, ArrowRight, Loader2, RotateCcw,
-  Sparkles, User, Building2, CheckCircle2
+  Droplets, Phone, ArrowRight, Loader2,
+  Sparkles, User, Building2, Lock, Eye, EyeOff, KeyRound, HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getPhoneUuid } from '@/lib/utils'
-import { getFriendlyErrorMessage, SUPPORT_WHATSAPP_URL } from '@/lib/error-utils'
-import { AnimatedOtpInput } from '@/components/shared/AnimatedOtpInput'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LanguageToggle } from '@/components/shared/LanguageToggle'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
+import { SUPPORT_WHATSAPP_URL } from '@/lib/error-utils'
 
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
@@ -24,335 +23,369 @@ function redirectByRole(role: string | null) {
   if (role === 'super_admin') window.location.href = '/admin/dashboard'
   else if (role === 'supplier') window.location.href = '/supplier/dashboard'
   else if (role === 'customer') window.location.href = '/customer/dashboard'
-  else window.location.href = '/register/complete-profile'
+  else window.location.href = '/customer/dashboard'
 }
 
 export default function LoginPage() {
   const { t, language } = useLanguage()
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [requestId, setRequestId] = useState<string | null>(null)
+  const [pin, setPin] = useState('')
+  const [showPin, setShowPin] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const [otpError, setOtpError] = useState(false)
 
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
-  const countdownRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (countdown > 0) {
-      countdownRef.current = setTimeout(() => setCountdown(c => c - 1), 1000)
-    }
-    return () => { if (countdownRef.current) clearTimeout(countdownRef.current) }
-  }, [countdown])
+  // Forgot PIN Modal
+  const [showForgotModal, setShowForgotModal] = useState(false)
+  const [resetPhone, setResetPhone] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
 
   const isValidPhone = phone.replace(/\D/g, '').length === 10
-  const otpValue = otp.join('')
-  const isValidOtp = otpValue.length === 6
+  const isValidPin = pin.length >= 4
 
-  // ── OTP box handlers ──────────────────────────────────────────────────
-  const handleOtpChange = (idx: number, val: string) => {
-    const digit = val.replace(/\D/g, '').slice(-1)
-    const next = [...otp]
-    next[idx] = digit
-    setOtp(next)
-    if (digit && idx < 5) otpRefs.current[idx + 1]?.focus()
-  }
-
-  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
-      otpRefs.current[idx - 1]?.focus()
-    }
-  }
-
-  const handleOtpPaste = (e: React.ClipboardEvent) => {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (pasted.length === 6) {
-      setOtp(pasted.split(''))
-      otpRefs.current[5]?.focus()
-    }
-  }
-
-  // ── Step 1: Send OTP via Server API ─────────────────────────────────────
-  const handleSendOtp = async () => {
+  // ── 1. Submit PIN Login ──────────────────────────────────────────────────
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
     const digits = phone.replace(/\D/g, '')
-    if (digits.length !== 10) { toast.error('Enter a valid 10-digit mobile number'); return }
+
+    if (digits.length !== 10) {
+      toast.error(language === 'hi' ? 'कृपया सही 10-अंकों का मोबाइल नंबर डालें' : 'Enter a valid 10-digit mobile number')
+      return
+    }
+
+    if (!pin || pin.length < 4) {
+      toast.error(language === 'hi' ? 'कृपया अपना 4-अंकों का सुरक्षा पिन डालें' : 'Please enter your 4-digit Security PIN')
+      return
+    }
+
     setLoading(true)
 
     try {
-      console.log('[Login] Requesting OTP send for:', digits)
-      const res = await fetch('/api/auth/send-msg91-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: digits }),
-      })
-      const data = await res.json()
-      if (!data.success) {
-        toast.error(getFriendlyErrorMessage(data.error, 'auth'), {
-          action: {
-            label: 'Need Help?',
-            onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
-          },
-        })
-        setLoading(false)
-        return
-      }
-
-      if (data.requestId) {
-        setRequestId(data.requestId)
-      }
-
-      if (data.testMode) {
-        toast.info('📲 Test Mode: Use OTP 123456 to continue')
-      } else {
-        toast.success(`OTP sent to +91 ${digits}`)
-      }
-
-      setStep('otp')
-      setCountdown(30)
-      setOtp(['', '', '', '', '', ''])
-      setTimeout(() => otpRefs.current[0]?.focus(), 100)
-    } catch (err: any) {
-      console.error('[Login] Send OTP error:', err)
-      toast.error(getFriendlyErrorMessage(err, 'auth'), {
-        action: {
-          label: 'Need Help?',
-          onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
-        },
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ── Step 2: Verify OTP via Server API ───────────────────────────────────
-  const handleVerifyOtp = async () => {
-    const digits = phone.replace(/\D/g, '')
-    if (otpValue.length !== 6) { toast.error('Sahi 6-digit OTP daalo'); return }
-    setLoading(true)
-
-    try {
-      console.log('[Login] Requesting OTP verification for:', digits, 'with requestId:', requestId)
-      const res = await fetch('/api/auth/verify-msg91-otp-v2', {
+      const res = await fetch('/api/auth/pin-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'login',
           phone: digits,
-          otp: otpValue,
-          requestId: requestId || undefined,
+          pin: pin.trim(),
         }),
       })
 
       const data = await res.json()
+
       if (!data.success) {
-        setOtpError(true)
-        setTimeout(() => setOtpError(false), 600)
-        toast.error(getFriendlyErrorMessage(data.error, 'auth'), {
-          action: {
-            label: 'Need Help?',
-            onClick: () => window.open(SUPPORT_WHATSAPP_URL, '_blank'),
-          },
-        })
+        toast.error(data.error || (language === 'hi' ? 'लॉगिन विफल। कृपया सही पिन डालें।' : 'Login failed. Incorrect PIN.'))
         setLoading(false)
         return
       }
 
-      // Set mock session cookie with real userId and role
+      // Store authenticated session
       const mockUser = {
         id: data.userId,
         phone: data.phone,
         user_metadata: {
-          role: data.role ?? '',
+          role: data.role ?? 'customer',
           phone: data.phone,
-          name: data.name ?? '',
+          name: data.name ?? 'JalSeva User',
         },
       }
       setMockCookie(mockUser)
 
-      await new Promise(r => setTimeout(r, 200))
+      toast.success(
+        language === 'hi'
+          ? `नमस्ते ${data.name || ''}! स्वागत है।`
+          : `Welcome back${data.name ? ', ' + data.name : ''}!`
+      )
 
-      if (!data.isNewUser && data.role) {
-        // Returning registered user → direct to dashboard!
-        toast.success(`Welcome back${data.name ? ', ' + data.name : ''}!`)
-        redirectByRole(data.role)
-      } else {
-        // New unregistered user → complete profile
-        toast.success('Phone verified! Please complete your details.')
-        window.location.href = `/register/complete-profile?role=customer`
-      }
+      await new Promise((r) => setTimeout(r, 200))
+      redirectByRole(data.role)
     } catch (err: any) {
-      console.error('[Login] Verify OTP error:', err)
-      toast.error('Verification failed. Please try again.')
+      console.error('[Login] Error:', err)
+      toast.error(language === 'hi' ? 'लॉगिन में त्रुटि हुई। कृपया पुनः प्रयास करें।' : 'Login error. Please try again.')
       setLoading(false)
     }
   }
 
-  // ── Demo quick-fills ────────────────────────────────────────────────────
-  const fillDemo = async (demoPhone: string, role: string) => {
-    const digits = demoPhone.replace(/\D/g, '')
-    const fullPhone = `+91${digits}`
-    const userId = getPhoneUuid(digits)
-
-    const mockUser = {
-      id: userId,
-      phone: fullPhone,
-      user_metadata: { role, phone: fullPhone, name: role === 'customer' ? 'Vijay Jodhpur' : 'Ramesh Kumar' },
+  // ── 2. Demo Quick-Logins ────────────────────────────────────────────────
+  const handleDemoLogin = (role: 'customer' | 'supplier') => {
+    setLoading(true)
+    if (role === 'customer') {
+      const user = {
+        id: 'customer-id',
+        phone: '+919876543210',
+        user_metadata: { role: 'customer', name: 'Vijay Jodhpur', phone: '+919876543210' },
+      }
+      setMockCookie(user)
+      toast.success('Customer Demo Active!')
+      setTimeout(() => { window.location.href = '/customer/dashboard' }, 200)
+    } else {
+      const user = {
+        id: 'supplier-id',
+        phone: '+919829012345',
+        user_metadata: { role: 'supplier', name: 'Ramesh Kumar', phone: '+919829012345' },
+      }
+      setMockCookie(user)
+      toast.success('Supplier Demo Active!')
+      setTimeout(() => { window.location.href = '/supplier/dashboard' }, 200)
     }
-    setMockCookie(mockUser)
+  }
 
-    toast.success(`${role === 'customer' ? 'Customer' : 'Supplier'} demo session set!`)
-    await new Promise(r => setTimeout(r, 200))
-    window.location.href = role === 'customer' ? '/customer/dashboard' : '/supplier/dashboard'
+  // ── 3. Handle Reset PIN ─────────────────────────────────────────────────
+  const handleResetPinSubmit = async () => {
+    const digits = resetPhone.replace(/\D/g, '')
+    if (digits.length !== 10) {
+      toast.error(language === 'hi' ? 'कृपया मान्य 10-अंकों का फोन नंबर डालें' : 'Invalid 10-digit phone number')
+      return
+    }
+    if (newPin.length !== 4) {
+      toast.error(language === 'hi' ? 'नया पिन 4 अंकों का होना चाहिए' : 'New PIN must be 4 digits')
+      return
+    }
+
+    setResetLoading(true)
+    try {
+      const res = await fetch('/api/auth/pin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reset-pin',
+          phone: digits,
+          pin: newPin,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message || 'PIN reset successfully!')
+        setShowForgotModal(false)
+        setPhone(digits)
+        setPin(newPin)
+      } else {
+        toast.error(data.error || 'Failed to reset PIN')
+      }
+    } catch {
+      toast.error('Could not reset PIN')
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-cyan-400/5 rounded-full blur-3xl pointer-events-none" />
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-sky-950/20 via-background to-background" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[250px] bg-sky-500/10 rounded-full blur-3xl" />
+
+      {/* Language Switcher Top Right */}
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageToggle variant="compact" />
+      </div>
 
       <div className="w-full max-w-md relative z-10">
-        {/* Top Header with Language Toggle */}
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
-              <Droplets className="w-4 h-4 text-white" />
+        {/* Brand Logo Header */}
+        <div className="text-center mb-6 sm:mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 mb-3">
+            <div className="w-11 h-11 rounded-2xl water-shimmer flex items-center justify-center shadow-lg shadow-sky-500/20">
+              <Droplets className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            <span className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
               <span className="gradient-text">Jal</span>
               <span className="text-foreground">Seva</span>
             </span>
           </Link>
-          <LanguageToggle variant="compact" />
-        </div>
-
-        <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            {language === 'hi' ? 'वापसी पर स्वागत है' : 'Welcome Back'}
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+            {language === 'hi' ? 'स्वागत है!' : 'Welcome Back'}
           </h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-            {step === 'phone'
-              ? (language === 'hi' ? 'लॉग इन करने के लिए मोबाइल नंबर दर्ज करें' : 'Sign in with your mobile number')
-              : (language === 'hi' ? `+91 ${phone.replace(/\D/g,'')} पर OTP भेजा गया` : `OTP sent to +91 ${phone.replace(/\D/g,'')}`)}
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            {language === 'hi'
+              ? 'अपने मोबाइल नंबर और 4-अंकों के सुरक्षा पिन से लॉगिन करें'
+              : 'Sign in with your Mobile Number & 4-Digit Security PIN'}
           </p>
         </div>
 
-        <div className="glass-card p-4 sm:p-8 space-y-5 sm:space-y-6">
-
-          {/* ── STEP 1: Phone Input ── */}
-          {step === 'phone' && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Mobile Number</Label>
-                <div className="flex gap-2">
-                  <div className="flex items-center gap-1.5 px-3 rounded-lg bg-secondary border border-border text-sm font-medium text-muted-foreground whitespace-nowrap">
-                    🇮🇳 +91
-                  </div>
-                  <div className="relative flex-1">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      inputMode="numeric"
-                      maxLength={10}
-                      placeholder="9876543210"
-                      className="pl-9 bg-secondary border-border tracking-widest font-mono"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      onKeyDown={e => { if (e.key === 'Enter' && isValidPhone) handleSendOtp() }}
-                    />
-                  </div>
-                </div>
-                {phone.length > 0 && phone.length < 10 && (
-                  <p className="text-xs text-muted-foreground">{10 - phone.length} more digit{10 - phone.length !== 1 ? 's' : ''} needed</p>
-                )}
-              </div>
-
-              <Button
-                onClick={handleSendOtp}
-                disabled={!isValidPhone || loading}
-                className="w-full water-shimmer text-white font-semibold h-11"
-              >
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending OTP...</> : <>Send OTP <ArrowRight className="w-4 h-4 ml-2" /></>}
-              </Button>
-            </div>
-          )}
-
-          {/* ── STEP 2: Animated 6-Box OTP Input ── */}
-          {step === 'otp' && (
-            <div className="space-y-5">
-              <div className="space-y-3">
-                <Label className="text-center block font-medium">Enter 6-digit OTP</Label>
-                <AnimatedOtpInput
-                  value={otp}
-                  onChange={(newOtp) => { setOtp(newOtp); setOtpError(false) }}
-                  disabled={loading}
-                  error={otpError}
-                  otpRefs={otpRefs}
+        {/* Login Card */}
+        <div className="glass-card p-5 sm:p-8 rounded-2xl sm:rounded-3xl border-sky-500/20 shadow-xl shadow-sky-500/5">
+          <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
+            {/* Phone Input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-sky-400" />
+                <span>{language === 'hi' ? 'मोबाइल नंबर (Mobile Number)' : 'Mobile Number'}</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs sm:text-sm font-bold text-sky-400">
+                  +91
+                </span>
+                <Input
+                  type="tel"
+                  placeholder="98765 43210"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  className="pl-14 bg-secondary/80 h-11 sm:h-12 text-sm sm:text-base font-medium rounded-xl border-sky-500/20 focus:border-sky-500"
+                  maxLength={10}
+                  autoFocus
                 />
               </div>
+            </div>
 
-              <Button
-                onClick={handleVerifyOtp}
-                disabled={!isValidOtp || loading}
-                className="w-full water-shimmer text-white font-semibold h-11"
-              >
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</> : <><CheckCircle2 className="w-4 h-4 mr-2" /> Verify & Continue</>}
-              </Button>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+            {/* 4-Digit Secret PIN Input */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                  <span>{language === 'hi' ? '4-अंकों का सुरक्षा पिन (PIN)' : '4-Digit Security PIN'}</span>
+                </Label>
                 <button
                   type="button"
-                  onClick={() => { setStep('phone'); setOtp(['','','','','','']); setRequestId(null) }}
-                  className="hover:text-sky-400 transition-colors flex items-center gap-1"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-xs text-sky-400 hover:text-sky-300 transition-colors"
                 >
-                  <RotateCcw className="w-3 h-3" /> Change number
+                  {language === 'hi' ? 'पिन भूल गए?' : 'Forgot PIN?'}
                 </button>
-                {countdown > 0 ? (
-                  <span>Resend in {countdown}s</span>
-                ) : (
-                  <button type="button" onClick={handleSendOtp} className="hover:text-sky-400 transition-colors">
-                    Resend OTP
-                  </button>
-                )}
               </div>
+              <div className="relative">
+                <Input
+                  type={showPin ? 'text' : 'password'}
+                  placeholder="••••"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="bg-secondary/80 h-11 sm:h-12 text-center text-lg sm:text-xl tracking-widest font-bold rounded-xl border-sky-500/20 focus:border-sky-500 pr-10"
+                  maxLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {language === 'hi'
+                  ? '💡 डिफ़ॉल्ट पिन 1234 है (या अपना सेट किया हुआ 4-अंकों का पिन डालें)'
+                  : '💡 Default PIN is 1234 (or enter your custom set PIN)'}
+              </p>
             </div>
-          )}
 
-          {/* Quick Demo Pre-fills */}
-          <div className="pt-2 border-t border-border/60 space-y-3">
-            <div className="flex items-center gap-1.5 justify-center text-xs text-sky-400 font-medium">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Quick Demo Pre-fills</span>
-            </div>
+            {/* Login Button */}
+            <Button
+              type="submit"
+              disabled={loading || !isValidPhone || !isValidPin}
+              className="w-full water-shimmer text-white font-semibold h-11 sm:h-12 rounded-xl text-sm sm:text-base shadow-lg shadow-sky-500/20"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {language === 'hi' ? 'सत्यापित हो रहा है...' : 'Signing in...'}
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  {language === 'hi' ? 'लॉगिन करें' : 'Sign In'}
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
+            </Button>
+          </form>
+
+          {/* Quick Demo Access */}
+          <div className="mt-6 pt-5 border-t border-border/50">
+            <p className="text-xs text-muted-foreground text-center mb-3 font-medium">
+              {language === 'hi' ? '⚡ त्वरित डेमो लॉगिन (1-क्लिक)' : '⚡ Quick 1-Click Demo Login'}
+            </p>
             <div className="grid grid-cols-2 gap-2">
-              <button
+              <Button
                 type="button"
-                onClick={() => fillDemo('9876543210', 'customer')}
-                className="py-2 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-medium flex items-center justify-center gap-1.5 text-sky-300 transition-all"
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('customer')}
+                className="text-xs rounded-xl border-sky-500/30 hover:bg-sky-500/10 text-sky-400 gap-1.5 h-9"
               >
-                <User className="w-3.5 h-3.5" /> Customer Demo
-              </button>
-              <button
+                <User className="w-3.5 h-3.5" />
+                <span>Customer Demo</span>
+              </Button>
+              <Button
                 type="button"
-                onClick={() => fillDemo('9876543211', 'supplier')}
-                className="py-2 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-medium flex items-center justify-center gap-1.5 text-amber-400 transition-all"
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('supplier')}
+                className="text-xs rounded-xl border-purple-500/30 hover:bg-purple-500/10 text-purple-400 gap-1.5 h-9"
               >
-                <Building2 className="w-3.5 h-3.5" /> Supplier Demo
-              </button>
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Supplier Demo</span>
+              </Button>
             </div>
           </div>
 
-          <div className="text-center text-xs text-muted-foreground">
-            New to JalSeva?{' '}
-            <Link href="/register" className="text-sky-400 hover:text-sky-300 font-medium">Register here</Link>
+          {/* Register Link */}
+          <div className="mt-6 text-center text-xs sm:text-sm text-muted-foreground">
+            {language === 'hi' ? 'नया खाता बनाना है? ' : "Don't have an account? "}
+            <Link href="/register" className="text-sky-400 font-semibold hover:underline">
+              {language === 'hi' ? 'नया अकाउंट बनाएं' : 'Register here'}
+            </Link>
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          <Link href="/admin-login" className="hover:text-muted-foreground/80 underline">Go to Admin Portal →</Link>
-        </p>
+        {/* Admin Login Link */}
+        <div className="text-center mt-5">
+          <Link
+            href="/admin-login"
+            className="text-xs text-muted-foreground/80 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
+          >
+            <Lock className="w-3 h-3" />
+            <span>{language === 'hi' ? 'सुपर एडमिन ईमेल पोर्टल (Admin Portal)' : 'Super Admin Email Portal'}</span>
+          </Link>
+        </div>
       </div>
+
+      {/* Forgot PIN Modal */}
+      <Dialog open={showForgotModal} onOpenChange={setShowForgotModal}>
+        <DialogContent className="glass-card border-sky-500/30 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+              <KeyRound className="w-5 h-5 text-sky-400" />
+              <span>{language === 'hi' ? 'सुरक्षा पिन रीसेट करें' : 'Reset Security PIN'}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">{language === 'hi' ? 'रजिस्टर्ड मोबाइल नंबर' : 'Registered Phone'}</Label>
+              <Input
+                type="tel"
+                placeholder="10-digit number"
+                value={resetPhone}
+                onChange={(e) => setResetPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className="bg-secondary text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">{language === 'hi' ? 'नया 4-अंकों का पिन' : 'New 4-Digit PIN'}</Label>
+              <Input
+                type="password"
+                placeholder="e.g. 4582"
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="bg-secondary text-sm text-center font-bold text-base tracking-widest"
+                maxLength={4}
+              />
+            </div>
+            <Button
+              onClick={handleResetPinSubmit}
+              disabled={resetLoading || resetPhone.length !== 10 || newPin.length !== 4}
+              className="w-full water-shimmer text-white text-xs font-semibold"
+            >
+              {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'hi' ? 'पिन बदलें' : 'Update PIN')}
+            </Button>
+            <div className="text-center pt-2">
+              <a
+                href={SUPPORT_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-emerald-400 hover:underline"
+              >
+                💬 WhatsApp पर मदद लें (Support)
+              </a>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

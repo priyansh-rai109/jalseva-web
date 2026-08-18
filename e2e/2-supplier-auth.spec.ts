@@ -4,34 +4,29 @@ test.describe('Flow 2: Supplier Registration & Login', () => {
   test('Supplier can register/login with role selection and reach supplier dashboard', async ({ page }) => {
     // 1. Navigate to register
     await page.goto('/register')
-    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Create an Account|खाता बनाएं/i })).toBeVisible()
 
     // 2. Select Supplier Role
-    const supplierRoleBtn = page.getByRole('button', { name: /Supplier/i })
+    const supplierRoleBtn = page.getByRole('button', { name: /Water Supplier|सप्लायर/i })
     await supplierRoleBtn.click()
 
-    // 3. Enter 10-digit supplier mobile number
+    // 3. Fill Supplier Name & Phone & 4-Digit PIN
+    const nameInput = page.locator('input[type="text"]').first()
+    await nameInput.fill('Marwar RO Water')
+
     const phoneInput = page.locator('input[type="tel"]')
-    await phoneInput.fill('9876543211')
+    await phoneInput.fill('9829099887')
 
-    // 4. Click Get OTP
-    const getOtpBtn = page.getByRole('button', { name: /Get OTP/i })
-    await getOtpBtn.click()
+    const pinInputs = page.locator('input[type="password"]')
+    await pinInputs.nth(0).fill('4582')
+    await pinInputs.nth(1).fill('4582')
 
-    // 5. Fill OTP 123456
-    await expect(page.getByText('Enter 6-digit OTP')).toBeVisible()
-    const otpInputs = page.locator('input[inputmode="numeric"]')
-    const otpDigits = ['1', '2', '3', '4', '5', '6']
-    for (let i = 0; i < 6; i++) {
-      await otpInputs.nth(i).fill(otpDigits[i])
-    }
+    // 4. Click Submit
+    const submitBtn = page.getByRole('button', { name: /Create Account|अकाउंट बनाएं/i })
+    await submitBtn.click()
 
-    // 6. Click Verify & Continue
-    const verifyBtn = page.getByRole('button', { name: /Verify & Continue/i })
-    await verifyBtn.click()
-
-    // 7. Expect redirect to Supplier Dashboard or complete-profile with supplier role
-    await page.waitForURL(/\/(supplier\/dashboard|register\/complete-profile)/)
-    expect(page.url()).toMatch(/\/(supplier\/dashboard|register\/complete-profile)/)
+    // 5. Expect redirect to Supplier Dashboard
+    await page.waitForURL(/.*\/supplier\/dashboard/, { timeout: 15000 })
+    expect(page.url()).toContain('/supplier/dashboard')
   })
 })

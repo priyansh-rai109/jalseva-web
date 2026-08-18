@@ -33,6 +33,6 @@ test.describe('Bilingual i18n & Enhanced Cart Flow', () => {
 
     // Switch to Hindi on login page
     await langToggle.click()
-    await expect(page.locator('text=वापसी पर स्वागत है')).toBeVisible()
+    await expect(page.locator('text=स्वागत है!').first()).toBeVisible()
   })
 })

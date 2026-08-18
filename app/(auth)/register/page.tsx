@@ -1,327 +1,332 @@
 'use client'
 
-import { useState, useRef, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
-  Droplets, Phone, ArrowRight, Loader2, RotateCcw,
-  CheckCircle2, User, Building2
+  Droplets, Phone, ArrowRight, Loader2,
+  CheckCircle2, User, Building2, Lock, KeyRound, MapPin
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getPhoneUuid } from '@/lib/utils'
-import { AnimatedOtpInput } from '@/components/shared/AnimatedOtpInput'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LanguageToggle } from '@/components/shared/LanguageToggle'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
+import { createClient } from '@/lib/supabase/client'
 
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
 }
 
-function redirectByRole(role: string | null, selectedRole: string) {
-  if (role === 'super_admin') { window.location.href = '/admin/dashboard'; return }
-  if (role === 'supplier') { window.location.href = '/supplier/dashboard'; return }
-  if (role === 'customer') { window.location.href = '/customer/dashboard'; return }
-  window.location.href = `/register/complete-profile?role=${selectedRole}`
-}
-
 function RegisterPageContent() {
+  const supabase = createClient()
   const { t, language } = useLanguage()
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [requestId, setRequestId] = useState<string | null>(null)
+
   const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>('customer')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [pin, setPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [city, setCity] = useState('Jodhpur')
+  const [zoneId, setZoneId] = useState('')
+  const [zones, setZones] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const [otpError, setOtpError] = useState(false)
 
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
-  const countdownRef = useRef<NodeJS.Timeout | null>(null)
-
+  // Load Zones for Suppliers
   useEffect(() => {
-    if (countdown > 0) {
-      countdownRef.current = setTimeout(() => setCountdown(c => c - 1), 1000)
-    }
-    return () => { if (countdownRef.current) clearTimeout(countdownRef.current) }
-  }, [countdown])
+    supabase.from('zones').select('*').eq('is_active', true).order('name').then((res: any) => {
+      if (res?.data) setZones(res.data)
+    })
+  }, [supabase])
 
   const isValidPhone = phone.replace(/\D/g, '').length === 10
-  const otpValue = otp.join('')
-  const isValidOtp = otpValue.length === 6
+  const isValidPin = pin.length === 4 && pin === confirmPin && name.trim().length >= 2
 
-  const handleOtpChange = (idx: number, val: string) => {
-    const digit = val.replace(/\D/g, '').slice(-1)
-    const next = [...otp]
-    next[idx] = digit
-    setOtp(next)
-    if (digit && idx < 5) otpRefs.current[idx + 1]?.focus()
-  }
-
-  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
-      otpRefs.current[idx - 1]?.focus()
-    }
-  }
-
-  const handleOtpPaste = (e: React.ClipboardEvent) => {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (pasted.length === 6) {
-      setOtp(pasted.split(''))
-      otpRefs.current[5]?.focus()
-    }
-  }
-
-  const handleSendOtp = async () => {
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
     const digits = phone.replace(/\D/g, '')
-    if (digits.length !== 10) { toast.error('Enter a valid 10-digit mobile number'); return }
+
+    if (name.trim().length < 2) {
+      toast.error(language === 'hi' ? 'कृपया अपना पूरा नाम दर्ज करें' : 'Please enter your full name')
+      return
+    }
+
+    if (digits.length !== 10) {
+      toast.error(language === 'hi' ? 'कृपया सही 10-अंकों का मोबाइल नंबर डालें' : 'Enter a valid 10-digit mobile number')
+      return
+    }
+
+    if (pin.length !== 4) {
+      toast.error(language === 'hi' ? 'पिन 4 अंकों का होना चाहिए' : 'PIN must be exactly 4 digits')
+      return
+    }
+
+    if (pin !== confirmPin) {
+      toast.error(language === 'hi' ? 'दोनों पिन मेल नहीं खा रहे हैं' : 'PINs do not match')
+      return
+    }
+
     setLoading(true)
 
     try {
-      console.log('[Register] Requesting OTP send for:', digits)
-      const res = await fetch('/api/auth/send-msg91-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: digits }),
-      })
-
-      const data = await res.json()
-      if (!data.success) {
-        toast.error(data.error || 'Failed to send OTP')
-        setLoading(false)
-        return
-      }
-
-      if (data.requestId) {
-        setRequestId(data.requestId)
-      }
-
-      if (data.testMode) {
-        toast.info('📲 Test Mode: Use OTP 123456 to register')
-      } else {
-        toast.success(`OTP sent to +91 ${digits}`)
-      }
-
-      setStep('otp')
-      setCountdown(30)
-      setOtp(['', '', '', '', '', ''])
-      setTimeout(() => otpRefs.current[0]?.focus(), 100)
-    } catch (err: any) {
-      console.error('[Register] Send OTP error:', err)
-      toast.error('Failed to send OTP. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleVerifyOtp = async () => {
-    const digits = phone.replace(/\D/g, '')
-    if (otpValue.length !== 6) { toast.error('Enter the 6-digit OTP'); return }
-    setLoading(true)
-
-    try {
-      console.log('[Register] Requesting OTP verification for:', digits, 'with requestId:', requestId)
-      const res = await fetch('/api/auth/verify-msg91-otp-v2', {
+      const res = await fetch('/api/auth/pin-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'register',
           phone: digits,
-          otp: otpValue,
-          requestId: requestId || undefined,
-          selectedRole,
+          pin: pin.trim(),
+          name: name.trim(),
+          role: selectedRole,
+          bizName: selectedRole === 'supplier' ? name.trim() : undefined,
+          city: city,
+          zoneId: zoneId || undefined,
         }),
       })
 
       const data = await res.json()
+
       if (!data.success) {
-        setOtpError(true)
-        setTimeout(() => setOtpError(false), 600)
-        toast.error(data.error || 'Invalid OTP. Please try again.')
+        toast.error(data.error || (language === 'hi' ? 'खाता निर्माण विफल रहा' : 'Registration failed'))
         setLoading(false)
         return
       }
 
+      // Store authenticated session
       const mockUser = {
         id: data.userId,
         phone: data.phone,
         user_metadata: {
-          role: data.role ?? '',
+          role: data.role ?? selectedRole,
           phone: data.phone,
-          name: data.name ?? '',
+          name: data.name ?? name,
         },
       }
       setMockCookie(mockUser)
 
-      await new Promise(r => setTimeout(r, 200))
+      toast.success(
+        language === 'hi'
+          ? '🎉 खाता सफलतापूर्वक बन गया!'
+          : '🎉 Account created successfully!'
+      )
 
-      if (!data.isNewUser && data.role) {
-        // Returning user → direct to dashboard!
-        toast.success(`Welcome back${data.name ? ', ' + data.name : ''}!`)
-        redirectByRole(data.role, selectedRole)
+      await new Promise((r) => setTimeout(r, 300))
+
+      if (selectedRole === 'supplier') {
+        window.location.href = '/supplier/dashboard'
       } else {
-        // New user → complete profile
-        toast.success('Phone verified! Please complete your details.')
-        window.location.href = `/register/complete-profile?role=${selectedRole}`
+        window.location.href = '/customer/dashboard'
       }
     } catch (err: any) {
-      console.error('[Register] Verify OTP error:', err)
-      toast.error('Verification failed. Please try again.')
+      console.error('[Register] Error:', err)
+      toast.error(language === 'hi' ? 'खाता बनाने में त्रुटि हुई।' : 'Error creating account.')
       setLoading(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-amber-400/5 rounded-full blur-3xl pointer-events-none" />
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-sky-950/20 via-background to-background" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[250px] bg-sky-500/10 rounded-full blur-3xl" />
 
-      <div className="w-full max-w-md relative z-10">
-        {/* Top Header with Language Toggle */}
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
-              <Droplets className="w-4 h-4 text-white" />
+      {/* Language Switcher Top Right */}
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageToggle variant="compact" />
+      </div>
+
+      <div className="w-full max-w-lg relative z-10 py-6">
+        {/* Brand Header */}
+        <div className="text-center mb-6 sm:mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 mb-3">
+            <div className="w-11 h-11 rounded-2xl water-shimmer flex items-center justify-center shadow-lg shadow-sky-500/20">
+              <Droplets className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            <span className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
               <span className="gradient-text">Jal</span>
               <span className="text-foreground">Seva</span>
             </span>
           </Link>
-          <LanguageToggle variant="compact" />
-        </div>
-
-        <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            {language === 'hi' ? 'नया खाता बनाएं' : 'Create Account'}
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+            {language === 'hi' ? 'नया खाता बनाएं' : 'Create an Account'}
           </h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-            {step === 'phone'
-              ? (language === 'hi' ? 'शुरू करने के लिए अपना मोबाइल नंबर दर्ज करें' : 'Enter your mobile number to get started')
-              : (language === 'hi' ? `+91 ${phone.replace(/\D/g,'')} पर OTP भेजा गया` : `OTP sent to +91 ${phone.replace(/\D/g,'')}`)}
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            {language === 'hi'
+              ? 'शुद्ध जल सेवा से जुड़ें और 4-अंकों के सुरक्षा पिन से सुरक्षित रहें'
+              : 'Join JalSeva with your secure 4-digit Security PIN'}
           </p>
         </div>
 
-        <div className="glass-card p-4 sm:p-8 space-y-5 sm:space-y-6">
+        {/* Registration Card */}
+        <div className="glass-card p-5 sm:p-8 rounded-2xl sm:rounded-3xl border-sky-500/20 shadow-xl shadow-sky-500/5">
+          <form onSubmit={handleRegister} className="space-y-4 sm:space-y-5">
+            {/* Role Selector Tabs */}
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm font-semibold">
+                {language === 'hi' ? 'खाते का प्रकार चुनें' : 'Select Account Type'}
+              </Label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('customer')}
+                  className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-center ${
+                    selectedRole === 'customer'
+                      ? 'border-sky-500 bg-sky-500/15 shadow-sm shadow-sky-500/10'
+                      : 'border-border bg-secondary/60 hover:border-sky-500/30'
+                  }`}
+                >
+                  <User className={`w-5 h-5 ${selectedRole === 'customer' ? 'text-sky-400' : 'text-muted-foreground'}`} />
+                  <span className="text-xs sm:text-sm font-bold">
+                    {language === 'hi' ? 'ग्राहक (Customer)' : 'Customer'}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">घर व ऑफिस डिलीवरी</span>
+                </button>
 
-          {/* Role selector — show only on phone step */}
-          {step === 'phone' && (
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedRole('customer')}
-                className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2 ${
-                  selectedRole === 'customer'
-                    ? 'bg-sky-500/15 border-sky-500/60 ring-1 ring-sky-500/50'
-                    : 'bg-secondary/40 border-border hover:bg-secondary/70'
-                }`}
-              >
-                <User className={`w-4 h-4 shrink-0 ${selectedRole === 'customer' ? 'text-sky-400' : 'text-muted-foreground'}`} />
-                <div>
-                  <p className={`text-xs font-semibold ${selectedRole === 'customer' ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {language === 'hi' ? 'ग्राहक' : 'Customer'}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {language === 'hi' ? 'पानी मंगवाएं' : 'Order water'}
-                  </p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedRole('supplier')}
-                className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2 ${
-                  selectedRole === 'supplier'
-                    ? 'bg-amber-500/15 border-amber-500/60 ring-1 ring-amber-500/50'
-                    : 'bg-secondary/40 border-border hover:bg-secondary/70'
-                }`}
-              >
-                <Building2 className={`w-4 h-4 shrink-0 ${selectedRole === 'supplier' ? 'text-amber-400' : 'text-muted-foreground'}`} />
-                <div>
-                  <p className={`text-xs font-semibold ${selectedRole === 'supplier' ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {language === 'hi' ? 'सप्लायर' : 'Supplier'}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {language === 'hi' ? 'पानी बेचें' : 'Sell water'}
-                  </p>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* Step 1: Phone */}
-          {step === 'phone' && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Mobile Number</Label>
-                <div className="flex gap-2">
-                  <div className="flex items-center gap-1.5 px-3 rounded-lg bg-secondary border border-border text-sm font-medium text-muted-foreground whitespace-nowrap">
-                    🇮🇳 +91
-                  </div>
-                  <div className="relative flex-1">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      inputMode="numeric"
-                      maxLength={10}
-                      placeholder="9876543210"
-                      className="pl-9 bg-secondary border-border tracking-widest font-mono"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      onKeyDown={e => { if (e.key === 'Enter' && isValidPhone) handleSendOtp() }}
-                    />
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('supplier')}
+                  className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-center ${
+                    selectedRole === 'supplier'
+                      ? 'border-purple-500 bg-purple-500/15 shadow-sm shadow-purple-500/10'
+                      : 'border-border bg-secondary/60 hover:border-purple-500/30'
+                  }`}
+                >
+                  <Building2 className={`w-5 h-5 ${selectedRole === 'supplier' ? 'text-purple-400' : 'text-muted-foreground'}`} />
+                  <span className="text-xs sm:text-sm font-bold">
+                    {language === 'hi' ? 'वाटर सप्लायर (Supplier)' : 'Water Supplier'}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">पानी का व्यापार बढ़ाएं</span>
+                </button>
               </div>
-
-              <Button
-                onClick={handleSendOtp}
-                disabled={!isValidPhone || loading}
-                className="w-full water-shimmer text-white font-semibold h-11"
-              >
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending OTP...</> : <>Get OTP <ArrowRight className="w-4 h-4 ml-2" /></>}
-              </Button>
             </div>
-          )}
 
-          {/* Step 2: OTP */}
-          {step === 'otp' && (
-            <div className="space-y-5">
-              <div className="space-y-3">
-                <Label className="text-center block font-medium">Enter 6-digit OTP</Label>
-                <AnimatedOtpInput
-                  value={otp}
-                  onChange={(newOtp) => { setOtp(newOtp); setOtpError(false) }}
-                  disabled={loading}
-                  error={otpError}
-                  otpRefs={otpRefs}
+            {/* Full Name / Business Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm font-semibold">
+                {selectedRole === 'supplier'
+                  ? (language === 'hi' ? 'वाटर प्लांट / एजेंसी का नाम' : 'Business / Plant Name')
+                  : (language === 'hi' ? 'आपका पूरा नाम' : 'Full Name')}
+              </Label>
+              <Input
+                type="text"
+                placeholder={selectedRole === 'supplier' ? 'उदा. मारवाड़ आरओ प्लांट' : 'उदा. राहुल शर्मा'}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-secondary/80 h-11 text-sm rounded-xl border-sky-500/20 focus:border-sky-500"
+                required
+              />
+            </div>
+
+            {/* Mobile Number */}
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-sky-400" />
+                <span>{language === 'hi' ? 'मोबाइल नंबर (Mobile Number)' : 'Mobile Number'}</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs sm:text-sm font-bold text-sky-400">
+                  +91
+                </span>
+                <Input
+                  type="tel"
+                  placeholder="98765 43210"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  className="pl-14 bg-secondary/80 h-11 text-sm sm:text-base font-medium rounded-xl border-sky-500/20 focus:border-sky-500"
+                  maxLength={10}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* PIN Grid (Create & Confirm) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Create PIN */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center gap-1">
+                  <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                  <span>{language === 'hi' ? '4-अंकों का पिन बनाएं' : 'Set 4-Digit PIN'}</span>
+                </Label>
+                <Input
+                  type="password"
+                  placeholder="••••"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="bg-secondary/80 h-11 text-center text-lg tracking-widest font-bold rounded-xl border-sky-500/20"
+                  maxLength={4}
+                  required
                 />
               </div>
 
-              <Button
-                onClick={handleVerifyOtp}
-                disabled={!isValidOtp || loading}
-                className="w-full water-shimmer text-white font-semibold h-11"
-              >
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</> : <><CheckCircle2 className="w-4 h-4 mr-2" /> Verify & Continue</>}
-              </Button>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <button type="button" onClick={() => { setStep('phone'); setOtp(['','','','','','']); setRequestId(null) }} className="hover:text-sky-400 transition-colors flex items-center gap-1">
-                  <RotateCcw className="w-3 h-3" /> Change number
-                </button>
-                {countdown > 0 ? (
-                  <span>Resend in {countdown}s</span>
-                ) : (
-                  <button type="button" onClick={handleSendOtp} className="hover:text-sky-400 transition-colors">Resend OTP</button>
-                )}
+              {/* Confirm PIN */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-sky-400" />
+                  <span>{language === 'hi' ? 'पिन पुनः दर्ज करें' : 'Confirm PIN'}</span>
+                </Label>
+                <Input
+                  type="password"
+                  placeholder="••••"
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className={`bg-secondary/80 h-11 text-center text-lg tracking-widest font-bold rounded-xl ${
+                    confirmPin && pin !== confirmPin ? 'border-red-500/50' : 'border-sky-500/20'
+                  }`}
+                  maxLength={4}
+                  required
+                />
               </div>
             </div>
-          )}
 
-          <div className="text-center text-xs text-muted-foreground pt-2 border-t border-border/60">
-            Already have an account?{' '}
-            <Link href="/login" className="text-sky-400 hover:text-sky-300 font-medium">Sign in</Link>
+            {/* Supplier Zone selection if supplier */}
+            {selectedRole === 'supplier' && zones.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-purple-400" />
+                  <span>{language === 'hi' ? 'डिलीवरी ज़ोन (क्षेत्र)' : 'Primary Delivery Zone'}</span>
+                </Label>
+                <Select value={zoneId} onValueChange={(v) => setZoneId(v ?? '')}>
+                  <SelectTrigger className="bg-secondary/80 h-11 text-xs sm:text-sm rounded-xl">
+                    <SelectValue placeholder={language === 'hi' ? 'ज़ोन चुनें (उदा. शास्त्री नगर)' : 'Select Zone'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {zones.map((z) => (
+                      <SelectItem key={z.id} value={z.id}>
+                        {z.name} ({z.city})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Register Submit Button */}
+            <Button
+              type="submit"
+              disabled={loading || !isValidPhone || !isValidPin}
+              className="w-full water-shimmer text-white font-semibold h-11 sm:h-12 rounded-xl text-sm sm:text-base shadow-lg shadow-sky-500/20 mt-2"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {language === 'hi' ? 'खाता बन रहा है...' : 'Creating Account...'}
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  {language === 'hi' ? 'अकाउंट बनाएं और शुरू करें' : 'Create Account & Get Started'}
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
+            </Button>
+          </form>
+
+          {/* Login Link */}
+          <div className="mt-6 text-center text-xs sm:text-sm text-muted-foreground border-t border-border/50 pt-4">
+            {language === 'hi' ? 'पहले से खाता है? ' : 'Already have an account? '}
+            <Link href="/login" className="text-sky-400 font-semibold hover:underline">
+              {language === 'hi' ? 'यहाँ लॉगिन करें' : 'Sign in here'}
+            </Link>
           </div>
         </div>
       </div>
@@ -331,11 +336,13 @@ function RegisterPageContent() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-sky-400" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
+        </div>
+      }
+    >
       <RegisterPageContent />
     </Suspense>
   )
