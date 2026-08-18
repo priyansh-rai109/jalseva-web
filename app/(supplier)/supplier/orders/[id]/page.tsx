@@ -115,17 +115,17 @@ export default function SupplierOrderDetailPage() {
   const cleanPhone = customerPhone.replace(/\D/g, '')
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-4xl mx-auto">
+    <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-4xl mx-auto">
       {/* Back link */}
       <Link href="/supplier/orders" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="w-4 h-4" /> Back to Supplier Orders
       </Link>
 
       {/* Top Header Card */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-5 glass-card rounded-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 glass-card rounded-xl">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
               Order Summary
             </h1>
             <Badge className={`text-xs border ${getOrderStatusColor(order.status)}`}>
@@ -136,12 +136,12 @@ export default function SupplierOrderDetailPage() {
         </div>
 
         {/* Action Controls for Supplier */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           {order.status === 'pending' && (
             <>
               <Button
                 size="sm"
-                className="bg-green-600 hover:bg-green-500 text-white"
+                className="flex-1 sm:flex-initial bg-green-600 hover:bg-green-500 text-white min-h-[38px]"
                 disabled={updating}
                 onClick={() => updateOrderStatus('confirmed')}
               >
@@ -150,7 +150,7 @@ export default function SupplierOrderDetailPage() {
               <Button
                 size="sm"
                 variant="destructive"
-                className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+                className="flex-1 sm:flex-initial bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 min-h-[38px]"
                 disabled={updating}
                 onClick={() => setConfirmCancelOpen(true)}
               >
@@ -162,7 +162,7 @@ export default function SupplierOrderDetailPage() {
           {order.status === 'confirmed' && (
             <Button
               size="sm"
-              className="bg-purple-600 hover:bg-purple-500 text-white"
+              className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white min-h-[38px]"
               disabled={updating}
               onClick={() => updateOrderStatus('out_for_delivery')}
             >
@@ -173,7 +173,7 @@ export default function SupplierOrderDetailPage() {
           {order.status === 'out_for_delivery' && (
             <Button
               size="sm"
-              className="bg-green-600 hover:bg-green-500 text-white"
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-500 text-white min-h-[38px]"
               disabled={updating}
               onClick={() => updateOrderStatus('delivered')}
             >

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/stores/cart-store'
+import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { createClient } from '@/lib/supabase/client'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,7 +11,7 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import {
   ShoppingCart, Trash2, Plus, Minus, MapPin,
-  Loader2, ChevronRight, Package, Droplets
+  Loader2, ChevronRight, Package, Droplets, Info, CheckCircle2, ArrowLeft
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,15 +20,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils'
 import { OrderSuccessModal } from '@/components/shared/OrderSuccessModal'
 import Link from 'next/link'
 
 const checkoutSchema = z.object({
-  line1: z.string().min(5, 'Address required'),
-  pincode: z.string().min(6, 'Valid pincode required'),
-  city: z.string().min(2, 'City required'),
+  line1: z.string().min(5, 'Address required (कम से कम 5 अक्षर)'),
+  pincode: z.string().min(6, 'Valid 6-digit pincode required (6 अंकों का पिनकोड)'),
+  city: z.string().min(2, 'City required (शहर का नाम लिखें)'),
   payment_mode: z.enum(['cash_on_delivery', 'upi', 'razorpay']),
   special_instructions: z.string().optional(),
 })
@@ -53,6 +53,7 @@ const loadRazorpayScript = (): Promise<boolean> => {
 export default function CartPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { t, language } = useLanguage()
   const { items, removeItem, updateQuantity, clearCart, getTotalAmount, getTotalItems, supplier_id } = useCartStore()
   const [placing, setPlacing] = useState(false)
   const [step, setStep] = useState<'cart' | 'checkout'>('cart')
@@ -94,12 +95,11 @@ export default function CartPage() {
       })
 
       const json = await res.json()
-
       const createdOrders = json.orders || (json.order ? [json.order] : [])
       const createdOrderId = createdOrders[0]?.id
 
       if (!res.ok || !createdOrderId) {
-        toast.error(json.error || 'Failed to place order')
+        toast.error(json.error || (language === 'hi' ? 'ऑर्डर दर्ज करने में समस्या आई' : 'Failed to place order'))
         setPlacing(false)
         return
       }
@@ -153,7 +153,7 @@ export default function CartPage() {
               const verifyJson = await verifyRes.json()
 
               if (verifyRes.ok && verifyJson.success) {
-                toast.success('🎉 Razorpay Payment Verified Successfully!')
+                toast.success(language === 'hi' ? '🎉 ऑनलाइन भुगतान सफल हुआ!' : '🎉 Razorpay Payment Verified Successfully!')
                 clearCart()
                 setShowSuccessModal(true)
               } else {
@@ -165,7 +165,7 @@ export default function CartPage() {
           },
           modal: {
             ondismiss: () => {
-              toast.error('Payment cancelled by user')
+              toast.error(language === 'hi' ? 'भुगतान रद्द कर दिया गया' : 'Payment cancelled by user')
               setPlacing(false)
             },
           },
@@ -181,10 +181,11 @@ export default function CartPage() {
 
       // Cash on delivery / UPI offline flow
       clearCart()
+      toast.success(language === 'hi' ? '🎉 आपका ऑर्डर सफलतापूर्वक दर्ज हो गया है!' : '🎉 Order placed successfully!')
       setShowSuccessModal(true)
     } catch (err) {
       console.error('[Cart Order Placement Exception]', err)
-      toast.error('Failed to place order')
+      toast.error(language === 'hi' ? 'ऑर्डर दर्ज करने में विफलता' : 'Failed to place order')
     } finally {
       setPlacing(false)
     }
@@ -192,15 +193,19 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="space-y-6 max-w-4xl">
-        <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Your Cart</h1>
-        <div className="text-center py-20">
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          {t('yourCart')}
+        </h1>
+        <div className="text-center py-16 sm:py-20 glass-card rounded-2xl p-6">
           <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
-          <h2 className="text-xl font-semibold mb-2">Cart is empty</h2>
-          <p className="text-muted-foreground mb-6">Add water products from a supplier to get started</p>
+          <h2 className="text-xl font-semibold mb-2">{t('cartIsEmpty')}</h2>
+          <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
+            {t('cartEmptySubtitle')}
+          </p>
           <Link href="/customer/browse">
-            <Button className="water-shimmer text-white">
-              <Droplets className="w-4 h-4 mr-2" /> Browse Suppliers
+            <Button className="water-shimmer text-white min-h-[44px]">
+              <Droplets className="w-4 h-4 mr-2" /> {t('browseWaterSuppliers')}
             </Button>
           </Link>
         </div>
@@ -209,22 +214,31 @@ export default function CartPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-5 sm:space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-            {step === 'cart' ? 'Your Cart' : 'Checkout'}
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            {step === 'cart' ? t('yourCart') : t('step2Delivery')}
           </h1>
-          <p className="text-muted-foreground mt-1">{getTotalItems()} item{getTotalItems() !== 1 ? 's' : ''}</p>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
+            {getTotalItems()} {t('itemsInCart')}
+          </p>
         </div>
+
         {/* Step indicator */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className={step === 'cart' ? 'text-sky-400 font-medium' : 'text-muted-foreground'}>Cart</span>
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          <span className={step === 'checkout' ? 'text-sky-400 font-medium' : 'text-muted-foreground'}>Delivery</span>
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Confirm</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm bg-secondary/60 px-3 py-1.5 rounded-full border border-border">
+          <button
+            type="button"
+            onClick={() => setStep('cart')}
+            className={step === 'cart' ? 'text-sky-400 font-bold' : 'text-muted-foreground hover:text-foreground'}
+          >
+            {t('step1CartItems')}
+          </button>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className={step === 'checkout' ? 'text-sky-400 font-bold' : 'text-muted-foreground'}>
+            {t('step2Delivery')}
+          </span>
         </div>
       </div>
 
@@ -233,31 +247,44 @@ export default function CartPage() {
         <div className="lg:col-span-2 space-y-4">
           {step === 'cart' ? (
             <>
+              {/* Informative banner */}
+              <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-300 flex items-center gap-2.5">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                <span>
+                  {language === 'hi'
+                    ? 'अपनी सामग्री और मात्रा जांचें। इसके बाद "डिलीवरी पते पर आगे बढ़ें" पर क्लिक करें।'
+                    : 'Review your items and quantities below, then click "Proceed to Delivery" to enter your address.'}
+                </span>
+              </div>
+
               {/* Cart Items */}
               {items.map((item) => (
                 <Card key={item.product.id} className="glass-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="text-3xl">{productTypeIcons[item.product.type]}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold">{item.product.name}</p>
-                        <p className="text-sm text-muted-foreground">{formatCurrency(item.product.price)} per {item.product.unit}</p>
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="text-2xl sm:text-3xl p-2 rounded-xl bg-secondary/80 flex items-center justify-center flex-shrink-0">
+                        {productTypeIcons[item.product.type] || '💧'}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="icon" variant="outline" className="h-8 w-8"
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm sm:text-base truncate">{item.product.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(item.product.price)} {t('perUnit')} {item.product.unit}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Button size="icon" variant="outline" className="h-7 w-7 sm:h-8 sm:w-8"
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}>
                           <Minus className="w-3 h-3" />
                         </Button>
-                        <span className="w-8 text-center font-semibold">{item.quantity}</span>
-                        <Button size="icon" className="h-8 w-8 water-shimmer text-white"
+                        <span className="w-6 text-center text-xs sm:text-sm font-bold">{item.quantity}</span>
+                        <Button size="icon" className="h-7 w-7 sm:h-8 sm:w-8 water-shimmer text-white"
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}>
                           <Plus className="w-3 h-3" />
                         </Button>
                       </div>
-                      <div className="text-right min-w-[80px]">
-                        <div className="font-bold">{formatCurrency(item.product.price * item.quantity)}</div>
+                      <div className="text-right min-w-[70px] sm:min-w-[80px]">
+                        <div className="font-bold text-sm sm:text-base gradient-text">{formatCurrency(item.product.price * item.quantity)}</div>
                         <button onClick={() => removeItem(item.product.id)}
-                          className="text-red-400 hover:text-red-300 mt-1">
+                          aria-label="Remove item"
+                          className="text-red-400 hover:text-red-300 mt-1 p-1">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -265,30 +292,43 @@ export default function CartPage() {
                   </CardContent>
                 </Card>
               ))}
+
+              <div className="flex justify-between items-center pt-2">
+                <Link href="/customer/browse" className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                  <ArrowLeft className="w-3.5 h-3.5" /> {language === 'hi' ? '+ और उत्पाद जोड़ें' : '+ Add more products'}
+                </Link>
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  className="text-xs text-muted-foreground hover:text-red-400"
+                >
+                  {language === 'hi' ? 'कार्ट खाली करें' : 'Clear Cart'}
+                </button>
+              </div>
             </>
           ) : (
             /* Checkout Form */
             <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  <MapPin className="w-5 h-5 text-sky-400" /> Delivery Address
+              <CardHeader className="p-4 sm:p-6 pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  <MapPin className="w-5 h-5 text-sky-400" /> {t('deliveryAddress')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-4 sm:p-6 space-y-4">
                 <div className="space-y-2">
-                  <Label>Street Address</Label>
-                  <Input placeholder="123, Sardarpura, Near Clock Tower" className="bg-secondary"
+                  <Label className="text-xs font-semibold">{t('streetAddress')}</Label>
+                  <Input placeholder={t('streetPlaceholder')} className="bg-secondary h-11 text-sm"
                     {...register('line1')} />
                   {errors.line1 && <p className="text-xs text-destructive">{errors.line1.message}</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>City</Label>
-                    <Input placeholder="Jodhpur" className="bg-secondary" {...register('city')} />
+                    <Label className="text-xs font-semibold">{t('city')}</Label>
+                    <Input placeholder="Jodhpur" className="bg-secondary h-11 text-sm" {...register('city')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Pincode</Label>
-                    <Input placeholder="342001" className="bg-secondary" {...register('pincode')} />
+                    <Label className="text-xs font-semibold">{t('pincode')}</Label>
+                    <Input placeholder="342001" className="bg-secondary h-11 text-sm" {...register('pincode')} />
                     {errors.pincode && <p className="text-xs text-destructive">{errors.pincode.message}</p>}
                   </div>
                 </div>
@@ -296,31 +336,31 @@ export default function CartPage() {
                 <Separator />
 
                 <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Label className="text-xs font-semibold">{t('paymentMethod')}</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
-                      { value: 'razorpay', label: '💳 Razorpay Online', desc: 'UPI, Cards, NetBanking' },
-                      { value: 'cash_on_delivery', label: '💵 Cash on Delivery', desc: 'Pay when delivered' },
-                      { value: 'upi', label: '📱 Manual UPI', desc: 'Google Pay / PhonePe' },
+                      { value: 'cash_on_delivery', label: t('payCod'), desc: t('payCodDesc') },
+                      { value: 'razorpay', label: t('payRazorpay'), desc: t('payRazorpayDesc') },
+                      { value: 'upi', label: t('payUpi'), desc: t('payUpiDesc') },
                     ].map((opt) => (
                       <button key={opt.value} type="button"
                         onClick={() => setValue('payment_mode', opt.value as 'cash_on_delivery' | 'upi' | 'razorpay')}
-                        className={`p-3 rounded-lg border text-left transition-all ${
+                        className={`p-3 rounded-xl border text-left transition-all ${
                           paymentMode === opt.value
-                            ? 'border-sky-500 bg-sky-500/10'
+                            ? 'border-sky-500 bg-sky-500/10 shadow-sm'
                             : 'border-border bg-secondary hover:border-sky-500/30'
                         }`}
                       >
-                        <div className="text-sm font-medium">{opt.label}</div>
-                        <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                        <div className="text-xs sm:text-sm font-semibold">{opt.label}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">{opt.desc}</div>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Special Instructions (optional)</Label>
-                  <Textarea placeholder="Call before delivery, leave at gate..." className="bg-secondary resize-none" rows={2}
+                  <Label className="text-xs font-semibold">{t('specialInstructions')}</Label>
+                  <Textarea placeholder={t('instructionsPlaceholder')} className="bg-secondary resize-none text-sm" rows={2}
                     {...register('special_instructions')} />
                 </div>
               </CardContent>
@@ -331,41 +371,43 @@ export default function CartPage() {
         {/* Order Summary */}
         <div>
           <Card className="glass-card sticky top-6">
-            <CardHeader>
-              <CardTitle style={{ fontFamily: 'Rajdhani, sans-serif' }}>Order Summary</CardTitle>
+            <CardHeader className="p-4 sm:p-5 pb-2">
+              <CardTitle className="text-base sm:text-lg" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                {language === 'hi' ? 'ऑर्डर सारांश (Summary)' : 'Order Summary'}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="p-4 sm:p-5 space-y-3">
               {items.map((item) => (
-                <div key={item.product.id} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{item.product.name} × {item.quantity}</span>
-                  <span>{formatCurrency(item.product.price * item.quantity)}</span>
+                <div key={item.product.id} className="flex justify-between text-xs sm:text-sm">
+                  <span className="text-muted-foreground truncate max-w-[65%]">{item.product.name} × {item.quantity}</span>
+                  <span className="font-medium">{formatCurrency(item.product.price * item.quantity)}</span>
                 </div>
               ))}
               <Separator />
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total</span>
+              <div className="flex justify-between font-bold text-base sm:text-lg">
+                <span>{t('total')}</span>
                 <span className="gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                   {formatCurrency(getTotalAmount())}
                 </span>
               </div>
-              <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/10 text-xs text-sky-400">
-                💧 Cash on Delivery available · Free delivery
+              <div className="p-2.5 rounded-lg bg-sky-500/5 border border-sky-500/10 text-xs text-sky-400 leading-relaxed">
+                {t('freeDelivery')}
               </div>
 
               {step === 'cart' ? (
-                <Button onClick={() => setStep('checkout')} className="w-full water-shimmer text-white font-semibold h-11">
-                  Proceed to Delivery <ChevronRight className="w-4 h-4 ml-1" />
+                <Button onClick={() => setStep('checkout')} className="w-full water-shimmer text-white font-semibold min-h-[44px]">
+                  {t('proceedToDelivery')} <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               ) : (
-                <>
+                <div className="space-y-2 pt-1">
                   <Button onClick={handleSubmit(placeOrder)} disabled={placing}
-                    className="w-full water-shimmer text-white font-semibold h-11">
-                    {placing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Placing Order...</> : '🎉 Place Order'}
+                    className="w-full water-shimmer text-white font-semibold min-h-[44px] shadow-lg shadow-sky-500/20">
+                    {placing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('placingOrder')}</> : t('placeOrder')}
                   </Button>
-                  <Button variant="ghost" className="w-full" onClick={() => setStep('cart')}>
-                    ← Back to Cart
+                  <Button variant="ghost" className="w-full text-xs text-muted-foreground" onClick={() => setStep('cart')}>
+                    ← {language === 'hi' ? 'कार्ट में बदलाव करें' : 'Back to Cart'}
                   </Button>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>

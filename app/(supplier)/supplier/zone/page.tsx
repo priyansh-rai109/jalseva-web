@@ -69,12 +69,12 @@ export default function SupplierZonePage() {
   const currentZone = supplier?.zones
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-3xl">
+    <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
           Delivery Zone
         </h1>
-        <p className="text-muted-foreground mt-1">Select and manage your primary operational zone in Jodhpur</p>
+        <p className="text-muted-foreground text-sm mt-1">Select and manage your primary operational zone in Jodhpur</p>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">

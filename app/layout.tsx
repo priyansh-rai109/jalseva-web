@@ -1,7 +1,14 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Rajdhani } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#030712',
+}
 
 const inter = Inter({
   subsets: ['latin'],
@@ -36,6 +43,7 @@ export const metadata: Metadata = {
 
 import { Suspense } from 'react'
 import { SessionToastHandler } from '@/components/SessionToastHandler'
+import { LanguageProvider } from '@/lib/i18n/LanguageContext'
 
 export default function RootLayout({
   children,
@@ -45,11 +53,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${rajdhani.variable} dark`}>
       <body className="font-sans min-h-screen bg-background text-foreground">
-        {children}
-        <Toaster richColors position="top-center" />
-        <Suspense fallback={null}>
-          <SessionToastHandler />
-        </Suspense>
+        <LanguageProvider>
+          {children}
+          <Toaster richColors position="top-center" />
+          <Suspense fallback={null}>
+            <SessionToastHandler />
+          </Suspense>
+        </LanguageProvider>
       </body>
     </html>
   )

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ReviewModal } from '@/components/shared/ReviewModal'
+import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
 
 interface CustomerOrdersClientProps {
@@ -20,6 +21,7 @@ interface CustomerOrdersClientProps {
 
 export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProps) {
   const router = useRouter()
+  const { t, language } = useLanguage()
   const [orders, setOrders] = useState<any[]>(initialOrders)
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
   const [loadingCancel, setLoadingCancel] = useState(false)
@@ -42,6 +44,17 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
     return '💧'
   }
 
+  const getTranslatedStatus = (status: string) => {
+    if (language === 'hi') {
+      if (status === 'pending') return 'ऑर्डर दर्ज (Pending)'
+      if (status === 'confirmed') return 'स्वीकृत (Confirmed)'
+      if (status === 'out_for_delivery') return 'डिलीवरी पर निकला'
+      if (status === 'delivered') return 'डिलीवर हो गया'
+      if (status === 'cancelled') return 'रद्द (Cancelled)'
+    }
+    return getOrderStatusLabel(status)
+  }
+
   const handleCancelOrder = async (reason?: string) => {
     if (!cancellingOrderId) return
     setLoadingCancel(true)
@@ -53,13 +66,13 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
       })
       const json = await res.json()
       if (res.ok && json.success) {
-        toast.success('Order cancel kar diya gaya hai')
+        toast.success(t('orderCancelledToast'))
         setOrders((prev) =>
           prev.map((o) => (o.id === cancellingOrderId ? { ...o, status: 'cancelled' } : o))
         )
         router.refresh()
       } else {
-        toast.error(json.error || 'Failed to cancel order')
+        toast.error(json.error || (language === 'hi' ? 'ऑर्डर रद्द करने में समस्या आई' : 'Failed to cancel order'))
       }
     } catch (err) {
       toast.error('Error cancelling order')
@@ -89,12 +102,25 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
 
         return (
           <Card key={order.id} className="glass-card hover:border-sky-500/30 transition-all">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-4">
-                <div className="text-3xl">{productTypeIcon((order.water_products as any)?.type)}</div>
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                <div className="flex items-center justify-between sm:justify-start gap-3">
+                  <div className="text-3xl sm:text-4xl p-2 rounded-xl bg-secondary/60 flex items-center justify-center shrink-0">
+                    {productTypeIcon((order.water_products as any)?.type)}
+                  </div>
+                  <div className="sm:hidden text-right">
+                    <div className="text-lg font-bold gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                      {formatCurrency(order.total_amount)}
+                    </div>
+                    <Badge className={`mt-0.5 text-[10px] border ${getOrderStatusColor(order.status)}`}>
+                      {getTranslatedStatus(order.status)}
+                    </Badge>
+                  </div>
+                </div>
+
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <h3 className="font-semibold">{(order.water_products as any)?.name}</h3>
+                  <div className="hidden sm:flex items-center justify-between gap-2 flex-wrap">
+                    <h3 className="font-semibold text-base sm:text-lg">{(order.water_products as any)?.name}</h3>
                     <div className="flex items-center gap-2">
                       {isDelivered && existingReview && (
                         <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs flex items-center gap-1">
@@ -102,22 +128,28 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
                         </Badge>
                       )}
                       <Badge className={`text-xs border ${getOrderStatusColor(order.status)}`}>
-                        {getOrderStatusLabel(order.status)}
+                        {getTranslatedStatus(order.status)}
                       </Badge>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">{(order.suppliers as any)?.business_name}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-                    <span>Qty: {order.quantity}</span>
-                    <span>Payment: {order.payment_mode?.replace('_', ' ')}</span>
+
+                  <h3 className="sm:hidden font-semibold text-base">{(order.water_products as any)?.name}</h3>
+
+                  <p className="text-sm text-muted-foreground mt-0.5 sm:mt-1">{(order.suppliers as any)?.business_name}</p>
+
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
+                    <span>{t('quantity')}: {order.quantity}</span>
+                    <span>•</span>
+                    <span className="capitalize">{order.payment_mode?.replace(/_/g, ' ')}</span>
+                    <span>•</span>
                     <span>{formatDateTime(order.created_at)}</span>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-3 mt-4 flex-wrap">
-                    <Link href={`/customer/orders/${order.id}`}>
-                      <Button variant="outline" size="sm" className="text-xs">
-                        View Details & Tracking
+                  <div className="flex items-center gap-2 sm:gap-3 mt-4 flex-wrap">
+                    <Link href={`/customer/orders/${order.id}`} className="flex-1 sm:flex-initial">
+                      <Button variant="outline" size="sm" className="w-full text-xs min-h-[38px]">
+                        {t('viewDetailsAndTracking')}
                       </Button>
                     </Link>
 
@@ -126,10 +158,10 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
                       <Button
                         size="sm"
                         onClick={() => setReviewOrder(order)}
-                        className="water-shimmer text-white text-xs font-bold shadow-md shadow-sky-500/20 animate-pulse"
+                        className="flex-1 sm:flex-initial water-shimmer text-white text-xs font-bold shadow-md shadow-sky-500/20 animate-pulse min-h-[38px]"
                       >
                         <Star className="w-3.5 h-3.5 fill-white mr-1.5" />
-                        Rate & Review Delivery
+                        {t('rateAndReview')}
                       </Button>
                     )}
 
@@ -138,9 +170,9 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
                         size="sm"
                         variant="ghost"
                         onClick={() => setReviewOrder(order)}
-                        className="text-xs text-muted-foreground hover:text-foreground"
+                        className="text-xs text-muted-foreground hover:text-foreground min-h-[38px]"
                       >
-                        Edit Review
+                        {t('editReview')}
                       </Button>
                     )}
 
@@ -148,17 +180,17 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
                       <Button
                         variant="destructive"
                         size="sm"
-                        className="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+                        className="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 min-h-[38px]"
                         onClick={() => setCancellingOrderId(order.id)}
                       >
                         <Ban className="w-3.5 h-3.5 mr-1" />
-                        Cancel Order
+                        {t('cancelOrder')}
                       </Button>
                     )}
                   </div>
                 </div>
 
-                <div className="text-right flex-shrink-0">
+                <div className="hidden sm:block text-right flex-shrink-0">
                   <div className="text-lg font-bold gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                     {formatCurrency(order.total_amount)}
                   </div>
@@ -190,13 +222,13 @@ export function CustomerOrdersClient({ initialOrders }: CustomerOrdersClientProp
       {/* Confirmation Dialog for Order Cancellation */}
       <ConfirmDialog
         isOpen={!!cancellingOrderId}
-        title="Order Cancel Karein?"
-        message="Kya aap sach mein apna order cancel karna chahte hain? Confirm karne ke liye kripya reason likhein."
-        confirmText="Haan, Cancel Karo"
-        cancelText="Wapas chalo"
+        title={t('cancelOrderConfirmTitle')}
+        message={t('cancelOrderConfirmMsg')}
+        confirmText={t('cancelOrderYes')}
+        cancelText={t('cancelOrderNo')}
         variant="destructive"
         requireReason={true}
-        reasonPlaceholder="Cancel karne ka reason (e.g., Galti se order ho gaya, Plan change)..."
+        reasonPlaceholder={t('cancelReasonPlaceholder')}
         loading={loadingCancel}
         onConfirm={(reason) => handleCancelOrder(reason)}
         onCancel={() => setCancellingOrderId(null)}

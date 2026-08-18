@@ -30,7 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         userEmail={profile.email || ''}
         notificationCount={count || 0}
       />
-      <main className="flex-1 overflow-x-hidden min-w-0 p-4 md:p-6 lg:p-8 animate-in fade-in-50 duration-200">
+      <main className="flex-1 overflow-x-hidden min-w-0 p-3 sm:p-5 md:p-6 lg:p-8 pb-24 lg:pb-8 animate-in fade-in-50 duration-200">
         {children}
       </main>
     </div>

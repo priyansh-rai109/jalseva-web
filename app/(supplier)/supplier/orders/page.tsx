@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel, formatDisplayName } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -18,6 +19,7 @@ const STATUS_OPTIONS = ['all', 'pending', 'confirmed', 'out_for_delivery', 'deli
 
 export default function SupplierOrdersPage() {
   const supabase = createClient()
+  const { t, language } = useLanguage()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -73,7 +75,7 @@ export default function SupplierOrdersPage() {
       const json = await res.json()
       if (res.ok && (json.success || json.order)) {
         const readableStatus = newStatus.replace('_', ' ').toUpperCase()
-        toast.success(`Order status updated to: ${readableStatus}! ✅`)
+        toast.success(language === 'hi' ? `ऑर्डर स्थिति अपडेट: ${readableStatus}! ✅` : `Order status updated to: ${readableStatus}! ✅`)
         await fetchOrders(false)
       } else {
         toast.error(json.error || 'Failed to update order status')
@@ -86,16 +88,41 @@ export default function SupplierOrdersPage() {
     setCancelDialogOrder(null)
   }
 
+  const getTranslatedStatus = (status: string) => {
+    if (language === 'hi') {
+      if (status === 'pending') return 'ऑर्डर दर्ज (Pending)'
+      if (status === 'confirmed') return 'स्वीकृत (Confirmed)'
+      if (status === 'out_for_delivery') return 'डिलीवरी पर निकला'
+      if (status === 'delivered') return 'डिलीवर हो गया'
+      if (status === 'cancelled') return 'रद्द (Cancelled)'
+    }
+    return getOrderStatusLabel(status)
+  }
+
+  const getTabLabel = (s: string) => {
+    if (language === 'hi') {
+      if (s === 'all') return 'सभी ऑर्डर'
+      if (s === 'pending') return 'लंबित (Pending)'
+      if (s === 'confirmed') return 'स्वीकृत'
+      if (s === 'out_for_delivery') return 'रास्ते में'
+      if (s === 'delivered') return 'डिलीवर'
+      if (s === 'cancelled') return 'रद्द'
+    }
+    return s === 'all' ? 'All Orders' : s.replace('_', ' ')
+  }
+
   const productTypeIcons: Record<string, string> = { tanker: '🚛', can: '🫙', pouch: '💧' }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto p-2 sm:p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-            Supplier Orders
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            {language === 'hi' ? 'सप्लायर ऑर्डर्स (Supplier Orders)' : 'Supplier Orders'}
           </h1>
-          <p className="text-muted-foreground mt-1">Manage, confirm, and fulfill incoming customer orders</p>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 sm:mt-1">
+            {language === 'hi' ? 'ग्राहकों के आने वाले पानी के ऑर्डर प्रबंधित और डिलीवर करें' : 'Manage, confirm, and fulfill incoming customer orders'}
+          </p>
         </div>
 
         <Button
@@ -103,9 +130,9 @@ export default function SupplierOrdersPage() {
           size="sm"
           onClick={() => fetchOrders(true)}
           disabled={loading}
-          className="text-xs"
+          className="text-xs min-h-[36px]"
         >
-          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} /> {language === 'hi' ? 'रिफ्रेश' : 'Refresh'}
         </Button>
       </div>
 
@@ -123,7 +150,7 @@ export default function SupplierOrdersPage() {
                   : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80'
               }`}
             >
-              {s === 'all' ? 'All Orders' : s.replace('_', ' ')}
+              {getTabLabel(s)}
             </button>
           )
         })}
@@ -134,12 +161,12 @@ export default function SupplierOrdersPage() {
           {[1, 2, 3].map(i => <div key={i} className="glass-card h-32 rounded-xl animate-pulse" />)}
         </div>
       ) : orders.length === 0 ? (
-        <div className="text-center py-16 glass-card rounded-2xl">
+        <div className="text-center py-16 glass-card rounded-2xl p-6">
           <Droplets className="w-12 h-12 mx-auto text-muted-foreground opacity-30 mb-3" />
-          <p className="text-lg font-semibold">No Orders Found</p>
+          <p className="text-lg font-semibold">{language === 'hi' ? 'कोई ऑर्डर नहीं मिला' : 'No Orders Found'}</p>
           <p className="text-xs text-muted-foreground mt-1">
             {statusFilter === 'all'
-              ? 'New orders placed by customers will appear here in real-time.'
+              ? (language === 'hi' ? 'ग्राहकों द्वारा दिए गए नए ऑर्डर यहाँ तुरंत दिखाई देंगे।' : 'New orders placed by customers will appear here in real-time.')
               : `No orders with status "${statusFilter.replace('_', ' ')}" found.`}
           </p>
         </div>
@@ -166,7 +193,7 @@ export default function SupplierOrdersPage() {
                     : 'hover:border-sky-500/30'
                 }`}
               >
-                <CardContent className="p-5">
+                <CardContent className="p-4 sm:p-5">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     {/* Left: Product & Customer info */}
                     <div className="flex items-start gap-3.5 flex-1">
@@ -180,16 +207,18 @@ export default function SupplierOrdersPage() {
                           </h3>
                           {isPending && (
                             <Badge className="bg-amber-500 text-black font-extrabold text-[10px] px-2 py-0.5 border-none shadow-sm animate-pulse">
-                              NEW ORDER ⚡
+                              {language === 'hi' ? 'नया ऑर्डर ⚡' : 'NEW ORDER ⚡'}
                             </Badge>
                           )}
                           <Badge className={`text-xs border ${getOrderStatusColor(order.status)}`}>
-                            {getOrderStatusLabel(order.status)}
+                            {getTranslatedStatus(order.status)}
                           </Badge>
                         </div>
 
                         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                          <span className="font-medium text-foreground">Customer: {customerName}</span>
+                          <span className="font-medium text-foreground">
+                            {language === 'hi' ? 'ग्राहक' : 'Customer'}: {customerName}
+                          </span>
                           {cleanPhone && (
                             <div className="flex items-center gap-1">
                               <a href={`tel:${customerPhone}`} className="text-sky-400 hover:underline flex items-center gap-0.5">
@@ -200,14 +229,14 @@ export default function SupplierOrdersPage() {
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-muted-foreground pt-1">
-                          <span>Quantity: <strong className="text-foreground">{order.quantity} units</strong></span>
-                          <span>Payment: <strong className="text-foreground capitalize">{order.payment_mode?.replace('_', ' ')}</strong></span>
-                          <span>Ordered: <strong className="text-foreground">{formatDateTime(order.created_at)}</strong></span>
+                          <span>{t('quantity')}: <strong className="text-foreground">{order.quantity} units</strong></span>
+                          <span>{language === 'hi' ? 'भुगतान' : 'Payment'}: <strong className="text-foreground capitalize">{order.payment_mode?.replace('_', ' ')}</strong></span>
+                          <span>{language === 'hi' ? 'तारीख' : 'Ordered'}: <strong className="text-foreground">{formatDateTime(order.created_at)}</strong></span>
                         </div>
 
                         {order.delivery_address && (
                           <p className="text-xs text-muted-foreground/90 pt-0.5">
-                            📍 <strong>Address:</strong>{' '}
+                            📍 <strong>{t('deliveryAddress')}:</strong>{' '}
                             {typeof order.delivery_address === 'object'
                               ? `${order.delivery_address.line1 || ''}, ${order.delivery_address.city || ''}`
                               : order.delivery_address}
@@ -216,7 +245,7 @@ export default function SupplierOrdersPage() {
 
                         {order.special_instructions && (
                           <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400">
-                            <strong>Note:</strong> {order.special_instructions}
+                            <strong>{language === 'hi' ? 'विशेष निर्देश' : 'Note'}:</strong> {order.special_instructions}
                           </div>
                         )}
                       </div>
@@ -225,28 +254,28 @@ export default function SupplierOrdersPage() {
                     {/* Right: Amount & Action Controls */}
                     <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-border/60">
                       <div className="text-left md:text-right">
-                        <span className="text-[11px] text-muted-foreground block">Total Amount</span>
+                        <span className="text-[11px] text-muted-foreground block">{language === 'hi' ? 'कुल राशि' : 'Total Amount'}</span>
                         <div className="text-2xl font-bold gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                           {formatCurrency(order.total_amount)}
                         </div>
                       </div>
 
                       {/* Action buttons */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
                         {isPending && (
                           <>
                             <Button
                               size="sm"
                               disabled={isUpdating}
                               onClick={() => updateOrderStatus(order.id, 'confirmed')}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20"
+                              className="flex-1 md:flex-initial bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 min-h-[38px]"
                             >
                               {isUpdating ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                               ) : (
                                 <Check className="w-3.5 h-3.5 mr-1.5" />
                               )}
-                              Confirm Order
+                              {t('confirmOrder')}
                             </Button>
 
                             <Button
@@ -254,10 +283,10 @@ export default function SupplierOrdersPage() {
                               variant="outline"
                               disabled={isUpdating}
                               onClick={() => setCancelDialogOrder(order)}
-                              className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/10"
+                              className="flex-1 md:flex-initial text-xs text-red-400 border-red-500/20 hover:bg-red-500/10 min-h-[38px]"
                             >
                               <Ban className="w-3 h-3 mr-1" />
-                              Cancel
+                              {t('cancelOrder')}
                             </Button>
                           </>
                         )}
@@ -267,14 +296,14 @@ export default function SupplierOrdersPage() {
                             size="sm"
                             disabled={isUpdating}
                             onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}
-                            className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/20"
+                            className="w-full md:w-auto bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/20 min-h-[38px]"
                           >
                             {isUpdating ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                             ) : (
                               <Truck className="w-3.5 h-3.5 mr-1.5" />
                             )}
-                            Dispatch / Out for Delivery
+                            {t('dispatchOutForDelivery')}
                           </Button>
                         )}
 
@@ -283,20 +312,20 @@ export default function SupplierOrdersPage() {
                             size="sm"
                             disabled={isUpdating}
                             onClick={() => updateOrderStatus(order.id, 'delivered')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20"
+                            className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 min-h-[38px]"
                           >
                             {isUpdating ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                             ) : (
                               <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                             )}
-                            Mark Delivered
+                            {t('markDelivered')}
                           </Button>
                         )}
 
-                        <Link href={`/supplier/orders/${order.id}`}>
-                          <Button size="sm" variant="outline" className="text-xs">
-                            View Details →
+                        <Link href={`/supplier/orders/${order.id}`} className="w-full md:w-auto">
+                          <Button size="sm" variant="outline" className="w-full md:w-auto text-xs min-h-[38px]">
+                            {language === 'hi' ? 'विवरण देखें →' : 'View Details →'}
                           </Button>
                         </Link>
                       </div>
@@ -313,13 +342,13 @@ export default function SupplierOrdersPage() {
       {cancelDialogOrder && (
         <ConfirmDialog
           isOpen={!!cancelDialogOrder}
-          title="Cancel Order?"
-          message={`Kya aap sach mein Order #${cancelDialogOrder.id.slice(0, 8).toUpperCase()} ko cancel karna chahte hain? Reason mention karein.`}
-          confirmText="Haan, Cancel Karo"
-          cancelText="Wapas chalo"
+          title={t('cancelOrderConfirmTitle')}
+          message={language === 'hi' ? `क्या आप वाकई Order #${cancelDialogOrder.id.slice(0, 8).toUpperCase()} को रद्द करना चाहते हैं? कारण लिखें:` : `Are you sure you want to cancel Order #${cancelDialogOrder.id.slice(0, 8).toUpperCase()}? Please specify a reason:`}
+          confirmText={t('cancelOrderYes')}
+          cancelText={t('cancelOrderNo')}
           variant="destructive"
           requireReason={true}
-          reasonPlaceholder="Cancellation reason (e.g. Stock unavailable, Out of range)..."
+          reasonPlaceholder={t('cancelReasonPlaceholder')}
           loading={updatingId === cancelDialogOrder.id}
           onConfirm={(reason) => updateOrderStatus(cancelDialogOrder.id, 'cancelled', reason)}
           onCancel={() => setCancelDialogOrder(null)}

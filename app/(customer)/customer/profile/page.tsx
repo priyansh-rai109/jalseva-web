@@ -130,22 +130,22 @@ export default function CustomerProfilePage() {
   )
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-2xl">
+    <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Profile</h1>
-        <p className="text-muted-foreground mt-1">Manage your account details and addresses</p>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Profile</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage your account details and addresses</p>
       </div>
 
       {/* Avatar + Info */}
       <Card className="glass-card">
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 rounded-full water-shimmer flex items-center justify-center text-white text-xl font-bold">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full water-shimmer flex items-center justify-center text-white text-lg sm:text-xl font-bold flex-shrink-0">
               {getInitials(name || 'U')}
             </div>
-            <div>
-              <h2 className="text-xl font-bold">{name || 'Customer'}</h2>
-              <p className="text-sm text-muted-foreground">{profile?.email}</p>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold truncate">{name || 'Customer'}</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{profile?.email}</p>
               <Badge className="mt-1 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs">Customer</Badge>
             </div>
           </div>
@@ -156,7 +156,7 @@ export default function CustomerProfilePage() {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input value={name} onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name" className="pl-10 bg-secondary" />
+                  placeholder="Your name" className="pl-10 bg-secondary h-11" />
               </div>
             </div>
             <div className="space-y-2">
@@ -164,17 +164,17 @@ export default function CustomerProfilePage() {
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input value={phone} onChange={(e) => setPhone(e.target.value)}
-                  placeholder="9876543210" className="pl-10 bg-secondary" />
+                  placeholder="9876543210" className="pl-10 bg-secondary h-11" />
               </div>
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input value={profile?.email || ''} disabled className="pl-10 bg-secondary opacity-60" />
+                <Input value={profile?.email || ''} disabled className="pl-10 bg-secondary opacity-60 h-11" />
               </div>
             </div>
-            <Button onClick={saveProfile} disabled={saving} className="water-shimmer text-white">
+            <Button onClick={saveProfile} disabled={saving} className="w-full sm:w-auto water-shimmer text-white min-h-[44px]">
               {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Profile</>}
             </Button>
           </div>
@@ -183,8 +183,8 @@ export default function CustomerProfilePage() {
 
       {/* Addresses */}
       <Card className="glass-card">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+        <CardHeader className="flex flex-row items-center justify-between p-4 sm:p-6 pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             <MapPin className="w-5 h-5 text-sky-400" /> Saved Addresses
           </CardTitle>
           <Dialog open={addressDialog} onOpenChange={setAddressDialog}>
@@ -194,18 +194,18 @@ export default function CustomerProfilePage() {
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="bg-card border-border">
+            <DialogContent className="bg-card border-border w-[94vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle style={{ fontFamily: 'Rajdhani, sans-serif' }}>Add New Address</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit(addAddress)} className="space-y-4 mt-2">
                 <div className="space-y-2">
                   <Label>Label (Home / Office)</Label>
-                  <Input placeholder="Home" className="bg-secondary" {...register('label')} />
+                  <Input placeholder="Home" className="bg-secondary h-11" {...register('label')} />
                 </div>
                 <div className="space-y-2">
                   <Label>Street Address</Label>
-                  <Input placeholder="123, Sardarpura, Near Clock Tower" className="bg-secondary" {...register('line1')} />
+                  <Input placeholder="123, Sardarpura, Near Clock Tower" className="bg-secondary h-11" {...register('line1')} />
                   {errors.line1 && <p className="text-xs text-destructive">{errors.line1.message}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">

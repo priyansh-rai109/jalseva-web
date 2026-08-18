@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label'
 import { getPhoneUuid } from '@/lib/utils'
 import { getFriendlyErrorMessage, SUPPORT_WHATSAPP_URL } from '@/lib/error-utils'
 import { AnimatedOtpInput } from '@/components/shared/AnimatedOtpInput'
+import { LanguageToggle } from '@/components/shared/LanguageToggle'
+import { useLanguage } from '@/lib/i18n/LanguageContext'
 
 function setMockCookie(user: object) {
   document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
@@ -26,6 +28,7 @@ function redirectByRole(role: string | null) {
 }
 
 export default function LoginPage() {
+  const { t, language } = useLanguage()
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
@@ -204,29 +207,37 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-cyan-400/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
-        <div className="text-center mb-6">
+        {/* Top Header with Language Toggle */}
+        <div className="flex items-center justify-between mb-4">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
-              <Droplets className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
+              <Droplets className="w-4 h-4 text-white" />
             </div>
-            <span className="text-2xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            <span className="text-xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
               <span className="gradient-text">Jal</span>
               <span className="text-foreground">Seva</span>
             </span>
           </Link>
-          <h1 className="mt-4 text-3xl font-bold text-foreground">Welcome Back</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {step === 'phone' ? 'Sign in with your mobile number' : `OTP sent to +91 ${phone.replace(/\D/g,'')}`}
+          <LanguageToggle variant="compact" />
+        </div>
+
+        <div className="text-center mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {language === 'hi' ? 'वापसी पर स्वागत है' : 'Welcome Back'}
+          </h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
+            {step === 'phone'
+              ? (language === 'hi' ? 'लॉग इन करने के लिए मोबाइल नंबर दर्ज करें' : 'Sign in with your mobile number')
+              : (language === 'hi' ? `+91 ${phone.replace(/\D/g,'')} पर OTP भेजा गया` : `OTP sent to +91 ${phone.replace(/\D/g,'')}`)}
           </p>
         </div>
 
-        <div className="glass-card p-8 space-y-6">
+        <div className="glass-card p-4 sm:p-8 space-y-5 sm:space-y-6">
 
           {/* ── STEP 1: Phone Input ── */}
           {step === 'phone' && (

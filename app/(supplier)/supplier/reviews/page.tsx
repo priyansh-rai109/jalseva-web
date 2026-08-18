@@ -91,13 +91,13 @@ export default function SupplierReviewsPage() {
     : reviews.filter((r) => r.rating === starFilter)
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-4xl">
+    <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-4xl">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             Customer Reviews
           </h1>
-          <p className="text-muted-foreground mt-1">See what your customers are saying and reply with greetings</p>
+          <p className="text-muted-foreground text-sm mt-1">See what your customers are saying and reply with greetings</p>
         </div>
 
         <Button
@@ -326,7 +326,7 @@ function SupplierReviewCard({
 
         {/* Existing Reply Display */}
         {existingReply && (
-          <div className="ml-12 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs space-y-1">
+          <div className="ml-0 sm:ml-12 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs space-y-1">
             <div className="flex items-center gap-1.5 text-sky-400 font-bold">
               <MessageSquare className="w-3.5 h-3.5" />
               Supplier Greeting Reply:
@@ -341,7 +341,7 @@ function SupplierReviewCard({
             <Button
               size="sm"
               variant="outline"
-              className="text-xs text-sky-400 border-sky-500/20 hover:bg-sky-500/10"
+              className="text-xs text-sky-400 border-sky-500/20 hover:bg-sky-500/10 min-h-[36px]"
               onClick={() => setReplying(true)}
             >
               <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
@@ -349,7 +349,7 @@ function SupplierReviewCard({
             </Button>
           </div>
         ) : (
-          <div className="ml-12 space-y-3 pt-2 border-t border-border/80">
+          <div className="ml-0 sm:ml-12 space-y-3 pt-2 border-t border-border/80">
             <p className="text-xs font-semibold text-muted-foreground">Select Quick Greeting or Type Custom Reply:</p>
             <div className="flex flex-wrap gap-1.5">
               {quickGreetings.map((g, idx) => (

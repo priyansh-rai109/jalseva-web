@@ -89,7 +89,7 @@ export default function SupplierPendingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/8 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-sky-500/8 rounded-full blur-3xl pointer-events-none" />
 
@@ -105,7 +105,7 @@ export default function SupplierPendingPage() {
           </span>
         </Link>
 
-        <div className="glass-card p-8 space-y-6">
+        <div className="glass-card p-4 sm:p-8 space-y-5 sm:space-y-6">
           {/* Status Icon */}
           <div className="flex justify-center">
             <div className="w-20 h-20 rounded-full bg-amber-500/15 border-2 border-amber-500/40 flex items-center justify-center">

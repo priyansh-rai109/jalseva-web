@@ -129,14 +129,14 @@ export default async function SupplierDashboard() {
   ]
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-5 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
+      <div className="flex items-start justify-between flex-wrap gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             {supplier.business_name}
           </h1>
-          <p className="text-muted-foreground mt-1">Supplier Dashboard</p>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 sm:mt-1">Supplier Dashboard</p>
         </div>
         <div className="text-right">
           <Badge className={

@@ -78,27 +78,27 @@ export default function SupplierProfilePage() {
   )
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-2xl">
+    <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Business Profile</h1>
-        <p className="text-muted-foreground mt-1">Manage your supplier information</p>
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Business Profile</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage your supplier information</p>
       </div>
 
       {/* Status + Rating Banner */}
       <Card className="glass-card">
-        <CardContent className="p-5">
+        <CardContent className="p-4 sm:p-5">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl water-shimmer flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-8 h-8 text-white" />
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl water-shimmer flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold">{businessName}</h2>
-              <p className="text-sm text-muted-foreground">{ownerName}</p>
-              <div className="flex items-center gap-3 mt-2">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold truncate">{businessName}</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{ownerName}</p>
+              <div className="flex items-center gap-2 sm:gap-3 mt-2 flex-wrap">
                 <Badge className={`text-xs border ${getSupplierStatusColor(supplier?.status)}`}>
                   {supplier?.status}
                 </Badge>
-                <span className="flex items-center gap-1 text-sm text-amber-400">
+                <span className="flex items-center gap-1 text-xs sm:text-sm text-amber-400">
                   <Star className="w-3.5 h-3.5 fill-amber-400" />
                   {supplier?.rating?.toFixed(1) || '0.0'} rating
                 </span>
@@ -116,39 +116,39 @@ export default function SupplierProfilePage() {
 
       {/* Business Details */}
       <Card className="glass-card">
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6 pb-2">
           <CardTitle style={{ fontFamily: 'Rajdhani, sans-serif' }}>Business Details</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <CardContent className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Business Name</Label>
               <div className="relative">
                 <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input value={businessName} onChange={e => setBusinessName(e.target.value)}
-                  placeholder="Shiv Water Co." className="pl-10 bg-secondary" />
+                  placeholder="Shiv Water Co." className="pl-10 bg-secondary h-11" />
               </div>
             </div>
             <div className="space-y-2">
               <Label>Owner Name</Label>
               <Input value={ownerName} onChange={e => setOwnerName(e.target.value)}
-                placeholder="Ramesh Kumar" className="bg-secondary" />
+                placeholder="Ramesh Kumar" className="bg-secondary h-11" />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Phone</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="9876543210" className="pl-10 bg-secondary" />
+                  placeholder="9876543210" className="pl-10 bg-secondary h-11" />
               </div>
             </div>
             <div className="space-y-2">
               <Label>License No. (optional)</Label>
               <Input value={licenseNo} onChange={e => setLicenseNo(e.target.value)}
-                placeholder="LIC-2024-XXX" className="bg-secondary" />
+                placeholder="LIC-2024-XXX" className="bg-secondary h-11" />
             </div>
           </div>
 

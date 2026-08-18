@@ -19,7 +19,7 @@ test.describe('Flow 4: Order Placement', () => {
 
     // 4. Go to Cart page
     await page.goto('/customer/cart')
-    await expect(page.getByRole('heading', { name: /Your Cart/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Your Cart', exact: true })).toBeVisible()
 
     // 5. Verify Cart component renders
     const cartElement = page.getByText(/Cart is empty|Order Summary|Total/i)

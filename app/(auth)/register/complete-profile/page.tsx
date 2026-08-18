@@ -295,7 +295,7 @@ export default function CompleteProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/3 w-72 h-72 bg-amber-400/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -321,7 +321,7 @@ export default function CompleteProfilePage() {
           <p className="text-muted-foreground text-xs mt-1">Enter your details to register on JalSeva</p>
         </div>
 
-        <div className="glass-card p-6 sm:p-8 space-y-6">
+        <div className="glass-card p-4 sm:p-8 space-y-5 sm:space-y-6">
           {/* Role Selection */}
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Account Type</Label>

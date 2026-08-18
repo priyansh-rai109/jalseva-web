@@ -101,7 +101,7 @@ export function AnimatedOtpInput({
   }
 
   return (
-    <div className="flex gap-2.5 justify-center py-1">
+    <div className="flex gap-1.5 sm:gap-2.5 justify-center py-1">
       {value.map((digit, idx) => {
         const isFilled = Boolean(digit)
         const isFocused = focusedIndex === idx
@@ -139,7 +139,7 @@ export function AnimatedOtpInput({
             style={{
               animationDelay: isAllFilled ? `${idx * 60}ms` : '0ms',
             }}
-            className={`w-11 h-13 text-center text-xl font-extrabold rounded-xl border transition-all duration-150 outline-none ${stateClasses}`}
+            className={`w-9 h-12 sm:w-11 sm:h-13 text-center text-lg sm:text-xl font-extrabold rounded-xl border transition-all duration-150 outline-none ${stateClasses}`}
           />
         )
       })}

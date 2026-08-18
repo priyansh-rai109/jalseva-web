@@ -82,14 +82,14 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
       {/* Background — darker, more serious for admin */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-background to-slate-900" />
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-sky-500/5 rounded-full blur-3xl" />
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo + Admin Badge */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl water-shimmer flex items-center justify-center shadow-lg">
               <Droplets className="w-5 h-5 text-white" />
@@ -103,11 +103,11 @@ export default function AdminLoginPage() {
             <Shield className="w-3.5 h-3.5 text-sky-400" />
             <span className="text-xs font-medium text-sky-400 uppercase tracking-wider">Admin Portal</span>
           </div>
-          <h1 className="mt-4 text-3xl font-bold">Admin Login</h1>
-          <p className="mt-2 text-muted-foreground text-sm">Restricted access — authorized personnel only</p>
+          <h1 className="mt-3 sm:mt-4 text-2xl sm:text-3xl font-bold">Admin Login</h1>
+          <p className="mt-1 sm:mt-2 text-muted-foreground text-xs sm:text-sm">Restricted access — authorized personnel only</p>
         </div>
 
-        <div className="glass-card p-8 border-slate-700/50 space-y-6">
+        <div className="glass-card p-4 sm:p-8 border-slate-700/50 space-y-5 sm:space-y-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Admin Email</Label>
