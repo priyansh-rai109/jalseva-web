@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge'
 import { LanguageToggle } from '@/components/shared/LanguageToggle'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { WaterConservationTicker } from '@/components/animation/WaterConservationTicker'
+import { Water3DOrbHero } from '@/components/animation/Water3DOrbHero'
 
 // ─── Navbar ────────────────────────────────────────────────────────────────
 function Navbar() {
@@ -108,9 +109,12 @@ function Hero() {
             <span className="gradient-text">{t('heroTitle2')}</span>
           </h1>
 
-          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
+          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed">
             {t('heroSubtitle')}
           </p>
+
+          {/* Interactive 3D Water Orb Hero Animation */}
+          <Water3DOrbHero />
 
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <Link href="/register" className="w-full sm:w-auto">
