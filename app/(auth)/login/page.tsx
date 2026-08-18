@@ -129,13 +129,43 @@ export default function LoginPage() {
     }
   }
 
-  // ── 3. Handle Reset PIN ─────────────────────────────────────────────────
-  const handleResetPinSubmit = async () => {
+  // ── 3. Handle Expiring Token Reset PIN ───────────────────────────────────
+  const [resetToken, setResetToken] = useState<string | null>(null)
+
+  const handleRequestResetToken = async () => {
     const digits = resetPhone.replace(/\D/g, '')
     if (digits.length !== 10) {
       toast.error(language === 'hi' ? 'कृपया मान्य 10-अंकों का फोन नंबर डालें' : 'Invalid 10-digit phone number')
       return
     }
+
+    setResetLoading(true)
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request-reset', phone: digits }),
+      })
+      const data = await res.json()
+      if (data.success && data.token) {
+        setResetToken(data.token)
+        toast.success(
+          language === 'hi'
+            ? 'सुरक्षित रीसेट टोकन प्राप्त हुआ (15 मिनट के लिए वैध)'
+            : 'Secure reset token issued (Valid for 15 minutes)'
+        )
+      } else {
+        toast.error(data.error || 'Failed to request reset')
+      }
+    } catch {
+      toast.error('Network error during reset request')
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const handleConfirmReset = async () => {
+    if (!resetToken) return
     if (newPin.length !== 4) {
       toast.error(language === 'hi' ? 'नया पिन 4 अंकों का होना चाहिए' : 'New PIN must be 4 digits')
       return
@@ -143,21 +173,22 @@ export default function LoginPage() {
 
     setResetLoading(true)
     try {
-      const res = await fetch('/api/auth/pin-auth', {
+      const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'reset-pin',
-          phone: digits,
-          pin: newPin,
+          action: 'confirm-reset',
+          token: resetToken,
+          newPin: newPin,
         }),
       })
       const data = await res.json()
       if (data.success) {
-        toast.success(data.message || 'PIN reset successfully!')
+        toast.success(data.message || (language === 'hi' ? 'पिन सफलतापूर्वक रीसेट हो गया!' : 'PIN reset successfully!'))
         setShowForgotModal(false)
-        setPhone(digits)
+        setPhone(resetPhone)
         setPin(newPin)
+        setResetToken(null)
       } else {
         toast.error(data.error || 'Failed to reset PIN')
       }
@@ -345,34 +376,59 @@ export default function LoginPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold">{language === 'hi' ? 'रजिस्टर्ड मोबाइल नंबर' : 'Registered Phone'}</Label>
-              <Input
-                type="tel"
-                placeholder="10-digit number"
-                value={resetPhone}
-                onChange={(e) => setResetPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                className="bg-secondary text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold">{language === 'hi' ? 'नया 4-अंकों का पिन' : 'New 4-Digit PIN'}</Label>
-              <Input
-                type="password"
-                placeholder="e.g. 4582"
-                value={newPin}
-                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="bg-secondary text-sm text-center font-bold text-base tracking-widest"
-                maxLength={4}
-              />
-            </div>
-            <Button
-              onClick={handleResetPinSubmit}
-              disabled={resetLoading || resetPhone.length !== 10 || newPin.length !== 4}
-              className="w-full water-shimmer text-white text-xs font-semibold"
-            >
-              {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'hi' ? 'पिन बदलें' : 'Update PIN')}
-            </Button>
+            {!resetToken ? (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">{language === 'hi' ? 'रजिस्टर्ड मोबाइल नंबर' : 'Registered Phone'}</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-sky-400">+91</span>
+                    <Input
+                      type="tel"
+                      placeholder="98765 43210"
+                      value={resetPhone}
+                      onChange={(e) => setResetPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      className="pl-12 bg-secondary text-sm"
+                      maxLength={10}
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleRequestResetToken}
+                  disabled={resetLoading || resetPhone.replace(/\D/g, '').length !== 10}
+                  className="w-full water-shimmer text-white text-xs font-semibold"
+                >
+                  {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'hi' ? 'सुरक्षित रीसेट टोकन प्राप्त करें' : 'Get 15-Min Reset Token')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center justify-between">
+                  <span>⏱️ {language === 'hi' ? 'रीसेट टोकन सक्रिय (15 मिनट वैध)' : 'Reset Token Active (15m expiry)'}</span>
+                  <button onClick={() => setResetToken(null)} className="text-[10px] underline text-muted-foreground">Change Phone</button>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">{language === 'hi' ? 'नया 4-अंकों का पिन (New PIN)' : 'New 4-Digit PIN'}</Label>
+                  <Input
+                    type="password"
+                    placeholder="••••"
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    className="bg-secondary text-sm text-center font-bold text-base tracking-widest"
+                    maxLength={4}
+                    autoFocus
+                  />
+                  <p className="text-[10px] text-muted-foreground">{language === 'hi' ? '0000, 1111, 1234 मान्य नहीं हैं' : '0000, 1111, 1234 not allowed'}</p>
+                </div>
+                <Button
+                  onClick={handleConfirmReset}
+                  disabled={resetLoading || newPin.length !== 4}
+                  className="w-full water-shimmer text-white text-xs font-semibold"
+                >
+                  {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'hi' ? 'नया पिन सुरक्षित करें' : 'Confirm & Save PIN')}
+                </Button>
+              </>
+            )}
+
             <div className="text-center pt-2">
               <a
                 href={SUPPORT_WHATSAPP_URL}

@@ -1,8 +1,9 @@
 import crypto from 'crypto'
 
+// ── 0. Security Invariant: Server-Side Secret Key (Never exposed to client) ──
 const AUTH_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || 'jalseva-production-super-secret-pepper-key-2026'
 
-// ── 1. Rate Limiting (In-Memory sliding window) ──────────────────────────────
+// ── 1. Sliding-Window Rate Limiting Engine ───────────────────────────────────
 interface RateLimitEntry {
   attempts: number
   lockedUntil?: number
@@ -10,7 +11,11 @@ interface RateLimitEntry {
 
 const rateLimitMap = new Map<string, RateLimitEntry>()
 
-export function checkRateLimit(identifier: string, maxAttempts = 5, lockDurationMs = 15 * 60 * 1000): { allowed: boolean; remaining: number; lockedUntil?: number } {
+export function checkRateLimit(
+  identifier: string,
+  maxAttempts = 5,
+  lockDurationMs = 15 * 60 * 1000
+): { allowed: boolean; remaining: number; lockedUntil?: number } {
   const now = Date.now()
   const entry = rateLimitMap.get(identifier)
 
@@ -18,12 +23,12 @@ export function checkRateLimit(identifier: string, maxAttempts = 5, lockDuration
     return { allowed: true, remaining: maxAttempts }
   }
 
-  // If locked
+  // Check if currently locked
   if (entry.lockedUntil && entry.lockedUntil > now) {
     return { allowed: false, remaining: 0, lockedUntil: entry.lockedUntil }
   }
 
-  // Reset if lock expired
+  // Reset entry if previous lock expired
   if (entry.lockedUntil && entry.lockedUntil <= now) {
     rateLimitMap.delete(identifier)
     return { allowed: true, remaining: maxAttempts }
@@ -37,7 +42,11 @@ export function checkRateLimit(identifier: string, maxAttempts = 5, lockDuration
   return { allowed: true, remaining: maxAttempts - entry.attempts }
 }
 
-export function recordFailedAttempt(identifier: string, maxAttempts = 5, lockDurationMs = 15 * 60 * 1000) {
+export function recordFailedAttempt(
+  identifier: string,
+  maxAttempts = 5,
+  lockDurationMs = 15 * 60 * 1000
+) {
   const now = Date.now()
   const entry = rateLimitMap.get(identifier) || { attempts: 0 }
   entry.attempts += 1
@@ -73,21 +82,115 @@ export function verifyPinHash(enteredPin: string, storedHash: string, salt: stri
   }
 }
 
-// ── 3. HMAC-SHA256 Signed Session Token Management ─────────────────────────
+// ── 3. Expiring Password / PIN Reset Tokens (15-Minute Short-Lived) ──────────
+interface ResetTokenEntry {
+  token: string
+  identifier: string
+  expiresAt: number
+  used: boolean
+}
+
+const resetTokenStore = new Map<string, ResetTokenEntry>()
+
+export function generateResetToken(identifier: string, expiresInMinutes = 15): string {
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = Date.now() + expiresInMinutes * 60 * 1000
+
+  resetTokenStore.set(token, {
+    token,
+    identifier,
+    expiresAt,
+    used: false,
+  })
+
+  return token
+}
+
+export function verifyAndConsumeResetToken(token: string): { valid: boolean; identifier?: string; error?: string } {
+  const entry = resetTokenStore.get(token)
+
+  if (!entry) {
+    return { valid: false, error: 'अमान्य या समाप्त रीसेट टोकन (Invalid reset token)' }
+  }
+
+  if (entry.used) {
+    return { valid: false, error: 'यह रीसेट टोकन पहले ही उपयोग किया जा चुका है (Reset token already used)' }
+  }
+
+  if (Date.now() > entry.expiresAt) {
+    resetTokenStore.delete(token)
+    return { valid: false, error: 'रीसेट टोकन की समयावधि समाप्त हो चुकी है (Reset token has expired)' }
+  }
+
+  // Mark token as used immediately (Single-use token guarantee)
+  entry.used = true
+  resetTokenStore.set(token, entry)
+
+  return { valid: true, identifier: entry.identifier }
+}
+
+// ── 4. Email & Phone Verification Token Management ──────────────────────────
+interface VerificationEntry {
+  token: string
+  emailOrPhone: string
+  expiresAt: number
+  verified: boolean
+}
+
+const verificationStore = new Map<string, VerificationEntry>()
+
+export function generateVerificationToken(emailOrPhone: string, expiresInHours = 24): string {
+  const token = crypto.randomBytes(24).toString('hex')
+  const expiresAt = Date.now() + expiresInHours * 3600 * 1000
+
+  verificationStore.set(token, {
+    token,
+    emailOrPhone,
+    expiresAt,
+    verified: false,
+  })
+
+  return token
+}
+
+export function verifyEmailOrPhoneToken(token: string): { success: boolean; emailOrPhone?: string; error?: string } {
+  const entry = verificationStore.get(token)
+
+  if (!entry) {
+    return { success: false, error: 'अमान्य सत्यापन लिंक (Invalid verification token)' }
+  }
+
+  if (Date.now() > entry.expiresAt) {
+    verificationStore.delete(token)
+    return { success: false, error: 'सत्यापन लिंक समाप्त हो गया है (Verification token expired)' }
+  }
+
+  entry.verified = true
+  verificationStore.set(token, entry)
+
+  return { success: true, emailOrPhone: entry.emailOrPhone }
+}
+
+// ── 5. HMAC-SHA256 Signed Session Token with Strict Expiration ──────────────
 export interface SessionPayload {
   id: string
   role: 'customer' | 'supplier' | 'super_admin'
   phone?: string
   email?: string
   name: string
+  emailVerified?: boolean
   iat: number
   exp: number
 }
 
-export function signSessionToken(payload: Omit<SessionPayload, 'iat' | 'exp'>, maxAgeSeconds = 86400 * 7): string {
+export function signSessionToken(
+  payload: Omit<SessionPayload, 'iat' | 'exp'>,
+  maxAgeSeconds = 86400 * 7 // 7 Days standard session
+): string {
   const now = Math.floor(Date.now() / 1000)
   const fullPayload: SessionPayload = {
     ...payload,
+    emailVerified: payload.emailVerified ?? true,
     iat: now,
     exp: now + maxAgeSeconds,
   }
@@ -109,16 +212,16 @@ export function verifySessionToken(token: string): SessionPayload | null {
     const bufB = Buffer.from(expectedSignature)
 
     if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) {
-      console.warn('[SecurityService] Invalid session signature detected!')
+      console.warn('[SecurityService] Invalid session signature detected! Rejecting request.')
       return null
     }
 
     const payload: SessionPayload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'))
 
-    // Check expiration
+    // Strict Expiration Check
     const now = Math.floor(Date.now() / 1000)
     if (payload.exp && payload.exp < now) {
-      console.warn('[SecurityService] Session token expired')
+      console.warn('[SecurityService] Session token expired!')
       return null
     }
 
