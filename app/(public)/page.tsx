@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LanguageToggle } from '@/components/shared/LanguageToggle'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
+import { WaterConservationTicker } from '@/components/animation/WaterConservationTicker'
 
 // ─── Navbar ────────────────────────────────────────────────────────────────
 function Navbar() {
@@ -562,6 +563,9 @@ export default function LandingPage() {
     <main className="bg-background">
       <Navbar />
       <Hero />
+      <div className="max-w-4xl mx-auto px-4 -mt-6 sm:-mt-8 relative z-20">
+        <WaterConservationTicker />
+      </div>
       <Stats />
       <Features />
       <HowItWorks />

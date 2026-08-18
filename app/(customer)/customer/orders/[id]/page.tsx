@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Clock, CheckCircle2, Truck, XCircle,
-  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban, Sparkles, Edit3
+  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban, Sparkles, Edit3, Navigation, Compass
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ReviewModal } from '@/components/shared/ReviewModal'
+import { LiveGpsMapModal } from '@/components/shared/LiveGpsMapModal'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel } from '@/lib/utils'
 import Link from 'next/link'
@@ -34,6 +35,7 @@ export default function OrderDetailPage() {
 
   // Review modal state
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [gpsModalOpen, setGpsModalOpen] = useState(false)
   const autoPromptTriggered = useRef(false)
 
   const steps = [
@@ -234,6 +236,44 @@ export default function OrderDetailPage() {
         </Card>
       )}
 
+      {/* Live GPS Route Tracking Banner */}
+      {!isCancelled && !isDelivered && (
+        <Card className="glass-card border-sky-500/40 bg-gradient-to-r from-sky-950/40 via-blue-950/50 to-slate-900 overflow-hidden shadow-lg shadow-sky-500/10">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl water-shimmer flex items-center justify-center text-white flex-shrink-0 shadow-md shadow-sky-500/20">
+                  <Navigation className="w-6 h-6 animate-spin-slow" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                      {language === 'hi' ? '🛰️ लाइव जीपीएस रूट ट्रैकिंग (Live GPS Map)' : '🛰️ Live GPS Driver Tracking'}
+                    </h3>
+                    <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] py-0 px-2 animate-pulse">
+                      ● LIVE
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {language === 'hi'
+                      ? 'पानी का वाहन रास्ते में है (~14 मिनट में पहुंचेगा)। मैप पर लाइव लोकेशन देखें।'
+                      : 'Delivery vehicle is on the way (~14 mins ETA). Click below to view live telemetry map.'}
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => setGpsModalOpen(true)}
+                className="w-full sm:w-auto water-shimmer text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-1.5"
+              >
+                <Compass className="w-4 h-4 text-sky-200" />
+                <span>{language === 'hi' ? 'लाइव मैप खोलें 🗺️' : 'Open Live GPS Map 🗺️'}</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Prominent Delivered Review Section */}
       {isDelivered && (
         <Card className="glass-card border-amber-500/30 overflow-hidden shadow-lg shadow-amber-500/5">
@@ -354,6 +394,25 @@ export default function OrderDetailPage() {
             setReview(newReview)
             fetchOrderDetails(false)
           }}
+        />
+      )}
+
+      {/* Live GPS Map Tracker Modal */}
+      {order && (
+        <LiveGpsMapModal
+          isOpen={gpsModalOpen}
+          onClose={() => setGpsModalOpen(false)}
+          orderId={order.id}
+          supplierName={order.suppliers?.business_name || 'Water Supplier'}
+          customerAddress={
+            typeof order.delivery_address === 'object'
+              ? `${order.delivery_address?.line1 || ''}, ${order.delivery_address?.city || ''}`
+              : String(order.delivery_address || '')
+          }
+          driverName="Vikram Singh (Verified Driver)"
+          driverPhone={order.suppliers?.phone || '+919876543210'}
+          vehicleNumber="RJ-19-GA-5420"
+          productType={order.water_products?.type || 'can'}
         />
       )}
 

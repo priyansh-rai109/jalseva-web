@@ -44,6 +44,7 @@ export const metadata: Metadata = {
 import { Suspense } from 'react'
 import { SessionToastHandler } from '@/components/SessionToastHandler'
 import { LanguageProvider } from '@/lib/i18n/LanguageContext'
+import { WaterBackgroundCanvas } from '@/components/animation/WaterBackgroundCanvas'
 
 export default function RootLayout({
   children,
@@ -52,9 +53,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${rajdhani.variable} dark`}>
-      <body className="font-sans min-h-screen bg-background text-foreground">
+      <body className="font-sans min-h-screen bg-background text-foreground relative">
         <LanguageProvider>
-          {children}
+          <WaterBackgroundCanvas />
+          <div className="relative z-10">{children}</div>
           <Toaster richColors position="top-center" />
           <Suspense fallback={null}>
             <SessionToastHandler />

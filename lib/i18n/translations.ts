@@ -37,6 +37,7 @@ export const translations = {
     navAnalytics: 'Analytics',
     navSettings: 'Settings',
     navNotifications: 'Notifications',
+    navSubscriptions: 'Water Pass 🔄',
 
     // Landing Page
     heroServingBadge: 'Serving Jodhpur, Rajasthan',
@@ -226,6 +227,7 @@ export const translations = {
     navAnalytics: 'बिजनेस रिपोर्ट',
     navSettings: 'सेटिंग्स',
     navNotifications: 'सूचनाएं',
+    navSubscriptions: 'वॉटर पास 🔄',
 
     // Landing Page
     heroServingBadge: 'जोधपुर, राजस्थान में सेवारत',

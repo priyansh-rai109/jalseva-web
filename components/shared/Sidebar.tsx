@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  RefreshCw,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -66,6 +67,7 @@ const supplierNav: NavItemConfig[] = [
 const customerNav: NavItemConfig[] = [
   { href: '/customer/dashboard', labelKey: 'navHome', icon: LayoutDashboard },
   { href: '/customer/browse', labelKey: 'navBrowse', icon: Building2 },
+  { href: '/customer/subscriptions', labelKey: 'navSubscriptions', icon: RefreshCw },
   { href: '/customer/orders', labelKey: 'navOrders', icon: FileText },
   { href: '/customer/notifications', labelKey: 'navNotifications', icon: Bell },
   { href: '/customer/profile', labelKey: 'navProfile', icon: Settings },

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   Check, Truck, CheckCircle2, Ban, Loader2,
-  Droplets, RefreshCw, Phone, MessageSquare
+  Droplets, RefreshCw, Phone, MessageSquare, Zap
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -208,6 +208,12 @@ export default function SupplierOrdersPage() {
                           {isPending && (
                             <Badge className="bg-amber-500 text-black font-extrabold text-[10px] px-2 py-0.5 border-none shadow-sm animate-pulse">
                               {language === 'hi' ? 'नया ऑर्डर ⚡' : 'NEW ORDER ⚡'}
+                            </Badge>
+                          )}
+                          {order.special_instructions?.includes('EMERGENCY') && (
+                            <Badge className="bg-red-500/20 text-red-400 border-red-500/40 text-[10px] font-bold py-0.5 px-2 flex items-center gap-1 animate-pulse">
+                              <Zap className="w-3 h-3 text-amber-400" />
+                              {language === 'hi' ? '⚡ 60-मिनट आपातकालीन' : '⚡ 60-MIN EMERGENCY'}
                             </Badge>
                           )}
                           <Badge className={`text-xs border ${getOrderStatusColor(order.status)}`}>

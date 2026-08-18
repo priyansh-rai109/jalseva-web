@@ -17,6 +17,7 @@ import { useCartStore } from '@/lib/stores/cart-store'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils'
 import Link from 'next/link'
+import { TdsBadge } from '@/components/shared/TdsBadge'
 import type { Supplier, WaterProduct } from '@/types'
 
 const productTypeIcons = { tanker: '🚛', can: '🫙', pouch: '💧' }
@@ -144,6 +145,9 @@ export default function SupplierDetailPage() {
           {supplier.description && (
             <p className="mt-4 text-xs sm:text-sm text-muted-foreground">{supplier.description}</p>
           )}
+
+          {/* Water Purity & TDS Laboratory Quality Badge */}
+          <TdsBadge tdsValue={68} className="mt-4" />
         </CardContent>
       </Card>
 

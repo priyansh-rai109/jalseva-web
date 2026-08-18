@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import {
   ShoppingCart, Trash2, Plus, Minus, MapPin,
-  Loader2, ChevronRight, Package, Droplets, Info, CheckCircle2, ArrowLeft
+  Loader2, ChevronRight, Package, Droplets, Info, CheckCircle2, ArrowLeft, Zap, ShieldAlert
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,7 +28,7 @@ const checkoutSchema = z.object({
   line1: z.string().min(5, 'Address required (कम से कम 5 अक्षर)'),
   pincode: z.string().min(6, 'Valid 6-digit pincode required (6 अंकों का पिनकोड)'),
   city: z.string().min(2, 'City required (शहर का नाम लिखें)'),
-  payment_mode: z.enum(['cash_on_delivery', 'upi', 'razorpay']),
+  payment_mode: z.enum(['cash_on_delivery', 'razorpay', 'upi', 'online']),
   special_instructions: z.string().optional(),
 })
 
@@ -58,6 +58,7 @@ export default function CartPage() {
   const [placing, setPlacing] = useState(false)
   const [step, setStep] = useState<'cart' | 'checkout'>('cart')
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [isEmergency, setIsEmergency] = useState(false)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -90,7 +91,12 @@ export default function CartPage() {
           items,
           deliveryAddress,
           paymentMode: data.payment_mode,
-          specialInstructions: data.special_instructions,
+          specialInstructions: [
+            isEmergency ? '⚡ [60-MIN EMERGENCY EXPRESS PRIORITY]' : '',
+            data.special_instructions,
+          ]
+            .filter(Boolean)
+            .join(' - '),
         }),
       })
 
@@ -335,6 +341,43 @@ export default function CartPage() {
 
                 <Separator />
 
+                {/* ⚡ 60-Minute Emergency Express Tanker Delivery Toggle */}
+                <div
+                  onClick={() => setIsEmergency(!isEmergency)}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    isEmergency
+                      ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10'
+                      : 'border-border bg-secondary/40 hover:border-amber-500/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      isEmergency ? 'bg-amber-500 text-black font-bold animate-pulse' : 'bg-secondary text-amber-400'
+                    }`}>
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                        <span>{language === 'hi' ? '⚡ 60-मिनट आपातकालीन सुपरफास्ट डिलीवरी' : '⚡ 60-Min Emergency Express Delivery'}</span>
+                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] py-0 px-1.5">
+                          +₹50
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {language === 'hi'
+                          ? 'शादी, समारोह या आपातकाल के लिए नजदीकी ड्राइवर को तुरंत प्राथमिकता पर भेजा जाएगा।'
+                          : 'Priority dispatch for sudden water shortages, events, and immediate needs.'}
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isEmergency}
+                    onChange={() => {}}
+                    className="h-4 w-4 rounded text-amber-500 focus:ring-amber-400 cursor-pointer"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold">{t('paymentMethod')}</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -383,11 +426,19 @@ export default function CartPage() {
                   <span className="font-medium">{formatCurrency(item.product.price * item.quantity)}</span>
                 </div>
               ))}
+
+              {isEmergency && (
+                <div className="flex justify-between text-xs text-amber-400 font-medium">
+                  <span>⚡ {language === 'hi' ? 'आपातकालीन प्राथमिकता शुल्क' : 'Emergency Priority Fee'}</span>
+                  <span>+₹50</span>
+                </div>
+              )}
+
               <Separator />
               <div className="flex justify-between font-bold text-base sm:text-lg">
                 <span>{t('total')}</span>
                 <span className="gradient-text" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  {formatCurrency(getTotalAmount())}
+                  {formatCurrency(getTotalAmount() + (isEmergency ? 50 : 0))}
                 </span>
               </div>
               <div className="p-2.5 rounded-lg bg-sky-500/5 border border-sky-500/10 text-xs text-sky-400 leading-relaxed">
