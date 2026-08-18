@@ -403,13 +403,13 @@ export default function OrderDetailPage() {
           isOpen={gpsModalOpen}
           onClose={() => setGpsModalOpen(false)}
           orderId={order.id}
-          supplierName={order.suppliers?.business_name || 'Water Supplier'}
+          supplierName={order.suppliers?.business_name || 'Marwar Pure Water Hub'}
           customerAddress={
             typeof order.delivery_address === 'object'
               ? `${order.delivery_address?.line1 || ''}, ${order.delivery_address?.city || ''}`
               : String(order.delivery_address || '')
           }
-          driverName="Vikram Singh (Verified Driver)"
+          driverName={`${order.suppliers?.business_name || 'Supplier'} (Delivery Executive)`}
           driverPhone={order.suppliers?.phone || '+919876543210'}
           vehicleNumber="RJ-19-GA-5420"
           productType={order.water_products?.type || 'can'}

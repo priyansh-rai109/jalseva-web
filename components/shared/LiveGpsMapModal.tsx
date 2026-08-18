@@ -42,7 +42,7 @@ export function LiveGpsMapModal({
   orderId,
   supplierName,
   customerAddress,
-  driverName = 'Vikram Singh (Verified Driver)',
+  driverName,
   driverPhone = '+919876543210',
   vehicleNumber = 'RJ-19-GA-5420',
   productType = 'can',
@@ -50,6 +50,9 @@ export function LiveGpsMapModal({
   onClose,
 }: LiveGpsMapModalProps) {
   const { language } = useLanguage()
+  const displayDriverName = driverName || (language === 'hi' 
+    ? `${supplierName || 'सप्लायर'} (डिलीवरी टीम)` 
+    : `${supplierName || 'Supplier'} (Delivery Executive)`)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<any>(null)
   const tileLayerRef = useRef<any>(null)
@@ -479,10 +482,10 @@ export function LiveGpsMapModal({
               </div>
               <div>
                 <div className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
-                  <span>{driverName}</span>
+                  <span>{displayDriverName}</span>
                   <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] py-0 px-1">
                     <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
-                    Verified
+                    {language === 'hi' ? 'सत्यापित वाहन' : 'Verified'}
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate max-w-xs sm:max-w-md">
@@ -496,7 +499,7 @@ export function LiveGpsMapModal({
               <a href={`tel:${driverPhone}`} className="flex-1 sm:flex-initial">
                 <Button size="sm" className="w-full sm:w-auto water-shimmer text-white font-semibold text-xs min-h-[36px] rounded-xl">
                   <Phone className="w-3.5 h-3.5 mr-1.5" />
-                  {language === 'hi' ? 'कॉल करें' : 'Call Driver'}
+                  {language === 'hi' ? 'सप्लायर को कॉल करें' : 'Call Supplier'}
                 </Button>
               </a>
 
