@@ -5,6 +5,36 @@ import { getSupplierForUser } from '@/lib/supabase/supplier-helper'
 
 export const dynamic = 'force-dynamic'
 
+// ─── Fallback Storage Helpers ───────────────────────────────────────────────
+async function getFallbackDrivers(adminSupabase: any, supplierId: string) {
+  const { data: supplier } = await adminSupabase
+    .from('suppliers')
+    .select('id, description')
+    .eq('id', supplierId)
+    .maybeSingle()
+
+  let drivers: any[] = []
+  const rawDesc = supplier?.description || ''
+  if (rawDesc.includes('__DRIVERS_DATA__')) {
+    try {
+      const parts = rawDesc.split('__DRIVERS_DATA__')
+      drivers = JSON.parse(parts[1])
+    } catch (e) {
+      console.warn('[Fallback Drivers Parse Error]', e)
+    }
+  }
+  return { drivers, currentDescription: rawDesc }
+}
+
+async function saveFallbackDrivers(adminSupabase: any, supplierId: string, drivers: any[], currentDescription: string) {
+  const cleanDesc = currentDescription.split('__DRIVERS_DATA__')[0] || ''
+  const newDesc = `${cleanDesc}__DRIVERS_DATA__${JSON.stringify(drivers)}`
+  await adminSupabase
+    .from('suppliers')
+    .update({ description: newDesc })
+    .eq('id', supplierId)
+}
+
 // ─── GET: Fetch all drivers for the supplier ────────────────────────────────
 export async function GET(_request: Request) {
   try {
@@ -22,6 +52,7 @@ export async function GET(_request: Request) {
       return NextResponse.json({ drivers: [] })
     }
 
+    // 1. Try querying supplier_drivers table
     const { data: drivers, error } = await adminSupabase
       .from('supplier_drivers')
       .select('*')
@@ -29,10 +60,10 @@ export async function GET(_request: Request) {
       .order('created_at', { ascending: false })
 
     if (error) {
-      // If table doesn't exist yet in Supabase schema cache
       if (error.code === 'PGRST205' || error.message?.includes('supplier_drivers')) {
-        console.warn('[Supplier Drivers GET] Table supplier_drivers missing:', error.message)
-        return NextResponse.json({ drivers: [], tableMissing: true })
+        // Table missing fallback: read from suppliers.description JSON
+        const { drivers: fallbackList } = await getFallbackDrivers(adminSupabase, supplier.id)
+        return NextResponse.json({ drivers: fallbackList })
       }
       throw error
     }
@@ -79,6 +110,7 @@ export async function POST(request: Request) {
       notes: notes?.trim() || null,
     }
 
+    // 1. Try table insert
     const { data: driver, error } = await adminSupabase
       .from('supplier_drivers')
       .insert(payload)
@@ -87,9 +119,16 @@ export async function POST(request: Request) {
 
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('supplier_drivers')) {
-        return NextResponse.json({
-          error: 'The supplier_drivers table is not set up in Supabase database yet. Please run the SQL migration script from supabase/drivers_schema.sql in Supabase SQL editor.'
-        }, { status: 500 })
+        // Fallback store when table is not created in Supabase yet
+        const { drivers: existingList, currentDescription } = await getFallbackDrivers(adminSupabase, supplier.id)
+        const fallbackDriver = {
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+          ...payload,
+        }
+        const updatedList = [fallbackDriver, ...existingList]
+        await saveFallbackDrivers(adminSupabase, supplier.id, updatedList, currentDescription)
+        return NextResponse.json({ success: true, driver: fallbackDriver })
       }
       throw error
     }
@@ -134,15 +173,47 @@ export async function PATCH(request: Request) {
     if (status !== undefined) updatePayload.status = status
     if (notes !== undefined) updatePayload.notes = notes.trim() || null
 
+    // 1. Try table update
     const { data: driver, error } = await adminSupabase
       .from('supplier_drivers')
       .update(updatePayload)
       .eq('id', id)
       .eq('supplier_id', supplier.id)
       .select()
-      .single()
+      .maybeSingle()
 
-    if (error) throw error
+    if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes('supplier_drivers')) {
+        // Fallback update
+        const { drivers: existingList, currentDescription } = await getFallbackDrivers(adminSupabase, supplier.id)
+        let updatedDriver: any = null
+        const updatedList = existingList.map(d => {
+          if (d.id === id) {
+            updatedDriver = { ...d, ...updatePayload }
+            return updatedDriver
+          }
+          return d
+        })
+        await saveFallbackDrivers(adminSupabase, supplier.id, updatedList, currentDescription)
+        return NextResponse.json({ success: true, driver: updatedDriver })
+      }
+      throw error
+    }
+
+    if (!driver) {
+      // Check fallback if not in table
+      const { drivers: existingList, currentDescription } = await getFallbackDrivers(adminSupabase, supplier.id)
+      let updatedDriver: any = null
+      const updatedList = existingList.map(d => {
+        if (d.id === id) {
+          updatedDriver = { ...d, ...updatePayload }
+          return updatedDriver
+        }
+        return d
+      })
+      await saveFallbackDrivers(adminSupabase, supplier.id, updatedList, currentDescription)
+      return NextResponse.json({ success: true, driver: updatedDriver })
+    }
 
     return NextResponse.json({ success: true, driver })
   } catch (err: any) {
@@ -175,13 +246,30 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Supplier account not found' }, { status: 403 })
     }
 
+    // 1. Try table delete
     const { error } = await adminSupabase
       .from('supplier_drivers')
       .delete()
       .eq('id', id)
       .eq('supplier_id', supplier.id)
 
-    if (error) throw error
+    if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes('supplier_drivers')) {
+        // Fallback delete
+        const { drivers: existingList, currentDescription } = await getFallbackDrivers(adminSupabase, supplier.id)
+        const updatedList = existingList.filter(d => d.id !== id)
+        await saveFallbackDrivers(adminSupabase, supplier.id, updatedList, currentDescription)
+        return NextResponse.json({ success: true })
+      }
+      throw error
+    }
+
+    // Also remove from fallback list if it exists there
+    const { drivers: existingList, currentDescription } = await getFallbackDrivers(adminSupabase, supplier.id)
+    if (existingList.some(d => d.id === id)) {
+      const updatedList = existingList.filter(d => d.id !== id)
+      await saveFallbackDrivers(adminSupabase, supplier.id, updatedList, currentDescription)
+    }
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
