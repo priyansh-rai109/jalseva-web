@@ -1,4 +1,5 @@
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
+
 async function test() {
   const cookie = encodeURIComponent(JSON.stringify({
     id: '00000000-0000-0000-0000-009876543210',
@@ -30,4 +31,5 @@ async function test() {
   console.log('Status:', res.status);
   console.log('Response:', json);
 }
+
 test();

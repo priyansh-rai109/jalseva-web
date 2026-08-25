@@ -468,7 +468,7 @@ export default function SupplierDriversPage() {
                     </div>
                     {drv.notes && (
                       <p className="text-[11px] italic text-foreground/80 pt-0.5 border-t border-border/40">
-                        "{drv.notes}"
+                        &quot;{drv.notes}&quot;
                       </p>
                     )}
                   </div>
