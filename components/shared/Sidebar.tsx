@@ -28,7 +28,9 @@ import {
   X,
   RefreshCw,
   Coins,
+  Truck,
 } from 'lucide-react'
+
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
@@ -56,6 +58,7 @@ const adminNav: NavItemConfig[] = [
 const supplierNav: NavItemConfig[] = [
   { href: '/supplier/dashboard', labelKey: 'navHome', icon: LayoutDashboard },
   { href: '/supplier/orders', labelKey: 'navOrders', icon: ShoppingCart },
+  { href: '/supplier/drivers', labelKey: 'navDrivers', icon: Truck },
   { href: '/supplier/notifications', labelKey: 'navNotifications', icon: Bell },
   { href: '/supplier/products', labelKey: 'navProducts', icon: Package },
   { href: '/supplier/reviews', labelKey: 'navReviews', icon: Star },

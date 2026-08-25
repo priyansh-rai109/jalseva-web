@@ -92,7 +92,7 @@ export default function SupplierOrdersPage() {
 
   const handleConfirmDispatch = async (
     orderId: string,
-    driverDetails: { driverName: string; driverPhone: string; vehicleNumber: string; estimatedMins: string }
+    driverDetails: { driverId?: string; driverName: string; driverPhone: string; vehicleNumber: string; estimatedMins: string }
   ) => {
     setUpdatingId(orderId)
     try {
@@ -102,6 +102,7 @@ export default function SupplierOrdersPage() {
         body: JSON.stringify({
           orderId,
           status: 'out_for_delivery',
+          driverId: driverDetails.driverId,
           driverName: driverDetails.driverName,
           driverPhone: driverDetails.driverPhone,
           vehicleNumber: driverDetails.vehicleNumber,
@@ -291,6 +292,22 @@ export default function SupplierOrdersPage() {
                         {order.special_instructions && (
                           <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400">
                             <strong>{language === 'hi' ? 'विशेष निर्देश' : 'Note'}:</strong> {order.special_instructions}
+                          </div>
+                        )}
+
+                        {(order.driver_name || order.special_instructions?.includes('[Driver:')) && (
+                          <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-300 flex items-center gap-1.5 flex-wrap">
+                            <Truck className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                            <span>
+                              <strong>{language === 'hi' ? 'नियुक्त ड्राइवर:' : 'Assigned Driver:'}</strong>{' '}
+                              {order.driver_name || order.special_instructions?.match(/Driver:\s*([^|\]]+)/)?.[1]?.trim() || 'Driver'}{' '}
+                              ({order.driver_phone || order.special_instructions?.match(/Phone:\s*([^|\]]+)/)?.[1]?.trim() || 'N/A'})
+                            </span>
+                            {(order.vehicle_number || order.special_instructions?.includes('Vehicle:')) && (
+                              <Badge className="bg-sky-500/20 text-sky-300 font-mono text-[10px] py-0 px-1.5">
+                                {order.vehicle_number || order.special_instructions?.match(/Vehicle:\s*([^|\]]+)/)?.[1]?.trim()}
+                              </Badge>
+                            )}
                           </div>
                         )}
                       </div>

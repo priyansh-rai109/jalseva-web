@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
-    const { orderId, status, reason, paymentStatus, driverName, driverPhone, vehicleNumber, estimatedMins } = body
+    const { orderId, status, reason, paymentStatus, driverId, driverName, driverPhone, vehicleNumber, estimatedMins } = body
 
     if (!orderId) {
       return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
@@ -116,6 +116,11 @@ export async function PATCH(request: Request) {
         : `[Cancelled by Supplier: ${reason}]`
     }
     if (status === 'out_for_delivery' && driverName) {
+      if (driverId) updatePayload.driver_id = driverId
+      updatePayload.driver_name = driverName
+      updatePayload.driver_phone = driverPhone
+      updatePayload.vehicle_number = vehicleNumber
+
       const driverTag = `[Driver: ${driverName} | Phone: ${driverPhone || ''} | Vehicle: ${vehicleNumber || ''} | ETA: ${estimatedMins || '15-20'} mins]`
       updatePayload.special_instructions = order.special_instructions
         ? `${order.special_instructions} ${driverTag}`
