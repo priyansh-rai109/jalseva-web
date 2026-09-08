@@ -98,7 +98,7 @@ export async function updateSession(request: NextRequest) {
     response.cookies.getAll().forEach(c => redirectResponse.cookies.set(c.name, c.value, c))
     if (mockCookie?.value) {
       redirectResponse.cookies.set('jalseva-mock-session', mockCookie.value, {
-        path: '/', maxAge: 86400, sameSite: 'lax',
+        path: '/', sameSite: 'lax',
       })
     }
     return redirectResponse
@@ -148,7 +148,7 @@ export async function updateSession(request: NextRequest) {
     response.cookies.getAll().forEach(c => redirectResponse.cookies.set(c.name, c.value, c))
     if (mockCookie?.value) {
       redirectResponse.cookies.set('jalseva-mock-session', mockCookie.value, {
-        path: '/', maxAge: 86400, sameSite: 'lax',
+        path: '/', sameSite: 'lax',
       })
     }
     return redirectResponse

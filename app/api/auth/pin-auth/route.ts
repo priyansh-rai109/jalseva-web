@@ -62,34 +62,56 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // 1. Strict check: reject if user already exists
+      const { data: existingProfile } = await admin
+        .from('profiles')
+        .select('id, role, name, phone')
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},email.eq.${dummyEmail}`)
+        .maybeSingle()
+
+      const { data: existingSupCheck } = await admin
+        .from('suppliers')
+        .select('id, business_name')
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .maybeSingle()
+
+      const { data: existingCustCheck } = await admin
+        .from('customers')
+        .select('id, name')
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .maybeSingle()
+
+      if (existingProfile || existingSupCheck || existingCustCheck) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'ACCOUNT_EXISTS',
+            error: 'यह मोबाइल नंबर पहले से रजिस्टर्ड है! कृपया लॉगिन करें। (Account already exists for this number. Please sign in.)',
+            phone: digits,
+          },
+          { status: 409 }
+        )
+      }
+
       const displayName = (role === 'supplier' ? (bizName || name) : name) || 'JalSeva User'
 
       // Generate Cryptographic Salt & Hash
       const { hash, salt } = hashPin(pin)
       setCredential(digits, hash, salt)
 
-      // Check if user already exists
-      const { data: existingProfile } = await admin
-        .from('profiles')
-        .select('*')
-        .or(`phone.eq.${fullPhone},phone.eq.${digits},email.eq.${dummyEmail}`)
-        .maybeSingle()
-
-      let userId = existingProfile?.id || fallbackUserId
+      let userId = fallbackUserId
 
       // Try creating user in Supabase Auth
-      if (!existingProfile) {
-        try {
-          const { data: newAuth } = await admin.auth.admin.createUser({
-            email: dummyEmail,
-            password: `PinUser@${hash.slice(0, 12)}!`,
-            email_confirm: true,
-            user_metadata: { role, name: displayName, phone: fullPhone, pin_hash: hash, pin_salt: salt }
-          })
-          if (newAuth?.user?.id) userId = newAuth.user.id
-        } catch (e) {
-          console.warn('[pin-auth] Auth create notice:', e)
-        }
+      try {
+        const { data: newAuth } = await admin.auth.admin.createUser({
+          email: dummyEmail,
+          password: `PinUser@${hash.slice(0, 12)}!`,
+          email_confirm: true,
+          user_metadata: { role, name: displayName, phone: fullPhone, pin_hash: hash, pin_salt: salt }
+        })
+        if (newAuth?.user?.id) userId = newAuth.user.id
+      } catch (e) {
+        console.warn('[pin-auth] Auth create notice:', e)
       }
 
       // Upsert into profiles
@@ -126,6 +148,31 @@ export async function POST(request: NextRequest) {
             description: `${bizName || displayName} - Fresh RO & Mineral Water Delivery in ${city}.`,
           })
         }
+      } else {
+        // Ensure customer record
+        const { data: existingCust } = await admin
+          .from('customers')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        if (!existingCust) {
+          await admin.from('customers').insert({
+            user_id: userId,
+            name: displayName,
+            phone: fullPhone,
+            email: dummyEmail,
+            addresses: [
+              {
+                id: 'default-addr',
+                city: city,
+                label: 'Primary',
+                line1: address || city,
+                is_default: true,
+              },
+            ],
+          })
+        }
       }
 
       // Generate Cryptographically Signed Session Token
@@ -146,23 +193,21 @@ export async function POST(request: NextRequest) {
         message: 'Account created successfully with Cryptographic Security PIN!',
       })
 
-      // Set secure Signed HttpOnly Cookie
+      // Set secure Signed HttpOnly Session Cookie (Session-based, no persistent maxAge)
       response.cookies.set('jalseva-session-token', sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 86400 * 7,
       })
 
-      // Maintain legacy cookie for client state
+      // Maintain session cookie for client state
       response.cookies.set('jalseva-mock-session', encodeURIComponent(JSON.stringify({
         id: userId,
         phone: fullPhone,
         user_metadata: { role, name: displayName, phone: fullPhone }
       })), {
         path: '/',
-        maxAge: 86400 * 7,
         sameSite: 'lax',
       })
 
@@ -192,12 +237,67 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Lookup profile in database
-      const { data: profile } = await admin
+      // 1. Lookup profile in database
+      let { data: profile } = await admin
         .from('profiles')
         .select('*')
         .or(`phone.eq.${fullPhone},phone.eq.${digits},email.eq.${dummyEmail}`)
         .maybeSingle()
+
+      // 2. Check suppliers table
+      const { data: supplierRec } = await admin
+        .from('suppliers')
+        .select('*')
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .maybeSingle()
+
+      // 3. Check customers table
+      const { data: custRec } = await admin
+        .from('customers')
+        .select('*')
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .maybeSingle()
+
+      // STRICT CHECK: If user does not exist anywhere, reject direct login!
+      if (!profile && !supplierRec && !custRec) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'ACCOUNT_NOT_FOUND',
+            error: 'इस नंबर से कोई अकाउंट नहीं मिला! कृपया पहले नया अकाउंट बनाएं। (Account not found. Please register first.)',
+            phone: digits,
+          },
+          { status: 404 }
+        )
+      }
+
+      let userRole: 'customer' | 'supplier' | 'super_admin' = (profile?.role as any) || null
+      let userName = profile?.name || null
+      let userId = profile?.id || null
+
+      if (supplierRec && userRole !== 'super_admin') {
+        userRole = 'supplier'
+        userName = userName || supplierRec.business_name || supplierRec.owner_name
+        userId = userId || supplierRec.user_id || fallbackUserId
+
+        // Auto-heal profiles table
+        await admin.from('profiles').upsert({
+          id: userId,
+          role: 'supplier',
+          name: userName,
+          phone: fullPhone,
+          email: dummyEmail,
+          updated_at: new Date().toISOString(),
+        })
+      } else if (!userRole && custRec) {
+        userRole = 'customer'
+        userName = userName || custRec.name
+        userId = userId || custRec.user_id || fallbackUserId
+      }
+
+      userRole = userRole || 'customer'
+      userName = userName || 'JalSeva User'
+      userId = userId || fallbackUserId
 
       // Lookup stored credentials
       let cred = getCredential(digits)
@@ -225,10 +325,6 @@ export async function POST(request: NextRequest) {
       // Successful verification -> Reset Rate Limit
       resetRateLimit(rateLimitKey)
 
-      const userRole = (profile?.role || 'customer') as 'customer' | 'supplier' | 'super_admin'
-      const userName = profile?.name || 'JalSeva User'
-      const userId = profile?.id || fallbackUserId
-
       // Generate Signed HMAC Session Token
       const sessionToken = signSessionToken({
         id: userId,
@@ -244,26 +340,24 @@ export async function POST(request: NextRequest) {
         role: userRole,
         name: userName,
         phone: fullPhone,
-        isNewUser: !profile,
+        isNewUser: false,
       })
 
-      // Set Secure HTTP-Only Signed Session Cookie
+      // Set Secure HTTP-Only Signed Session Cookie (Session-based, no persistent maxAge)
       response.cookies.set('jalseva-session-token', sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 86400 * 7,
       })
 
-      // Maintain legacy cookie for client state
+      // Maintain session cookie for client state
       response.cookies.set('jalseva-mock-session', encodeURIComponent(JSON.stringify({
         id: userId,
         phone: fullPhone,
         user_metadata: { role: userRole, name: userName, phone: fullPhone }
       })), {
         path: '/',
-        maxAge: 86400 * 7,
         sameSite: 'lax',
       })
 

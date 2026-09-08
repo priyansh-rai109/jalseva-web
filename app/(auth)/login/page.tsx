@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Droplets, Phone, ArrowRight, Loader2,
@@ -16,7 +17,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { SUPPORT_WHATSAPP_URL } from '@/lib/error-utils'
 
 function setMockCookie(user: object) {
-  document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
+  document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; SameSite=Lax`
 }
 
 function redirectByRole(role: string | null) {
@@ -26,9 +27,12 @@ function redirectByRole(role: string | null) {
   else window.location.href = '/customer/dashboard'
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const { t, language } = useLanguage()
-  const [phone, setPhone] = useState('')
+  const searchParams = useSearchParams()
+  const urlPhone = searchParams.get('phone')?.replace(/\D/g, '').slice(-10) || ''
+
+  const [phone, setPhone] = useState(urlPhone)
   const [pin, setPin] = useState('')
   const [showPin, setShowPin] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -73,12 +77,26 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (!data.success) {
+        if (data.code === 'ACCOUNT_NOT_FOUND') {
+          toast.error(
+            language === 'hi'
+              ? 'इस नंबर से कोई अकाउंट नहीं मिला! कृपया पहले रजिस्टर करें।'
+              : 'Account not found! Redirecting to register page...',
+            { duration: 4000 }
+          )
+          setLoading(false)
+          setTimeout(() => {
+            window.location.href = `/register?phone=${digits}`
+          }, 1200)
+          return
+        }
+
         toast.error(data.error || (language === 'hi' ? 'लॉगिन विफल। कृपया सही पिन डालें।' : 'Login failed. Incorrect PIN.'))
         setLoading(false)
         return
       }
 
-      // Store authenticated session
+      // Store authenticated session as session cookie
       const mockUser = {
         id: data.userId,
         phone: data.phone,
@@ -443,5 +461,19 @@ export default function LoginPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   )
 }

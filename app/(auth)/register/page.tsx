@@ -12,20 +12,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LanguageToggle } from '@/components/shared/LanguageToggle'
+import { useSearchParams } from 'next/navigation'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { createClient } from '@/lib/supabase/client'
 
 function setMockCookie(user: object) {
-  document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`
+  document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(user))}; path=/; SameSite=Lax`
 }
 
 function RegisterPageContent() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const urlPhone = searchParams.get('phone')?.replace(/\D/g, '').slice(-10) || ''
   const { t, language } = useLanguage()
 
   const [selectedRole, setSelectedRole] = useState<'customer' | 'supplier'>('customer')
   const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phone, setPhone] = useState(urlPhone)
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [city, setCity] = useState('Jodhpur')
@@ -88,12 +91,26 @@ function RegisterPageContent() {
       const data = await res.json()
 
       if (!data.success) {
+        if (data.code === 'ACCOUNT_EXISTS') {
+          toast.error(
+            language === 'hi'
+              ? 'यह मोबाइल नंबर पहले से रजिस्टर्ड है! लॉगिन पेज पर भेजा जा रहा है...'
+              : 'Account already exists! Redirecting to login page...',
+            { duration: 4000 }
+          )
+          setLoading(false)
+          setTimeout(() => {
+            window.location.href = `/login?phone=${digits}`
+          }, 1200)
+          return
+        }
+
         toast.error(data.error || (language === 'hi' ? 'खाता निर्माण विफल रहा' : 'Registration failed'))
         setLoading(false)
         return
       }
 
-      // Store authenticated session
+      // Store authenticated session as session cookie
       const mockUser = {
         id: data.userId,
         phone: data.phone,
@@ -107,11 +124,11 @@ function RegisterPageContent() {
 
       toast.success(
         language === 'hi'
-          ? '🎉 खाता सफलतापूर्वक बन गया!'
-          : '🎉 Account created successfully!'
+          ? '🎉 खाता सफलतापूर्वक बन गया! आपका स्वागत है।'
+          : '🎉 Account created successfully! Welcome.'
       )
 
-      await new Promise((r) => setTimeout(r, 300))
+      await new Promise((r) => setTimeout(r, 400))
 
       if (selectedRole === 'supplier') {
         window.location.href = '/supplier/dashboard'
