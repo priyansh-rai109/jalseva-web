@@ -45,6 +45,7 @@ export const metadata: Metadata = {
 import { Suspense } from 'react'
 import { SessionToastHandler } from '@/components/SessionToastHandler'
 import { LanguageProvider } from '@/lib/i18n/LanguageContext'
+import { ThemeProvider } from '@/components/theme-provider'
 import { WaterBackgroundCanvas } from '@/components/animation/WaterBackgroundCanvas'
 
 export default function RootLayout({
@@ -53,16 +54,18 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${rajdhani.variable} dark`}>
-      <body className="font-sans min-h-screen bg-background text-foreground relative">
-        <LanguageProvider>
-          <WaterBackgroundCanvas />
-          <div className="relative z-10">{children}</div>
-          <Toaster richColors position="top-center" />
-          <Suspense fallback={null}>
-            <SessionToastHandler />
-          </Suspense>
-        </LanguageProvider>
+    <html lang="en" className={`${inter.variable} ${rajdhani.variable}`} suppressHydrationWarning>
+      <body className="font-sans min-h-screen bg-background text-foreground relative transition-colors duration-200">
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <LanguageProvider>
+            <WaterBackgroundCanvas />
+            <div className="relative z-10">{children}</div>
+            <Toaster richColors position="top-center" />
+            <Suspense fallback={null}>
+              <SessionToastHandler />
+            </Suspense>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

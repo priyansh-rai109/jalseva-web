@@ -37,6 +37,7 @@ import { getInitials } from '@/lib/utils'
 import type { UserRole } from '@/types'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { MobileBottomNav } from '@/components/shared/MobileBottomNav'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 interface NavItemConfig {
   href: string
@@ -150,8 +151,9 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
             <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
           </div>
         </div>
-        <div className="mt-2">
+        <div className="mt-2.5 flex items-center justify-between gap-2">
           <Badge className={cn('text-xs px-2 py-0.5', roleColor)}>{roleLabel}</Badge>
+          <ThemeToggle variant="compact" />
         </div>
       </div>
 

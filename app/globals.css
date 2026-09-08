@@ -4,24 +4,25 @@
 
 @layer base {
   :root {
-    --background: 222 47% 5%;
-    --foreground: 213 31% 91%;
-    --card: 222 47% 8%;
-    --card-foreground: 213 31% 91%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 213 31% 91%;
-    --primary: 199 89% 48%;
-    --primary-foreground: 222 47% 5%;
-    --secondary: 222 47% 12%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 222 47% 12%;
-    --muted-foreground: 215 20% 55%;
+    /* ── Bright, Modern, Clean Light Theme (Default) ── */
+    --background: 210 40% 98%;          /* Soft clean luminous slate-50 #f8fafc */
+    --foreground: 222 47% 11%;          /* Crisp readable dark slate #0f172a */
+    --card: 0 0% 100%;                  /* Crisp pure white #ffffff */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 199 89% 48%;             /* Fresh water sky blue #0ea5e9 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 95%;           /* Soft background slate-100 #f1f5f9 */
+    --secondary-foreground: 222 47% 15%;
+    --muted: 210 40% 93%;               /* Light muted #e2e8f0 */
+    --muted-foreground: 215 16% 45%;    /* Clear readable secondary text #64748b */
     --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 5%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 213 31% 91%;
-    --border: 222 47% 15%;
-    --input: 222 47% 12%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 88%;              /* Clean readable borders #cbd5e1 */
+    --input: 214 32% 90%;
     --ring: 199 89% 48%;
     --radius: 0.75rem;
     --chart-1: 199 89% 48%;
@@ -29,6 +30,29 @@
     --chart-3: 142 71% 45%;
     --chart-4: 262 52% 58%;
     --chart-5: 0 84% 60%;
+  }
+
+  .dark {
+    /* ── Balanced, Deep Midnight Slate Theme ── */
+    --background: 222 47% 8%;           /* Deep rich slate #0a1120 */
+    --foreground: 213 31% 94%;          /* Clean high-contrast white */
+    --card: 222 47% 12%;                /* Elevated dark card #111c33 */
+    --card-foreground: 213 31% 94%;
+    --popover: 222 47% 12%;
+    --popover-foreground: 213 31% 94%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 222 47% 16%;
+    --secondary-foreground: 213 31% 94%;
+    --muted: 222 47% 16%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 47% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 213 31% 94%;
+    --border: 222 47% 18%;
+    --input: 222 47% 16%;
+    --ring: 199 89% 48%;
   }
 }
 
@@ -68,11 +92,11 @@
 @layer utilities {
   /* Glass morphism */
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+    @apply bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-200/80 dark:border-white/10;
   }
 
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-border rounded-xl;
+    @apply bg-white/95 dark:bg-card/75 backdrop-blur-xl border border-slate-200 dark:border-border rounded-xl shadow-sm shadow-slate-200/50 dark:shadow-none transition-colors;
   }
 
   /* Gradient text */

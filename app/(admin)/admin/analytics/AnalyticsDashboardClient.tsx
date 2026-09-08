@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AnimatedCounter } from '@/components/shared/AnimatedCounter'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { formatCurrency } from '@/lib/utils'
 
 interface OrderItem {
@@ -246,7 +247,7 @@ export default function AnalyticsDashboardClient({
       value: totalRevenue,
       isCurrency: true,
       icon: TrendingUp,
-      color: 'text-purple-400',
+      color: 'text-purple-600 dark:text-purple-400',
       bg: 'bg-purple-500/10',
       border: 'border-purple-500/20',
       sub: `${deliveredOrders.length} fulfilled orders`,
@@ -256,7 +257,7 @@ export default function AnalyticsDashboardClient({
       value: orders.length,
       isCurrency: false,
       icon: ShoppingCart,
-      color: 'text-sky-400',
+      color: 'text-sky-600 dark:text-sky-400',
       bg: 'bg-sky-500/10',
       border: 'border-sky-500/20',
       sub: 'All recorded bookings',
@@ -266,7 +267,7 @@ export default function AnalyticsDashboardClient({
       value: deliveredOrders.length,
       isCurrency: false,
       icon: CheckCircle2,
-      color: 'text-emerald-400',
+      color: 'text-emerald-600 dark:text-emerald-400',
       bg: 'bg-emerald-500/10',
       border: 'border-emerald-500/20',
       sub: `${deliveryRate}% success rate`,
@@ -276,7 +277,7 @@ export default function AnalyticsDashboardClient({
       value: avgOrderValue,
       isCurrency: true,
       icon: BarChart3,
-      color: 'text-cyan-400',
+      color: 'text-cyan-600 dark:text-cyan-400',
       bg: 'bg-cyan-500/10',
       border: 'border-cyan-500/20',
       sub: 'Per delivered transaction',
@@ -286,7 +287,7 @@ export default function AnalyticsDashboardClient({
       value: approvedSuppliers,
       isCurrency: false,
       icon: Building2,
-      color: 'text-amber-400',
+      color: 'text-amber-600 dark:text-amber-400',
       bg: 'bg-amber-500/10',
       border: 'border-amber-500/20',
       sub: `${totalSuppliers} registered suppliers`,
@@ -296,7 +297,7 @@ export default function AnalyticsDashboardClient({
       value: cancelledOrders.length,
       isCurrency: false,
       icon: XCircle,
-      color: 'text-rose-400',
+      color: 'text-rose-600 dark:text-rose-400',
       bg: 'bg-rose-500/10',
       border: 'border-rose-500/20',
       sub: `${cancellationRate}% cancellation rate`,
@@ -306,14 +307,14 @@ export default function AnalyticsDashboardClient({
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in-50 duration-300">
       {/* ── Top Header with Actions ────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-sky-500/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shadow-lg shadow-sky-500/5">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-sm">
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                 Platform Analytics
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground">
@@ -323,19 +324,21 @@ export default function AnalyticsDashboardClient({
           </div>
         </div>
 
-        {/* Global Filter Bar */}
-        <div className="flex flex-wrap items-center gap-2 bg-secondary/50 p-1 rounded-xl border border-sky-500/20 backdrop-blur-sm self-start sm:self-auto">
-          <Button
-            variant={timeRange === 'all' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setTimeRange('all')}
-            className={`text-xs h-8 px-3 rounded-lg font-semibold transition-all ${
-              timeRange === 'all' ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Sparkles className="w-3 h-3 mr-1.5" />
-            All Active History
-          </Button>
+        {/* Global Filter Bar + Theme Switcher */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <ThemeToggle variant="compact" />
+          <div className="flex flex-wrap items-center gap-1 bg-secondary p-1 rounded-xl border border-border">
+            <Button
+              variant={timeRange === 'all' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTimeRange('all')}
+              className={`text-xs h-8 px-3 rounded-lg font-semibold transition-all ${
+                timeRange === 'all' ? 'bg-sky-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 mr-1.5" />
+              All Active History
+            </Button>
           <Button
             variant={timeRange === 'monthly' ? 'default' : 'ghost'}
             size="sm"
@@ -368,6 +371,7 @@ export default function AnalyticsDashboardClient({
           </Button>
         </div>
       </div>
+    </div>
 
       {/* Notice banner if 7d or 30d has 0 data */}
       {chartData.length > 0 && totalChartOrders === 0 && (
