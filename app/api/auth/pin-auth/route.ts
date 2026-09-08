@@ -101,15 +101,36 @@ export async function POST(request: NextRequest) {
 
       let userId = fallbackUserId
 
-      // Try creating user in Supabase Auth
+      // Try creating user in Supabase Auth or update existing auth user with pin_hash & pin_salt
       try {
-        const { data: newAuth } = await admin.auth.admin.createUser({
+        const { data: newAuth, error: authCreateErr } = await admin.auth.admin.createUser({
           email: dummyEmail,
           password: `PinUser@${hash.slice(0, 12)}!`,
           email_confirm: true,
           user_metadata: { role, name: displayName, phone: fullPhone, pin_hash: hash, pin_salt: salt }
         })
-        if (newAuth?.user?.id) userId = newAuth.user.id
+        if (newAuth?.user?.id) {
+          userId = newAuth.user.id
+        } else if (authCreateErr) {
+          // If auth user exists with dummyEmail, update their metadata with new pin_hash & pin_salt
+          const { data: usersData } = await admin.auth.admin.listUsers()
+          const existingAuth = usersData?.users?.find(
+            (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
+          )
+          if (existingAuth) {
+            userId = existingAuth.id
+            await admin.auth.admin.updateUserById(existingAuth.id, {
+              user_metadata: {
+                ...existingAuth.user_metadata,
+                role,
+                name: displayName,
+                phone: fullPhone,
+                pin_hash: hash,
+                pin_salt: salt,
+              }
+            })
+          }
+        }
       } catch (e) {
         console.warn('[pin-auth] Auth create notice:', e)
       }
@@ -299,10 +320,53 @@ export async function POST(request: NextRequest) {
       userName = userName || 'JalSeva User'
       userId = userId || fallbackUserId
 
-      // Lookup stored credentials
+      // 1. Lookup stored credentials: First in memory cache, then permanently from Supabase Auth database
       let cred = getCredential(digits)
 
-      // If user exists without custom credentials, check against default legacy seed
+      if (!cred) {
+        // Query Supabase Auth database for persisted custom PIN
+        if (userId && !userId.startsWith('00000000-0000-')) {
+          try {
+            const { data: userRec } = await admin.auth.admin.getUserById(userId)
+            if (userRec?.user?.user_metadata?.pin_hash && userRec?.user?.user_metadata?.pin_salt) {
+              cred = {
+                hash: userRec.user.user_metadata.pin_hash,
+                salt: userRec.user.user_metadata.pin_salt,
+              }
+              setCredential(digits, cred.hash, cred.salt)
+            }
+          } catch (e) {
+            console.warn('[pin-auth] getUserById error:', e)
+          }
+        }
+
+        if (!cred) {
+          try {
+            const { data: usersData } = await admin.auth.admin.listUsers()
+            const foundUser = usersData?.users?.find(
+              (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
+            )
+            if (foundUser?.user_metadata?.pin_hash && foundUser?.user_metadata?.pin_salt) {
+              cred = {
+                hash: foundUser.user_metadata.pin_hash,
+                salt: foundUser.user_metadata.pin_salt,
+              }
+              setCredential(digits, cred.hash, cred.salt)
+            }
+          } catch (e) {
+            console.warn('[pin-auth] listUsers error:', e)
+          }
+        }
+      }
+
+      // Pre-seeded demo numbers fallback
+      const isDemoAccount = ['9876543210', '9829012345'].includes(digits)
+      if (!cred && isDemoAccount) {
+        cred = hashPin('1234')
+        setCredential(digits, cred.hash, cred.salt)
+      }
+
+      // If user exists in database but never had a custom PIN saved (legacy accounts created before PIN system)
       if (!cred) {
         cred = hashPin('1234')
         setCredential(digits, cred.hash, cred.salt)
@@ -316,7 +380,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: `गलत सुरक्षा पिन! आपके पास ${updatedRate.remaining} प्रयास शेष हैं। (Incorrect PIN. ${updatedRate.remaining} attempts remaining.)`,
+            error: `गलत सुरक्षा पिन! कृपया रजिस्ट्रेशन के समय बनाया गया 4-अंकों का पिन डालें। (${updatedRate.remaining} प्रयास शेष)`,
           },
           { status: 401 }
         )
@@ -374,8 +438,31 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Check weak PINs
+      if (['0000', '1111', '1234', '9999'].includes(pin)) {
+        return NextResponse.json(
+          { success: false, error: 'कृपया अधिक सुरक्षित पिन चुनें (उदा. 4582)। 0000, 1111, 1234 मान्य नहीं हैं।' },
+          { status: 400 }
+        )
+      }
+
       let cred = getCredential(digits)
-      if (!cred) cred = hashPin('1234')
+      if (!cred) {
+        try {
+          const { data: usersData } = await admin.auth.admin.listUsers()
+          const foundUser = usersData?.users?.find(
+            (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
+          )
+          if (foundUser?.user_metadata?.pin_hash && foundUser?.user_metadata?.pin_salt) {
+            cred = { hash: foundUser.user_metadata.pin_hash, salt: foundUser.user_metadata.pin_salt }
+            setCredential(digits, cred.hash, cred.salt)
+          } else {
+            cred = hashPin('1234')
+          }
+        } catch {
+          cred = hashPin('1234')
+        }
+      }
 
       if (!verifyPinHash(currentPin, cred.hash, cred.salt)) {
         return NextResponse.json(
@@ -384,9 +471,28 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Hash and store new PIN
+      // Hash and store new PIN in RAM
       const newCred = hashPin(pin)
       setCredential(digits, newCred.hash, newCred.salt)
+
+      // Persist new PIN in Supabase Auth database
+      try {
+        const { data: usersData } = await admin.auth.admin.listUsers()
+        const foundUser = usersData?.users?.find(
+          (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
+        )
+        if (foundUser) {
+          await admin.auth.admin.updateUserById(foundUser.id, {
+            user_metadata: {
+              ...foundUser.user_metadata,
+              pin_hash: newCred.hash,
+              pin_salt: newCred.salt,
+            }
+          })
+        }
+      } catch (e) {
+        console.warn('[change-pin] Error saving new PIN to auth database:', e)
+      }
 
       return NextResponse.json({
         success: true,

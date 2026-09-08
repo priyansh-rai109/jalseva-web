@@ -92,17 +92,32 @@ export async function POST(request: NextRequest) {
       resetRateLimit(rateLimitKey)
       resetRateLimit(`${clientIp}:${phoneDigits}`)
 
-      // 3. Update in Supabase
+      // 3. Update in Supabase Database (profiles & auth user_metadata)
       const admin = createAdminClient()
       const fullPhone = `+91${phoneDigits}`
+      const dummyEmail = `user_91${phoneDigits}@jalseva.app`
 
       try {
         await admin
           .from('profiles')
           .update({ updated_at: new Date().toISOString() })
           .or(`phone.eq.${fullPhone},phone.eq.${phoneDigits}`)
+
+        const { data: usersData } = await admin.auth.admin.listUsers()
+        const foundUser = usersData?.users?.find(
+          (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
+        )
+        if (foundUser) {
+          await admin.auth.admin.updateUserById(foundUser.id, {
+            user_metadata: {
+              ...foundUser.user_metadata,
+              pin_hash: hash,
+              pin_salt: salt,
+            }
+          })
+        }
       } catch (e) {
-        console.warn('[reset-password] Profile update notice:', e)
+        console.warn('[reset-password] Profile/auth update notice:', e)
       }
 
       return NextResponse.json({
