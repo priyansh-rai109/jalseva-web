@@ -184,7 +184,8 @@ function LoginPageContent() {
 
   const handleConfirmReset = async () => {
     if (!resetToken) return
-    if (newPin.length !== 4) {
+    const cleanNewPin = (newPin ?? '').trim()
+    if (cleanNewPin.length !== 4) {
       toast.error(language === 'hi' ? 'नया पिन 4 अंकों का होना चाहिए' : 'New PIN must be 4 digits')
       return
     }
@@ -197,16 +198,41 @@ function LoginPageContent() {
         body: JSON.stringify({
           action: 'confirm-reset',
           token: resetToken,
-          newPin: newPin,
+          newPin: cleanNewPin,
         }),
       })
       const data = await res.json()
       if (data.success) {
         toast.success(data.message || (language === 'hi' ? 'पिन सफलतापूर्वक रीसेट हो गया!' : 'PIN reset successfully!'))
         setShowForgotModal(false)
-        setPhone(resetPhone)
-        setPin(newPin)
+        const targetPhone = resetPhone
+        setPhone(targetPhone)
+        setPin(cleanNewPin)
         setResetToken(null)
+        setNewPin('')
+
+        // Trigger direct login
+        setTimeout(() => {
+          const digits = targetPhone.replace(/\D/g, '').slice(-10)
+          fetch('/api/auth/pin-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'login', phone: digits, pin: cleanNewPin }),
+          })
+            .then(r => r.json())
+            .then(loginData => {
+              if (loginData.success) {
+                setMockCookie({
+                  id: loginData.userId,
+                  phone: loginData.phone,
+                  user_metadata: { role: loginData.role ?? 'customer', phone: loginData.phone, name: loginData.name ?? 'JalSeva User' },
+                })
+                toast.success(language === 'hi' ? `नमस्ते ${loginData.name || ''}! स्वागत है।` : `Welcome back!`)
+                redirectByRole(loginData.role)
+              }
+            })
+            .catch(() => {})
+        }, 300)
       } else {
         toast.error(data.error || 'Failed to reset PIN')
       }

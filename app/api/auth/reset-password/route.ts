@@ -98,19 +98,90 @@ export async function POST(request: NextRequest) {
       const dummyEmail = `user_91${phoneDigits}@jalseva.app`
 
       try {
+        // Query profiles, suppliers, or customers to identify user
+        let targetUserId: string | null = null
+        let targetRole = 'customer'
+        let targetName = 'JalSeva User'
+
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('*')
+          .or(`phone.eq.${fullPhone},phone.eq.${phoneDigits},phone.ilike.%${phoneDigits}%`)
+          .maybeSingle()
+
+        if (profile) {
+          targetUserId = profile.id
+          targetRole = profile.role || targetRole
+          targetName = profile.name || targetName
+        }
+
+        if (!targetUserId) {
+          const { data: supplier } = await admin
+            .from('suppliers')
+            .select('*')
+            .or(`phone.eq.${fullPhone},phone.eq.${phoneDigits},phone.ilike.%${phoneDigits}%`)
+            .maybeSingle()
+          if (supplier) {
+            targetUserId = supplier.user_id
+            targetRole = 'supplier'
+            targetName = supplier.business_name || supplier.owner_name || targetName
+          }
+        }
+
+        if (!targetUserId) {
+          const { data: customer } = await admin
+            .from('customers')
+            .select('*')
+            .or(`phone.eq.${fullPhone},phone.eq.${phoneDigits},phone.ilike.%${phoneDigits}%`)
+            .maybeSingle()
+          if (customer) {
+            targetUserId = customer.user_id
+            targetRole = 'customer'
+            targetName = customer.name || targetName
+          }
+        }
+
+        // Update profiles timestamp
         await admin
           .from('profiles')
           .update({ updated_at: new Date().toISOString() })
           .or(`phone.eq.${fullPhone},phone.eq.${phoneDigits}`)
 
-        const { data: usersData } = await admin.auth.admin.listUsers()
-        const foundUser = usersData?.users?.find(
-          (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
-        )
+        // Robust auth user lookup
+        const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+        const foundUser = usersData?.users?.find((u: any) => {
+          const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
+          const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
+          return (
+            (targetUserId && u.id === targetUserId) ||
+            uDigits === phoneDigits ||
+            mDigits === phoneDigits ||
+            u.email === dummyEmail ||
+            u.email?.includes(phoneDigits)
+          )
+        })
+
         if (foundUser) {
           await admin.auth.admin.updateUserById(foundUser.id, {
             user_metadata: {
               ...foundUser.user_metadata,
+              phone: fullPhone,
+              pin_hash: hash,
+              pin_salt: salt,
+            }
+          })
+        } else if (targetUserId) {
+          await admin.auth.admin.createUser({
+            id: targetUserId,
+            phone: fullPhone,
+            email: dummyEmail,
+            password: 'PinAuth!' + phoneDigits,
+            email_confirm: true,
+            phone_confirm: true,
+            user_metadata: {
+              role: targetRole,
+              name: targetName,
+              phone: fullPhone,
               pin_hash: hash,
               pin_salt: salt,
             }

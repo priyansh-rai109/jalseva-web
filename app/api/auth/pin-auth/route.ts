@@ -342,10 +342,18 @@ export async function POST(request: NextRequest) {
 
         if (!cred) {
           try {
-            const { data: usersData } = await admin.auth.admin.listUsers()
-            const foundUser = usersData?.users?.find(
-              (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
-            )
+            const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+            const foundUser = usersData?.users?.find((u: any) => {
+              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
+              const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
+              return (
+                (userId && u.id === userId) ||
+                uDigits === digits ||
+                mDigits === digits ||
+                u.email === dummyEmail ||
+                u.email?.includes(digits)
+              )
+            })
             if (foundUser?.user_metadata?.pin_hash && foundUser?.user_metadata?.pin_salt) {
               cred = {
                 hash: foundUser.user_metadata.pin_hash,
@@ -449,10 +457,12 @@ export async function POST(request: NextRequest) {
       let cred = getCredential(digits)
       if (!cred) {
         try {
-          const { data: usersData } = await admin.auth.admin.listUsers()
-          const foundUser = usersData?.users?.find(
-            (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
-          )
+          const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+          const foundUser = usersData?.users?.find((u: any) => {
+            const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
+            const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
+            return uDigits === digits || mDigits === digits || u.email === dummyEmail || u.email?.includes(digits)
+          })
           if (foundUser?.user_metadata?.pin_hash && foundUser?.user_metadata?.pin_salt) {
             cred = { hash: foundUser.user_metadata.pin_hash, salt: foundUser.user_metadata.pin_salt }
             setCredential(digits, cred.hash, cred.salt)
@@ -477,10 +487,12 @@ export async function POST(request: NextRequest) {
 
       // Persist new PIN in Supabase Auth database
       try {
-        const { data: usersData } = await admin.auth.admin.listUsers()
-        const foundUser = usersData?.users?.find(
-          (u: any) => u.email === dummyEmail || u.phone === fullPhone || u.user_metadata?.phone === fullPhone
-        )
+        const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+        const foundUser = usersData?.users?.find((u: any) => {
+          const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
+          const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
+          return uDigits === digits || mDigits === digits || u.email === dummyEmail || u.email?.includes(digits)
+        })
         if (foundUser) {
           await admin.auth.admin.updateUserById(foundUser.id, {
             user_metadata: {
