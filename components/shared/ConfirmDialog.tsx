@@ -7,7 +7,6 @@ import {
   Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 interface ConfirmDialogProps {
@@ -76,7 +75,8 @@ export function ConfirmDialog({
             <Label className="text-xs font-semibold text-slate-200" style={{ color: '#e2e8f0' }}>
               Reason / Wajah (Optional)
             </Label>
-            <Input
+            <input
+              type="text"
               value={reason}
               onChange={e => setReason(e.target.value)}
               placeholder={reasonPlaceholder}
@@ -87,7 +87,7 @@ export function ConfirmDialog({
                 caretColor: '#38bdf8',
                 backgroundColor: '#020617',
               }}
-              className="bg-slate-950 border-slate-700 !text-white placeholder:!text-slate-400 focus-visible:border-sky-400 focus-visible:ring-sky-400/30 text-sm font-medium px-3 py-2 h-10 shadow-inner"
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm font-medium text-white placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/30 transition-all shadow-inner"
             />
           </div>
         )}
