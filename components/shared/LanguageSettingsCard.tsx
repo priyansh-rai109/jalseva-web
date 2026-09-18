@@ -35,11 +35,6 @@ export function LanguageSettingsCard({ className }: LanguageSettingsCardProps) {
             </div>
             <span>{t('languageSettingsTitle', 'Language Preferences')}</span>
           </CardTitle>
-
-          <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-xs font-semibold px-2.5 py-0.5">
-            <Globe className="w-3 h-3 mr-1" />
-            {language === 'hi' ? 'हिन्दी (Active)' : 'English (Active)'}
-          </Badge>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
           {t('languageSettingsSubtitle', 'Choose your preferred display language for JalSeva')}
@@ -53,7 +48,7 @@ export function LanguageSettingsCard({ className }: LanguageSettingsCardProps) {
             type="button"
             onClick={() => handleSelectLanguage('hi')}
             className={cn(
-              'flex items-start justify-between p-4 rounded-2xl border text-left transition-all duration-200 group relative',
+              'flex items-start justify-between p-4 rounded-xl border text-left transition-all duration-200 group relative',
               language === 'hi'
                 ? 'bg-sky-500/15 border-sky-500 ring-2 ring-sky-500/30 shadow-md shadow-sky-500/10'
                 : 'bg-secondary/50 border-border hover:bg-secondary/80 hover:border-sky-500/40'
@@ -90,7 +85,7 @@ export function LanguageSettingsCard({ className }: LanguageSettingsCardProps) {
             type="button"
             onClick={() => handleSelectLanguage('en')}
             className={cn(
-              'flex items-start justify-between p-4 rounded-2xl border text-left transition-all duration-200 group relative',
+              'flex items-start justify-between p-4 rounded-xl border text-left transition-all duration-200 group relative',
               language === 'en'
                 ? 'bg-sky-500/15 border-sky-500 ring-2 ring-sky-500/30 shadow-md shadow-sky-500/10'
                 : 'bg-secondary/50 border-border hover:bg-secondary/80 hover:border-sky-500/40'

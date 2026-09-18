@@ -147,13 +147,12 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{userName}</p>
-            <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+            <p className="text-sm font-medium truncate" title={userName}>{userName}</p>
+            <p className="text-xs text-muted-foreground truncate" title={userEmail}>{userEmail}</p>
           </div>
         </div>
-        <div className="mt-2.5 flex items-center justify-between gap-2">
+        <div className="mt-2.5 flex items-center gap-2">
           <Badge className={cn('text-xs px-2 py-0.5', roleColor)}>{roleLabel}</Badge>
-          <ThemeToggle variant="compact" />
         </div>
       </div>
 
@@ -186,8 +185,12 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0 }: Si
         })}
       </nav>
 
-      {/* Sign out */}
-      <div className="p-3 border-t border-border">
+      {/* Footer / Utilities & Sign out */}
+      <div className="p-3 border-t border-border space-y-1.5">
+        <div className="flex items-center justify-between px-3 py-1 text-xs text-muted-foreground">
+          <span className="font-medium">Theme</span>
+          <ThemeToggle variant="compact" />
+        </div>
         <button
           onClick={() => setShowLogoutConfirm(true)}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 min-h-[40px]"

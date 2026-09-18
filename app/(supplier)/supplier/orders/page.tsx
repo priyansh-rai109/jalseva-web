@@ -220,7 +220,7 @@ export default function SupplierOrdersPage() {
             const isCancelled = order.status === 'cancelled'
             const isUpdating = updatingId === order.id
 
-            const customerName = formatDisplayName(order.customers?.name, order.customers?.phone)
+            const customerName = formatDisplayName(order.customers?.name, null, 'customer')
             const customerPhone = order.customers?.phone || ''
             const cleanPhone = customerPhone.replace(/\D/g, '')
 
@@ -284,7 +284,7 @@ export default function SupplierOrdersPage() {
                           <p className="text-xs text-muted-foreground/90 pt-0.5">
                             📍 <strong>{t('deliveryAddress')}:</strong>{' '}
                             {typeof order.delivery_address === 'object'
-                              ? `${order.delivery_address.line1 || ''}, ${order.delivery_address.city || ''}`
+                              ? `${order.delivery_address.line1 || ''}${order.delivery_address.zone ? ` • Zone: ${order.delivery_address.zone}` : ''}, ${order.delivery_address.city || ''}${order.delivery_address.pincode ? ` (${order.delivery_address.pincode})` : ''}`
                               : order.delivery_address}
                           </p>
                         )}

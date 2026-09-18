@@ -83,6 +83,29 @@ export default function SupplierSettingsPage() {
       setSaving(false)
       return
     }
+
+    // Also update profiles table
+    if (supplier?.user_id) {
+      await supabase.from('profiles').update({
+        name: businessName || ownerName,
+        phone,
+      }).eq('id', supplier.user_id)
+    }
+
+    // Update session cookie so sidebar and headers update immediately
+    try {
+      const raw = document.cookie.split(';').map(c => c.trim()).find(r => r.startsWith('jalseva-mock-session='))
+      if (raw) {
+        const parsed = JSON.parse(decodeURIComponent(raw.substring('jalseva-mock-session='.length)))
+        parsed.user_metadata = {
+          ...(parsed.user_metadata || {}),
+          name: businessName || ownerName,
+          phone,
+        }
+        document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(parsed))}; path=/; SameSite=Lax`
+      }
+    } catch {}
+
     toast.success(language === 'hi' ? 'सप्लायर सेटिंग्स सुरक्षित हो गईं!' : 'Supplier settings updated!')
     setSaving(false)
   }
@@ -94,7 +117,7 @@ export default function SupplierSettingsPage() {
   )
 
   return (
-    <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-6 max-w-2xl">
+    <div className="space-y-5 sm:space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2.5" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
           <Settings className="w-7 h-7 text-sky-400" />
@@ -176,7 +199,7 @@ export default function SupplierSettingsPage() {
             <div className="space-y-1.5">
               <Label>{language === 'hi' ? 'डिलीवरी जोन (Area Zone)' : 'Delivery Zone'}</Label>
               <Select value={zoneId} onValueChange={(v) => setZoneId(v || '')}>
-                <SelectTrigger className="bg-secondary">
+                <SelectTrigger className="w-full bg-secondary">
                   <SelectValue placeholder="Select Zone" />
                 </SelectTrigger>
                 <SelectContent>
@@ -208,11 +231,11 @@ export default function SupplierSettingsPage() {
             />
           </div>
 
-          <Button onClick={save} disabled={saving} className="water-shimmer text-white w-full sm:w-auto mt-2">
+          <Button onClick={save} disabled={saving} className="water-shimmer text-white w-full sm:w-auto mt-2 h-10 px-5 rounded-xl font-medium shadow-sm transition-all duration-200">
             {saving ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {language === 'hi' ? 'सुरक्षित हो रहा है...' : 'Saving...'}</>
             ) : (
-              <><Save className="w-4 h-4 mr-2" /> {language === 'hi' ? 'बदलाव सुरक्षित करें' : 'Save Changes'}</>
+              <><Save className="w-4 h-4 mr-2" /> {language === 'hi' ? 'व्यावसायिक जानकारी सुरक्षित करें' : 'Save Business Details'}</>
             )}
           </Button>
         </CardContent>
@@ -220,27 +243,43 @@ export default function SupplierSettingsPage() {
 
       {/* 4. Dispatch & Order Alert Preferences */}
       <Card className="glass-card">
-        <CardHeader className="pb-3">
+        <CardHeader className="p-4 sm:p-6 pb-3 border-b border-border/40 flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             <Bell className="w-4 h-4 text-purple-400" />
             <span>{language === 'hi' ? 'ऑर्डर अलर्ट व प्राथमिकताएं' : 'Order Alerts & Priority'}</span>
           </CardTitle>
+          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>{language === 'hi' ? 'स्वतः सुरक्षित' : 'Auto-saved'}</span>
+          </span>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">{language === 'hi' ? 'नए ऑर्डर का तुरंत अलर्ट' : 'Instant Order Sound Alert'}</p>
-              <p className="text-xs text-muted-foreground">{language === 'hi' ? 'नया ऑर्डर आने पर रिंग व पुश नोटिफिकेशन' : 'Play chime sound and notify when new order arrives'}</p>
+        <CardContent className="p-4 sm:p-6 divide-y divide-border/60">
+          <div className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium leading-none">{language === 'hi' ? 'नए ऑर्डर का तुरंत अलर्ट' : 'Instant Order Sound Alert'}</p>
+              <p className="text-xs text-muted-foreground mt-1">{language === 'hi' ? 'नया ऑर्डर आने पर रिंग व पुश नोटिफिकेशन' : 'Play chime sound and notify when new order arrives'}</p>
             </div>
-            <Switch checked={instantOrderAlerts} onCheckedChange={setInstantOrderAlerts} />
+            <Switch
+              checked={instantOrderAlerts}
+              onCheckedChange={(checked) => {
+                setInstantOrderAlerts(checked)
+                toast.success(language === 'hi' ? 'अलर्ट प्राथमिकताएं स्वतः सुरक्षित हो गईं' : 'Order alert preferences auto-saved')
+              }}
+            />
           </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">{language === 'hi' ? '⚡ 60-मिनट आपातकालीन डिलीवरी स्वीकारें' : 'Accept 60-Min Emergency Orders'}</p>
-              <p className="text-xs text-muted-foreground">{language === 'hi' ? 'प्राथमिकता शुल्क (+₹50) वाले आपातकालीन ऑर्डर प्राप्त करें' : 'Receive priority emergency express dispatch orders (+₹50 fee)'}</p>
+          <div className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium leading-none">{language === 'hi' ? '⚡ 60-मिनट आपातकालीन डिलीवरी स्वीकारें' : 'Accept 60-Min Emergency Orders'}</p>
+              <p className="text-xs text-muted-foreground mt-1">{language === 'hi' ? 'प्राथमिकता शुल्क (+₹50) वाले आपातकालीन ऑर्डर प्राप्त करें' : 'Receive priority emergency express dispatch orders (+₹50 fee)'}</p>
             </div>
-            <Switch checked={emergencyDeliveryEnabled} onCheckedChange={setEmergencyDeliveryEnabled} />
+            <Switch
+              checked={emergencyDeliveryEnabled}
+              onCheckedChange={(checked) => {
+                setEmergencyDeliveryEnabled(checked)
+                toast.success(language === 'hi' ? 'आपातकालीन डिलीवरी प्राथमिकता स्वतः सुरक्षित हो गई' : 'Emergency delivery preference auto-saved')
+              }}
+            />
           </div>
         </CardContent>
       </Card>

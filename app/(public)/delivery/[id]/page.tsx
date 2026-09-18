@@ -60,13 +60,12 @@ export default function DriverQuickDeliveryPage() {
 
     setVerifying(true)
     try {
-      const res = await fetch('/api/supplier/orders', {
+      const res = await fetch(`/api/orders/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderId: id,
-          status: 'delivered',
-          notes: `Verified & Delivered via Driver Quick Portal (PIN: ${enteredPin})`,
+          action: 'verify_pin_and_deliver',
+          pin: enteredPin.trim(),
         }),
       })
 

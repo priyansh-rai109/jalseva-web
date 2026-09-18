@@ -278,16 +278,16 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
         <div className="absolute -bottom-2 -left-2 sm:-left-4 bg-card/95 backdrop-blur-md border border-sky-500/40 rounded-xl py-1 px-2.5 shadow-lg flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
           <div className="text-left">
-            <div className="text-[10px] font-bold text-foreground font-mono">TDS {tdsValue} PPM</div>
-            <div className="text-[8px] text-muted-foreground">{language === 'hi' ? 'आदर्श शुद्धता' : 'WHO Standard'}</div>
+            <div className="text-xs font-bold text-foreground font-mono">TDS {tdsValue} PPM</div>
+            <div className="text-xs text-muted-foreground">{language === 'hi' ? 'आदर्श शुद्धता' : 'WHO Standard'}</div>
           </div>
         </div>
 
         <div className="absolute -top-2 -right-2 sm:-right-4 bg-card/95 backdrop-blur-md border border-emerald-500/40 rounded-xl py-1 px-2.5 shadow-lg flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
           <div className="text-left">
-            <div className="text-[10px] font-bold text-foreground">100% RO + UV</div>
-            <div className="text-[8px] text-emerald-400 font-semibold">{language === 'hi' ? 'लैब प्रमाणित' : 'Lab Tested'}</div>
+            <div className="text-xs font-bold text-foreground">100% RO + UV</div>
+            <div className="text-xs text-emerald-400 font-semibold">{language === 'hi' ? 'लैब प्रमाणित' : 'Lab Tested'}</div>
           </div>
         </div>
       </div>
@@ -297,8 +297,9 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
         <Button
           type="button"
           size="sm"
+          variant="outline"
           onClick={() => triggerWaterDrop()}
-          className="water-shimmer text-white text-xs h-7 px-2.5 rounded-lg shadow-sm flex items-center gap-1 font-semibold"
+          className="text-xs h-7 px-2.5 rounded-lg border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 hover:text-white flex items-center gap-1 font-medium transition-colors"
         >
           <Plus className="w-3 h-3" />
           <span>{language === 'hi' ? '💧 बूंद डालें (+5%)' : '💧 Add Drop (+5%)'}</span>
@@ -316,8 +317,8 @@ export function Water3DOrbHero({ variant = 'full' }: Water3DOrbHeroProps) {
         </Button>
       </div>
 
-      <p className="text-[10px] text-muted-foreground/80 mt-1.5 flex items-center gap-1">
-        <Waves className="w-2.5 h-2.5 text-sky-400 animate-pulse" />
+      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+        <Waves className="w-3 h-3 text-sky-400 animate-pulse" />
         <span>{language === 'hi' ? 'क्लिक करके पानी डालें और माउस घुमाकर तरंगें देखें' : 'Click to add water drops & hover to tilt waves'}</span>
       </p>
     </div>

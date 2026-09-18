@@ -88,7 +88,7 @@ export function DispatchOrderModal({
 
   if (!order) return null
 
-  const customerName = formatDisplayName(order.customers?.name || 'Customer')
+  const customerName = formatDisplayName(order.customers?.name, null, 'customer')
   const customerPhone = order.customers?.phone || ''
   const shortId = order.id?.slice(0, 8).toUpperCase()
 

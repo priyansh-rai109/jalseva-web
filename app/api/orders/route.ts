@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifySupplierNewOrder, notifyCustomerOrderPlaced } from '@/lib/services/notification-service'
+import { resolveRealName, isPlaceholderName } from '@/lib/utils'
 
 export async function POST(request: Request) {
   try {
@@ -51,11 +52,21 @@ export async function POST(request: Request) {
         if (byPhone) existingCustomer = byPhone
       }
 
+      const candidateName = resolveRealName([
+        user.user_metadata?.name,
+        user.user_metadata?.full_name,
+        (user as any).name,
+      ]) || 'Customer'
+
       if (existingCustomer) {
         customerObj = existingCustomer
+        if (candidateName && !isPlaceholderName(candidateName) && isPlaceholderName(existingCustomer.name)) {
+          adminSupabase.from('customers').update({ name: candidateName }).eq('id', existingCustomer.id).then(() => {})
+          customerObj.name = candidateName
+        }
       } else {
         // We MUST provision them. 
-        const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Customer'
+        const name = candidateName
         const dummyEmail = `test_${phoneToUse.replace('+', '')}@jalseva.demo`
         
         let realUserId = user.id
@@ -166,9 +177,11 @@ export async function POST(request: Request) {
         await adminSupabase.from('order_tracking').insert({
           order_id: newOrder.id,
           status: 'pending',
-          notes: 'Order placed by customer. Awaiting supplier confirmation.',
+          note: 'Order placed by customer. Awaiting supplier confirmation.',
         })
-      } catch {}
+      } catch (trackErr) {
+        console.warn('[Order Tracking Insert Warning]', trackErr)
+      }
 
       // 4. Notify Customer In-App Notification
       await notifyCustomerOrderPlaced({

@@ -51,60 +51,68 @@ export default function AdminSettingsPage() {
       <LanguageSettingsCard />
 
       {/* Platform Info */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+      <Card className="glass-card shadow-sm">
+        <CardHeader className="p-5 sm:p-6 pb-3 border-b border-border/40">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             <Globe className="w-5 h-5 text-sky-400" /> Platform Info
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="p-5 sm:p-6 space-y-4">
           <div className="space-y-2">
-            <Label>Platform Name</Label>
-            <Input value={settings.platformName}
+            <Label className="text-sm font-medium">Platform Name</Label>
+            <Input
+              value={settings.platformName}
               onChange={e => setSettings(p => ({ ...p, platformName: e.target.value }))}
-              className="bg-secondary" />
+              className="bg-secondary/60"
+            />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Support Email</Label>
-              <Input value={settings.platformEmail}
+              <Label className="text-sm font-medium">Support Email</Label>
+              <Input
+                value={settings.platformEmail}
                 onChange={e => setSettings(p => ({ ...p, platformEmail: e.target.value }))}
-                className="bg-secondary" />
+                className="bg-secondary/60"
+              />
             </div>
             <div className="space-y-2">
-              <Label>Support Phone</Label>
-              <Input value={settings.platformPhone}
+              <Label className="text-sm font-medium">Support Phone</Label>
+              <Input
+                value={settings.platformPhone}
                 onChange={e => setSettings(p => ({ ...p, platformPhone: e.target.value }))}
-                className="bg-secondary" />
+                className="bg-secondary/60"
+              />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Service City</Label>
-            <Input value={settings.city}
+            <Label className="text-sm font-medium">Service City</Label>
+            <Input
+              value={settings.city}
               onChange={e => setSettings(p => ({ ...p, city: e.target.value }))}
-              className="bg-secondary" />
+              className="bg-secondary/60"
+            />
           </div>
         </CardContent>
       </Card>
 
       {/* Access Control */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+      <Card className="glass-card shadow-sm">
+        <CardHeader className="p-5 sm:p-6 pb-3 border-b border-border/40">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             <Shield className="w-5 h-5 text-amber-400" /> Access Control
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="p-5 sm:p-6 divide-y divide-border/60">
           {[
             { key: 'allowNewSuppliers', label: 'Allow New Supplier Registrations', desc: 'New water suppliers can sign up' },
             { key: 'allowNewCustomers', label: 'Allow New Customer Registrations', desc: 'New customers can create accounts' },
             { key: 'autoApproveSuppliers', label: 'Auto-Approve Suppliers', desc: 'Skip manual approval — suppliers are active immediately' },
             { key: 'maintenanceMode', label: 'Maintenance Mode', desc: 'Temporarily disable the platform for maintenance' },
           ].map(item => (
-            <div key={item.key} className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.desc}</p>
+            <div key={item.key} className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium leading-none">{item.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
               </div>
               <Switch
                 checked={settings[item.key as keyof typeof settings] as boolean}
@@ -116,21 +124,21 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* Notifications */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+      <Card className="glass-card shadow-sm">
+        <CardHeader className="p-5 sm:p-6 pb-3 border-b border-border/40">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             <Bell className="w-5 h-5 text-purple-400" /> Notifications
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="p-5 sm:p-6 divide-y divide-border/60">
           {[
             { key: 'emailNotifications', label: 'Email Notifications', desc: 'Send order updates via email' },
             { key: 'smsNotifications', label: 'SMS Notifications', desc: 'Send order updates via SMS (requires SMS provider)' },
           ].map(item => (
-            <div key={item.key} className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.desc}</p>
+            <div key={item.key} className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium leading-none">{item.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
               </div>
               <Switch
                 checked={settings[item.key as keyof typeof settings] as boolean}
@@ -142,13 +150,13 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* Database info */}
-      <Card className="glass-card border-sky-500/10">
-        <CardContent className="p-5">
+      <Card className="glass-card border-sky-500/10 shadow-sm">
+        <CardContent className="p-5 sm:p-6">
           <div className="flex items-start gap-3">
             <Database className="w-5 h-5 text-sky-400 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-sm font-medium">Supabase Database</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                 Connected to Supabase Postgres. Realtime is enabled for orders and notifications tables.
                 Use the Supabase dashboard to manage backups, extensions, and advanced settings.
               </p>

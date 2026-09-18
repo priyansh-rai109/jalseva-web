@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Clock, CheckCircle2, Truck, XCircle,
-  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban, Sparkles, Edit3, Navigation, Compass, FileText, KeyRound, ShieldCheck
+  Star, Phone, MessageSquare, Loader2, MapPin, ClipboardList, Ban, Sparkles, Edit3, Navigation, Compass, FileText, KeyRound, ShieldCheck, AlertTriangle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ReviewModal } from '@/components/shared/ReviewModal'
 import { LiveGpsMapModal } from '@/components/shared/LiveGpsMapModal'
 import { TaxInvoiceModal } from '@/components/shared/TaxInvoiceModal'
+import { ComplaintModal } from '@/components/customer/ComplaintModal'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
 import { formatCurrency, formatDateTime, getOrderStatusColor, getOrderStatusLabel, getDeliveryPin } from '@/lib/utils'
 import Link from 'next/link'
@@ -28,6 +29,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null)
   const [tracking, setTracking] = useState<any[]>([])
   const [review, setReview] = useState<any>(null)
+  const [complaints, setComplaints] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   // Cancel modal state
@@ -38,6 +40,7 @@ export default function OrderDetailPage() {
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [gpsModalOpen, setGpsModalOpen] = useState(false)
   const [invoiceOpen, setInvoiceOpen] = useState(false)
+  const [complaintModalOpen, setComplaintModalOpen] = useState(false)
   const autoPromptTriggered = useRef(false)
 
   const steps = [
@@ -97,6 +100,7 @@ export default function OrderDetailPage() {
         setOrder(json.order)
         setTracking(json.tracking || [])
         setReview(json.review || null)
+        setComplaints(json.complaints || [])
 
         // Auto-prompt review if delivered and unreviewed on initial load
         if (
@@ -218,6 +222,24 @@ export default function OrderDetailPage() {
             <span>{language === 'hi' ? 'जीएसटी रसीद / Invoice' : 'Tax Invoice'}</span>
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            className={`text-xs min-h-[36px] gap-1.5 transition-all ${
+              complaints.length > 0
+                ? 'border-amber-500 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 font-bold shadow-md shadow-amber-500/10'
+                : 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
+            }`}
+            onClick={() => setComplaintModalOpen(true)}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>
+              {complaints.length > 0
+                ? (language === 'hi' ? `शिकायत दर्ज है (${complaints.length})` : `Complaint Active (${complaints.length})`)
+                : (language === 'hi' ? 'शिकायत / Report Issue' : 'Report Issue')}
+            </span>
+          </Button>
+
           {canCancel && (
             <Button
               variant="destructive"
@@ -260,6 +282,44 @@ export default function OrderDetailPage() {
                 )
               })}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Complaints Banner */}
+      {complaints.length > 0 && (
+        <Card className="glass-card border-amber-500/40 bg-amber-500/5 shadow-md shadow-amber-500/5">
+          <CardHeader className="p-4 sm:p-5 pb-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2 text-amber-400" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span>{language === 'hi' ? 'दर्ज शिकायत व सहायता स्थिति' : 'Active Complaint & Support Status'}</span>
+              </CardTitle>
+              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[11px] capitalize font-semibold">
+                Status: {complaints[0].status}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5 pt-1 space-y-2">
+            {complaints.map((c) => (
+              <div key={c.id} className="p-3 rounded-xl bg-card/60 border border-border/80 text-xs space-y-1.5">
+                <div className="flex items-center justify-between text-muted-foreground text-[11px]">
+                  <span className="font-mono">#{c.id.slice(0, 8).toUpperCase()}</span>
+                  <span>{formatDateTime(c.created_at)}</span>
+                </div>
+                <p className="text-foreground font-medium text-sm">"{c.description}"</p>
+                <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[11px]">
+                  <span className="text-sky-400 font-medium">⚡ Zapier Automated Analysis Active</span>
+                  <button
+                    type="button"
+                    onClick={() => setComplaintModalOpen(true)}
+                    className="text-amber-400 hover:underline font-semibold"
+                  >
+                    + {language === 'hi' ? 'विवरण देखें / जोड़ें' : 'View Details'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
@@ -475,6 +535,18 @@ export default function OrderDetailPage() {
               <span>{language === 'hi' ? 'भुगतान माध्यम' : 'Payment Mode'}:</span>
               <span className="capitalize font-medium text-foreground">{order.payment_mode?.replace(/_/g, ' ')}</span>
             </div>
+            {order.delivery_address && (
+              <div className="pt-2 text-xs text-muted-foreground border-t border-border/40">
+                <span className="font-semibold flex items-center gap-1 text-foreground mb-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-sky-400" /> {t('deliveryAddress')}:
+                </span>
+                <span>
+                  {typeof order.delivery_address === 'object'
+                    ? `${order.delivery_address.line1 || ''}${order.delivery_address.zone ? ` • Zone: ${order.delivery_address.zone}` : ''}, ${order.delivery_address.city || ''}${order.delivery_address.pincode ? ` (${order.delivery_address.pincode})` : ''}`
+                    : String(order.delivery_address)}
+                </span>
+              </div>
+            )}
             {order.special_instructions && (
               <div className="pt-2 text-xs text-muted-foreground border-t border-border/40">
                 <span className="font-semibold">{t('specialInstructions')}:</span> {order.special_instructions}
@@ -490,6 +562,20 @@ export default function OrderDetailPage() {
           isOpen={invoiceOpen}
           onClose={() => setInvoiceOpen(false)}
           order={order}
+        />
+      )}
+
+      {/* Complaint / Issue Report Modal */}
+      {order && (
+        <ComplaintModal
+          isOpen={complaintModalOpen}
+          onClose={() => setComplaintModalOpen(false)}
+          orderId={order.id}
+          orderShortId={order.id.slice(0, 8).toUpperCase()}
+          onComplaintSubmitted={(newComplaint) => {
+            setComplaints((prev) => [newComplaint, ...prev])
+            fetchOrderDetails(false)
+          }}
         />
       )}
 

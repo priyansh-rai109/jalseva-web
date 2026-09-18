@@ -143,7 +143,8 @@ export default function SupplierOrderDetailPage() {
 
   const customerName = formatDisplayName(
     order.customers?.name,
-    order.customers?.phone
+    null,
+    'customer'
   )
   const customerPhone = order.customers?.phone || 'Not provided'
   const cleanPhone = customerPhone.replace(/\D/g, '')
@@ -265,7 +266,7 @@ export default function SupplierOrderDetailPage() {
                 <p className="text-sm font-medium">
                   {typeof order.delivery_address === 'string'
                     ? order.delivery_address
-                    : (order.delivery_address?.line1 || order.delivery_address?.address || 'Standard Address')}
+                    : `${order.delivery_address?.line1 || order.delivery_address?.address || 'Standard Address'}${order.delivery_address?.zone ? ` • Zone: ${order.delivery_address.zone}` : ''}${order.delivery_address?.city ? `, ${order.delivery_address.city}` : ''}${order.delivery_address?.pincode ? ` (${order.delivery_address.pincode})` : ''}`}
                 </p>
               </div>
             </CardContent>

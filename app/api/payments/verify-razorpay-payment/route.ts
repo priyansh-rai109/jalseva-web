@@ -37,25 +37,38 @@ export async function POST(request: Request) {
 
     const adminSupabase = createAdminClient()
 
-    // If an existing order ID was provided, update it to confirmed & append payment info
+    // If an existing order ID was provided, mark payment as paid while keeping status pending for supplier confirmation
     if (orderId) {
+      const { data: existingOrder } = await adminSupabase
+        .from('orders')
+        .select('special_instructions')
+        .eq('id', orderId)
+        .maybeSingle()
+
+      const razorpayTag = `[Paid via Razorpay - Payment ID: ${razorpay_payment_id}]`
+      const combinedInstructions = existingOrder?.special_instructions
+        ? `${existingOrder.special_instructions} ${razorpayTag}`
+        : razorpayTag
+
       await adminSupabase
         .from('orders')
         .update({
-          status: 'confirmed',
+          status: 'pending',
           payment_mode: 'online',
           payment_status: 'paid',
-          special_instructions: `[Paid via Razorpay - Payment ID: ${razorpay_payment_id}]`,
+          special_instructions: combinedInstructions,
         })
         .eq('id', orderId)
 
       try {
         await adminSupabase.from('order_tracking').insert({
           order_id: orderId,
-          status: 'confirmed',
-          notes: `Payment verified via Razorpay (ID: ${razorpay_payment_id})`,
+          status: 'pending',
+          note: `Payment verified via Razorpay (ID: ${razorpay_payment_id}). Awaiting supplier confirmation.`,
         })
-      } catch {}
+      } catch (trackErr) {
+        console.warn('[Order Tracking Insert Warning]', trackErr)
+      }
     }
 
     return NextResponse.json({

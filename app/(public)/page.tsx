@@ -112,26 +112,33 @@ function Hero() {
             <span className="gradient-text">{t('heroTitle2')}</span>
           </h1>
 
-          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed">
             {t('heroSubtitle')}
           </p>
 
-          {/* Interactive 3D Water Orb Hero Animation */}
-          <Water3DOrbHero />
-
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+          {/* Primary Action Buttons - Undisputed Conversion Focal Point */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-6 sm:mb-8">
             <Link href="/register" className="w-full sm:w-auto">
-              <Button size="lg" className="w-full sm:w-auto water-shimmer text-white font-semibold px-8 h-12 text-base group glow-blue">
+              <Button size="lg" className="w-full sm:w-auto water-shimmer text-white font-semibold px-8 h-12 text-base group shadow-lg shadow-sky-500/25">
                 {t('orderWaterNow')}
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
             <Link href="/register?role=supplier" className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto border-border/50 text-foreground px-8 h-12 text-base hover:border-amber-500/50 hover:text-amber-400 transition-all">
-                <Building2 className="w-4 h-4 mr-2" />
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto border border-border bg-secondary/60 text-foreground px-8 h-12 text-base hover:bg-secondary hover:border-sky-400 hover:text-sky-300 font-semibold shadow-sm transition-all"
+              >
+                <Building2 className="w-4 h-4 mr-2 text-sky-400" />
                 {t('becomeSupplier')}
               </Button>
             </Link>
+          </div>
+
+          {/* Interactive 3D Water Orb Hero Animation - Supporting Visual Proof */}
+          <div className="my-2">
+            <Water3DOrbHero variant="compact" />
           </div>
 
           {/* Trust badges */}
@@ -284,7 +291,7 @@ function HowItWorks() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 sm:gap-8 relative">
-          <div className="hidden md:block absolute top-12 left-1/3 right-1/3 h-0.5 bg-gradient-to-r from-sky-500/30 via-sky-500/60 to-sky-500/30" />
+          <div className="hidden md:block absolute top-12 left-[18%] right-[18%] h-0 border-t-2 border-dashed border-sky-400/50 z-0" aria-hidden="true" />
 
           {stepsList.map((step, i) => (
             <div key={step.step} className="relative text-center">
@@ -314,29 +321,23 @@ function ProductTypes() {
     {
       name: t('tanker'),
       desc: t('tankerDesc'),
-      capacity: '5,000 – 10,000 L',
+      capacity: language === 'hi' ? '5,000 – 10,000 लीटर' : '5,000 – 10,000 liters',
       price: language === 'hi' ? '₹800 से' : 'From ₹800',
       icon: '🚛',
-      color: 'from-sky-600/20 to-blue-600/20',
-      border: 'border-sky-500/20',
     },
     {
       name: t('can'),
       desc: t('canDesc'),
-      capacity: '20 L',
+      capacity: language === 'hi' ? '20 लीटर' : '20 liters',
       price: language === 'hi' ? '₹30 से' : 'From ₹30',
       icon: '🫙',
-      color: 'from-cyan-600/20 to-teal-600/20',
-      border: 'border-cyan-500/20',
     },
     {
       name: t('pouch'),
       desc: t('pouchDesc'),
-      capacity: '100 Pcs (250ml)',
+      capacity: language === 'hi' ? '100 पाउच (250ml)' : '100 pouches (250ml)',
       price: language === 'hi' ? '₹120 से' : 'From ₹120',
       icon: '💧',
-      color: 'from-teal-600/20 to-emerald-600/20',
-      border: 'border-teal-500/20',
     },
   ]
 
@@ -345,7 +346,7 @@ function ProductTypes() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10 sm:mb-16">
           <Badge className="mb-3 sm:mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs">{t('waterProducts')}</Badge>
-          <h2 className="text-2xl sm:text-4xl font-bold mb-2 sm:mb-4" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2 sm:mb-4" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             {language === 'hi' ? 'आपकी हर ज़रूरत के लिए शुद्ध जल' : 'Every Water Need, Covered'}
           </h2>
           <p className="text-muted-foreground text-xs sm:text-sm">
@@ -356,7 +357,7 @@ function ProductTypes() {
           {productTypesList.map((product) => (
             <div
               key={product.name}
-              className={`relative p-5 sm:p-6 rounded-2xl border ${product.border} bg-gradient-to-br ${product.color} hover:scale-105 transition-all duration-300 cursor-pointer group`}
+              className="glass-card relative p-5 sm:p-6 rounded-2xl border border-border/60 bg-card/40 hover:bg-card/70 hover:border-sky-500/40 transition-all duration-300 group"
             >
               <div className="text-4xl sm:text-5xl mb-3 sm:mb-4 group-hover:animate-float">{product.icon}</div>
               <h3 className="text-lg sm:text-xl font-bold mb-1 sm:mb-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
@@ -364,10 +365,10 @@ function ProductTypes() {
               </h3>
               <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">{product.desc}</p>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground bg-white/5 px-2.5 sm:px-3 py-1 rounded-full">{product.capacity}</span>
+                <span className="text-xs text-muted-foreground bg-secondary/80 border border-border/50 px-2.5 sm:px-3 py-1 rounded-full">{product.capacity}</span>
                 <span className="font-semibold text-sm sm:text-base text-sky-400">{product.price}</span>
               </div>
-              <Link href="/register" className="mt-3 sm:mt-4 flex items-center gap-1 text-xs sm:text-sm text-sky-400 group-hover:gap-2 transition-all">
+              <Link href="/register" className="mt-3 sm:mt-4 flex items-center gap-1 text-xs sm:text-sm text-sky-400 font-medium group-hover:gap-2 transition-all">
                 {t('orderWaterNow')} <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </Link>
             </div>
@@ -428,7 +429,7 @@ function Testimonials() {
                 </div>
                 <div>
                   <div className="text-xs sm:text-sm font-medium">{tItem.name}</div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> {tItem.location}
                   </div>
                 </div>
@@ -521,13 +522,14 @@ function Footer() {
 
           {/* Links */}
           <div>
-            <h4 className="font-semibold text-sm mb-4">{language === 'hi' ? 'प्लेटफॉर्म' : 'Platform'}</h4>
+            <h3 className="font-semibold text-sm mb-4 text-foreground">{language === 'hi' ? 'प्लेटफॉर्म' : 'Platform'}</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               {[
                 { label: language === 'hi' ? 'सप्लायर्स देखें' : 'Browse Suppliers', href: '/login' },
                 { label: language === 'hi' ? 'पानी ऑर्डर करें' : 'Order Water', href: '/login' },
                 { label: language === 'hi' ? 'ऑर्डर ट्रैक करें' : 'Track Order', href: '/login' },
                 { label: language === 'hi' ? 'सप्लायर बनें' : 'Become Supplier', href: '/register?role=supplier' },
+                { label: language === 'hi' ? 'एडमिन / ऑपरेटर लॉगिन' : 'Admin / Operator Login', href: '/admin-login' },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-foreground transition-colors">{item.label}</Link>
@@ -537,7 +539,7 @@ function Footer() {
           </div>
 
           <div>
-            <h4 className="font-semibold text-sm mb-4">{language === 'hi' ? 'कंपनी' : 'Company'}</h4>
+            <h3 className="font-semibold text-sm mb-4 text-foreground">{language === 'hi' ? 'कंपनी' : 'Company'}</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               {[
                 { label: language === 'hi' ? 'हमारे बारे में' : 'About Us', href: '#' },
@@ -553,11 +555,15 @@ function Footer() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+        <div className="pt-8 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <span>© 2024 JalSeva. {language === 'hi' ? 'जोधपुर के लिए 💧 के साथ निर्मित।' : 'Made with 💧 for Jodhpur.'}</span>
-          <Link href="/admin-login" className="hover:text-muted-foreground/70 underline underline-offset-2">
-            Admin / Operator Login
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-foreground transition-colors">{language === 'hi' ? 'गोपनीयता' : 'Privacy'}</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">{language === 'hi' ? 'शर्तें' : 'Terms'}</Link>
+            <Link href="/admin-login" className="hover:text-sky-400 text-muted-foreground transition-colors">
+              {language === 'hi' ? 'एडमिन पोर्टल' : 'Admin Portal'}
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

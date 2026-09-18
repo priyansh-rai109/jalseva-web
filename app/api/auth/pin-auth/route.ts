@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPhoneUuid } from '@/lib/utils'
+import { getPhoneUuid, isPlaceholderName, resolveRealName, formatDisplayName } from '@/lib/utils'
 import {
   hashPin,
   verifyPinHash,
@@ -44,6 +44,33 @@ export async function POST(request: NextRequest) {
     const rateLimitKey = `${clientIp}:${digits}`
     const admin = createAdminClient()
     const fallbackUserId = getPhoneUuid(digits)
+
+    // ── 0. FAST LOOKUP / CHECK-PHONE ACTION ────────────────────────────────
+    if (action === 'check-phone') {
+      const [{ data: prof }, { data: cust }, { data: sup }] = await Promise.all([
+        admin.from('profiles').select('id, name, role').or(`phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%,email.eq.${dummyEmail}`).maybeSingle(),
+        admin.from('customers').select('id, name').or(`phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%`).maybeSingle(),
+        admin.from('suppliers').select('id, business_name, owner_name').or(`phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%`).maybeSingle(),
+      ])
+
+      const detectedRole = prof?.role || (sup ? 'supplier' : 'customer')
+
+      const resolved = resolveRealName(
+        detectedRole === 'supplier'
+          ? [sup?.business_name, sup?.owner_name, prof?.name]
+          : [prof?.name, cust?.name]
+      )
+
+      if (prof || cust || sup || resolved) {
+        return NextResponse.json({
+          success: true,
+          exists: true,
+          name: formatDisplayName(resolved || (detectedRole === 'supplier' ? (sup?.business_name || sup?.owner_name) : (prof?.name || cust?.name)), null, detectedRole as any),
+          role: detectedRole,
+        })
+      }
+      return NextResponse.json({ success: true, exists: false })
+    }
 
     // ── 1. REGISTER ACTION ──────────────────────────────────────────────────
     if (action === 'register') {
@@ -150,7 +177,7 @@ export async function POST(request: NextRequest) {
         const { data: existingSup } = await admin
           .from('suppliers')
           .select('id')
-          .eq('user_id', userId)
+          .or(`user_id.eq.${userId},phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%`)
           .maybeSingle()
 
         if (!existingSup) {
@@ -168,13 +195,20 @@ export async function POST(request: NextRequest) {
             total_orders: 0,
             description: `${bizName || displayName} - Fresh RO & Mineral Water Delivery in ${city}.`,
           })
+        } else {
+          await admin.from('suppliers').update({
+            user_id: userId,
+            business_name: bizName || displayName,
+            owner_name: name || displayName,
+            phone: fullPhone,
+          }).eq('id', existingSup.id)
         }
       } else {
         // Ensure customer record
         const { data: existingCust } = await admin
           .from('customers')
-          .select('id')
-          .eq('user_id', userId)
+          .select('id, name')
+          .or(`user_id.eq.${userId},phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%`)
           .maybeSingle()
 
         if (!existingCust) {
@@ -193,6 +227,13 @@ export async function POST(request: NextRequest) {
               },
             ],
           })
+        } else {
+          // Update customer record with the real registered name and user_id!
+          await admin.from('customers').update({
+            user_id: userId,
+            name: displayName,
+            phone: fullPhone,
+          }).eq('id', existingCust.id)
         }
       }
 
@@ -262,21 +303,21 @@ export async function POST(request: NextRequest) {
       let { data: profile } = await admin
         .from('profiles')
         .select('*')
-        .or(`phone.eq.${fullPhone},phone.eq.${digits},email.eq.${dummyEmail}`)
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%,email.eq.${dummyEmail}`)
         .maybeSingle()
 
       // 2. Check suppliers table
       const { data: supplierRec } = await admin
         .from('suppliers')
         .select('*')
-        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%`)
         .maybeSingle()
 
       // 3. Check customers table
       const { data: custRec } = await admin
         .from('customers')
         .select('*')
-        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .or(`phone.eq.${fullPhone},phone.eq.${digits},phone.eq.91${digits},phone.ilike.%${digits}%`)
         .maybeSingle()
 
       // STRICT CHECK: If user does not exist anywhere, reject direct login!
@@ -292,79 +333,144 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      let userRole: 'customer' | 'supplier' | 'super_admin' = (profile?.role as any) || null
-      let userName = profile?.name || null
-      let userId = profile?.id || null
+      let userRole: 'customer' | 'supplier' | 'super_admin' = (profile?.role as any) || (supplierRec ? 'supplier' : 'customer')
+      let userId = profile?.id || supplierRec?.user_id || custRec?.user_id || fallbackUserId
 
-      if (supplierRec && userRole !== 'super_admin') {
+      // Retrieve any metadata name from Supabase Auth user
+      let authMetaName: string | null = null
+      if (userId && !userId.startsWith('00000000-0000-')) {
+        try {
+          const { data: userRec } = await admin.auth.admin.getUserById(userId)
+          authMetaName = userRec?.user?.user_metadata?.name || userRec?.user?.user_metadata?.full_name || null
+        } catch {}
+      }
+
+      if (!authMetaName) {
+        try {
+          const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 500 })
+          const matchedAuth = usersData?.users?.find((u: any) => {
+            const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
+            const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
+            return uDigits === digits || mDigits === digits || u.email === dummyEmail || u.email?.includes(digits)
+          })
+          if (matchedAuth) {
+            if (!userId || userId.startsWith('00000000-0000-')) {
+              userId = matchedAuth.id
+            }
+            authMetaName = matchedAuth.user_metadata?.name || matchedAuth.user_metadata?.full_name || null
+          }
+        } catch {}
+      }
+
+      let candidateNames: (string | null | undefined)[] = []
+      if (userRole === 'supplier' || supplierRec) {
         userRole = 'supplier'
-        userName = userName || supplierRec.business_name || supplierRec.owner_name
-        userId = userId || supplierRec.user_id || fallbackUserId
+        userId = userId || supplierRec?.user_id || fallbackUserId
+        candidateNames = [
+          supplierRec?.business_name,
+          supplierRec?.owner_name,
+          profile?.name,
+          authMetaName,
+        ]
+      } else {
+        userRole = 'customer'
+        userId = userId || custRec?.user_id || fallbackUserId
+        candidateNames = [
+          custRec?.name,
+          profile?.name,
+          authMetaName,
+        ]
+      }
 
-        // Auto-heal profiles table
+      let userName = resolveRealName(candidateNames)
+      if (!userName) {
+        userName = userRole === 'supplier' ? 'Water Supplier' : 'Customer'
+      } else {
+        userName = formatDisplayName(userName, null, userRole as any)
+      }
+
+      userId = userId || fallbackUserId
+
+      // Auto-heal profiles & customers/suppliers table with the real registered name
+      if (userName && !isPlaceholderName(userName)) {
         await admin.from('profiles').upsert({
           id: userId,
-          role: 'supplier',
+          role: userRole,
           name: userName,
           phone: fullPhone,
           email: dummyEmail,
           updated_at: new Date().toISOString(),
         })
-      } else if (!userRole && custRec) {
-        userRole = 'customer'
-        userName = userName || custRec.name
-        userId = userId || custRec.user_id || fallbackUserId
+
+        if (userRole === 'customer') {
+          if (custRec?.id && isPlaceholderName(custRec.name)) {
+            await admin.from('customers').update({ name: userName }).eq('id', custRec.id)
+          } else if (!custRec) {
+            await admin.from('customers').insert({
+              user_id: userId,
+              name: userName,
+              phone: fullPhone,
+              email: dummyEmail,
+              addresses: [{ id: 'default-addr', city: 'Jodhpur', label: 'Primary', line1: 'Jodhpur, Rajasthan', is_default: true }]
+            })
+          }
+        } else if (userRole === 'supplier') {
+          if (supplierRec?.id && isPlaceholderName(supplierRec.business_name)) {
+            await admin.from('suppliers').update({ business_name: userName }).eq('id', supplierRec.id)
+          }
+        }
       }
 
-      userRole = userRole || 'customer'
-      userName = userName || 'JalSeva User'
-      userId = userId || fallbackUserId
+      // 1. Lookup stored credentials: query Supabase Auth database first for custom PIN
+      let cred: { hash: string; salt: string } | null = null
 
-      // 1. Lookup stored credentials: First in memory cache, then permanently from Supabase Auth database
-      let cred = getCredential(digits)
+      // Check user record by userId first
+      if (userId && !userId.startsWith('00000000-0000-')) {
+        try {
+          const { data: userRec } = await admin.auth.admin.getUserById(userId)
+          if (userRec?.user?.user_metadata?.pin_hash && userRec?.user?.user_metadata?.pin_salt) {
+            cred = {
+              hash: userRec.user.user_metadata.pin_hash,
+              salt: userRec.user.user_metadata.pin_salt,
+            }
+            setCredential(digits, cred.hash, cred.salt)
+          }
+        } catch (e) {
+          console.warn('[pin-auth] getUserById notice:', e)
+        }
+      }
 
+      // Check all matching auth users by phone/email specifically for one with custom PIN
       if (!cred) {
-        // Query Supabase Auth database for persisted custom PIN
-        if (userId && !userId.startsWith('00000000-0000-')) {
-          try {
-            const { data: userRec } = await admin.auth.admin.getUserById(userId)
-            if (userRec?.user?.user_metadata?.pin_hash && userRec?.user?.user_metadata?.pin_salt) {
-              cred = {
-                hash: userRec.user.user_metadata.pin_hash,
-                salt: userRec.user.user_metadata.pin_salt,
-              }
-              setCredential(digits, cred.hash, cred.salt)
-            }
-          } catch (e) {
-            console.warn('[pin-auth] getUserById error:', e)
-          }
-        }
+        try {
+          const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+          const foundUserWithPin = usersData?.users?.find((u: any) => {
+            const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
+            const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
+            const matchesPhone =
+              (userId && u.id === userId) ||
+              uDigits === digits ||
+              mDigits === digits ||
+              u.email === dummyEmail ||
+              u.email?.includes(digits)
+            return matchesPhone && u.user_metadata?.pin_hash && u.user_metadata?.pin_salt
+          })
 
-        if (!cred) {
-          try {
-            const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
-            const foundUser = usersData?.users?.find((u: any) => {
-              const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
-              const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
-              return (
-                (userId && u.id === userId) ||
-                uDigits === digits ||
-                mDigits === digits ||
-                u.email === dummyEmail ||
-                u.email?.includes(digits)
-              )
-            })
-            if (foundUser?.user_metadata?.pin_hash && foundUser?.user_metadata?.pin_salt) {
-              cred = {
-                hash: foundUser.user_metadata.pin_hash,
-                salt: foundUser.user_metadata.pin_salt,
-              }
-              setCredential(digits, cred.hash, cred.salt)
+          if (foundUserWithPin?.user_metadata?.pin_hash && foundUserWithPin?.user_metadata?.pin_salt) {
+            cred = {
+              hash: foundUserWithPin.user_metadata.pin_hash,
+              salt: foundUserWithPin.user_metadata.pin_salt,
             }
-          } catch (e) {
-            console.warn('[pin-auth] listUsers error:', e)
+            setCredential(digits, cred.hash, cred.salt)
           }
+        } catch (e) {
+          console.warn('[pin-auth] listUsers notice:', e)
         }
+      }
+
+      // Check memory cache if not found in DB
+      if (!cred) {
+        cred = getCredential(digits)
       }
 
       // Pre-seeded demo numbers fallback
@@ -454,24 +560,31 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      let cred = getCredential(digits)
-      if (!cred) {
-        try {
-          const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
-          const foundUser = usersData?.users?.find((u: any) => {
-            const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
-            const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
-            return uDigits === digits || mDigits === digits || u.email === dummyEmail || u.email?.includes(digits)
-          })
-          if (foundUser?.user_metadata?.pin_hash && foundUser?.user_metadata?.pin_salt) {
-            cred = { hash: foundUser.user_metadata.pin_hash, salt: foundUser.user_metadata.pin_salt }
-            setCredential(digits, cred.hash, cred.salt)
-          } else {
-            cred = hashPin('1234')
-          }
-        } catch {
-          cred = hashPin('1234')
+      let cred: { hash: string; salt: string } | null = null
+
+      try {
+        const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+        const foundUserWithPin = usersData?.users?.find((u: any) => {
+          const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
+          const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
+          const matchesPhone = uDigits === digits || mDigits === digits || u.email === dummyEmail || u.email?.includes(digits)
+          return matchesPhone && u.user_metadata?.pin_hash && u.user_metadata?.pin_salt
+        })
+
+        if (foundUserWithPin?.user_metadata?.pin_hash && foundUserWithPin?.user_metadata?.pin_salt) {
+          cred = { hash: foundUserWithPin.user_metadata.pin_hash, salt: foundUserWithPin.user_metadata.pin_salt }
+          setCredential(digits, cred.hash, cred.salt)
         }
+      } catch (e) {
+        console.warn('[change-pin] listUsers error:', e)
+      }
+
+      if (!cred) {
+        cred = getCredential(digits)
+      }
+
+      if (!cred) {
+        cred = hashPin('1234')
       }
 
       if (!verifyPinHash(currentPin, cred.hash, cred.salt)) {
@@ -485,18 +598,19 @@ export async function POST(request: NextRequest) {
       const newCred = hashPin(pin)
       setCredential(digits, newCred.hash, newCred.salt)
 
-      // Persist new PIN in Supabase Auth database
+      // Persist new PIN in Supabase Auth database for all matching users
       try {
         const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
-        const foundUser = usersData?.users?.find((u: any) => {
+        const matchingUsers = usersData?.users?.filter((u: any) => {
           const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
           const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
           return uDigits === digits || mDigits === digits || u.email === dummyEmail || u.email?.includes(digits)
-        })
-        if (foundUser) {
-          await admin.auth.admin.updateUserById(foundUser.id, {
+        }) || []
+
+        for (const u of matchingUsers) {
+          await admin.auth.admin.updateUserById(u.id, {
             user_metadata: {
-              ...foundUser.user_metadata,
+              ...u.user_metadata,
               pin_hash: newCred.hash,
               pin_salt: newCred.salt,
             }

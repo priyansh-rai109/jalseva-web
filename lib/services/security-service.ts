@@ -72,12 +72,6 @@ export function hashPin(pin: string, salt?: string): { hash: string; salt: strin
 // ── Shared In-Memory Credential Store (Salted & Hashed) ─────────────────────
 const globalCredentialStore = new Map<string, { hash: string; salt: string }>()
 
-// Pre-seed demo accounts
-const SEED_CUSTOMER = hashPin('1234')
-const SEED_SUPPLIER = hashPin('1234')
-globalCredentialStore.set('9876543210', SEED_CUSTOMER)
-globalCredentialStore.set('9829012345', SEED_SUPPLIER)
-
 export function setCredential(phoneDigits: string, hash: string, salt: string) {
   globalCredentialStore.set(phoneDigits, { hash, salt })
 }
@@ -99,51 +93,38 @@ export function verifyPinHash(enteredPin: string, storedHash: string, salt: stri
   }
 }
 
-// ── 3. Expiring Password / PIN Reset Tokens (15-Minute Short-Lived) ──────────
-interface ResetTokenEntry {
-  token: string
-  identifier: string
-  expiresAt: number
-  used: boolean
-}
-
-const resetTokenStore = new Map<string, ResetTokenEntry>()
-
+// ── 3. Expiring Password / PIN Reset Tokens (15-Minute Stateless HMAC) ───────
 export function generateResetToken(identifier: string, expiresInMinutes = 15): string {
-  const token = crypto.randomBytes(32).toString('hex')
   const expiresAt = Date.now() + expiresInMinutes * 60 * 1000
-
-  resetTokenStore.set(token, {
-    token,
-    identifier,
-    expiresAt,
-    used: false,
-  })
-
-  return token
+  const payload = JSON.stringify({ identifier, exp: expiresAt, nonce: crypto.randomBytes(8).toString('hex') })
+  const encoded = Buffer.from(payload).toString('base64url')
+  const sig = crypto.createHmac('sha256', AUTH_SECRET).update(encoded).digest('base64url')
+  return `${encoded}.${sig}`
 }
 
 export function verifyAndConsumeResetToken(token: string): { valid: boolean; identifier?: string; error?: string } {
-  const entry = resetTokenStore.get(token)
+  try {
+    if (!token || !token.includes('.')) {
+      return { valid: false, error: 'अमान्य रीसेट टोकन (Invalid reset token format)' }
+    }
+    const [encoded, sig] = token.split('.')
+    const expectedSig = crypto.createHmac('sha256', AUTH_SECRET).update(encoded).digest('base64url')
 
-  if (!entry) {
-    return { valid: false, error: 'अमान्य या समाप्त रीसेट टोकन (Invalid reset token)' }
+    const bufA = Buffer.from(sig)
+    const bufB = Buffer.from(expectedSig)
+    if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) {
+      return { valid: false, error: 'अमान्य रीसेट टोकन (Invalid token signature)' }
+    }
+
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'))
+    if (Date.now() > payload.exp) {
+      return { valid: false, error: 'रीसेट टोकन की समयावधि समाप्त हो चुकी है (Reset token has expired)' }
+    }
+
+    return { valid: true, identifier: payload.identifier }
+  } catch {
+    return { valid: false, error: 'अमान्य रीसेट टोकन (Invalid reset token)' }
   }
-
-  if (entry.used) {
-    return { valid: false, error: 'यह रीसेट टोकन पहले ही उपयोग किया जा चुका है (Reset token already used)' }
-  }
-
-  if (Date.now() > entry.expiresAt) {
-    resetTokenStore.delete(token)
-    return { valid: false, error: 'रीसेट टोकन की समयावधि समाप्त हो चुकी है (Reset token has expired)' }
-  }
-
-  // Mark token as used immediately (Single-use token guarantee)
-  entry.used = true
-  resetTokenStore.set(token, entry)
-
-  return { valid: true, identifier: entry.identifier }
 }
 
 // ── 4. Email & Phone Verification Token Management ──────────────────────────

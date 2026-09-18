@@ -70,6 +70,29 @@ export default function SupplierProfilePage() {
     }).eq('id', supplier.id)
 
     if (error) { toast.error(language === 'hi' ? 'प्रोफ़ाइल अपडेट विफल' : 'Failed to update profile'); setSaving(false); return }
+
+    // Also update profiles table
+    if (supplier?.user_id) {
+      await supabase.from('profiles').update({
+        name: businessName || ownerName,
+        phone,
+      }).eq('id', supplier.user_id)
+    }
+
+    // Update session cookie so sidebar and headers update immediately
+    try {
+      const raw = document.cookie.split(';').map(c => c.trim()).find(r => r.startsWith('jalseva-mock-session='))
+      if (raw) {
+        const parsed = JSON.parse(decodeURIComponent(raw.substring('jalseva-mock-session='.length)))
+        parsed.user_metadata = {
+          ...(parsed.user_metadata || {}),
+          name: businessName || ownerName,
+          phone,
+        }
+        document.cookie = `jalseva-mock-session=${encodeURIComponent(JSON.stringify(parsed))}; path=/; SameSite=Lax`
+      }
+    } catch {}
+
     toast.success(language === 'hi' ? 'सप्लायर प्रोफ़ाइल अपडेट हो गई!' : 'Profile updated!')
     setSaving(false)
   }

@@ -138,7 +138,7 @@ export function TdsBadge({
             <button
               type="button"
               onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-secondary transition-colors"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -147,10 +147,10 @@ export function TdsBadge({
               <div className="w-12 h-12 rounded-2xl water-shimmer flex items-center justify-center mx-auto mb-2 text-white shadow-lg shadow-sky-500/20">
                 <Award className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+              <h3 className="text-xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                 {language === 'hi' ? 'पानी की शुद्धता व TDS गाइड' : 'Water Purity & TDS Guide'}
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-300">
                 {language === 'hi' ? 'जोधपुर में पीने के पानी के लिए विश्व स्वास्थ्य संगठन (WHO) मानक' : 'WHO & BIS Standards for Drinking Water in Jodhpur'}
               </p>
             </div>

@@ -147,9 +147,13 @@ export async function POST(request: NextRequest) {
           .update({ updated_at: new Date().toISOString() })
           .or(`phone.eq.${fullPhone},phone.eq.${phoneDigits}`)
 
-        // Robust auth user lookup
-        const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
-        const foundUser = usersData?.users?.find((u: any) => {
+        // Robust auth user lookup: update ALL matching records
+        const { data: usersData, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 })
+        if (listErr) {
+          console.error('[reset-password] listUsers error:', listErr)
+        }
+
+        const matchingUsers = usersData?.users?.filter((u: any) => {
           const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10)
           const mDigits = (u.user_metadata?.phone || '').replace(/\D/g, '').slice(-10)
           return (
@@ -159,25 +163,28 @@ export async function POST(request: NextRequest) {
             u.email === dummyEmail ||
             u.email?.includes(phoneDigits)
           )
-        })
+        }) || []
 
-        if (foundUser) {
-          await admin.auth.admin.updateUserById(foundUser.id, {
-            user_metadata: {
-              ...foundUser.user_metadata,
-              phone: fullPhone,
-              pin_hash: hash,
-              pin_salt: salt,
+        if (matchingUsers.length > 0) {
+          for (const u of matchingUsers) {
+            const { error: updateErr } = await admin.auth.admin.updateUserById(u.id, {
+              user_metadata: {
+                ...u.user_metadata,
+                phone: fullPhone,
+                pin_hash: hash,
+                pin_salt: salt,
+              }
+            })
+            if (updateErr) {
+              console.error('[reset-password] updateUserById error for', u.id, updateErr)
             }
-          })
-        } else if (targetUserId) {
-          await admin.auth.admin.createUser({
-            id: targetUserId,
-            phone: fullPhone,
+          }
+        } else {
+          // If no auth user found, create one
+          const { error: createErr } = await admin.auth.admin.createUser({
             email: dummyEmail,
             password: 'PinAuth!' + phoneDigits,
             email_confirm: true,
-            phone_confirm: true,
             user_metadata: {
               role: targetRole,
               name: targetName,
@@ -186,9 +193,12 @@ export async function POST(request: NextRequest) {
               pin_salt: salt,
             }
           })
+          if (createErr) {
+            console.error('[reset-password] createUser error:', createErr)
+          }
         }
       } catch (e) {
-        console.warn('[reset-password] Profile/auth update notice:', e)
+        console.error('[reset-password] Profile/auth update exception:', e)
       }
 
       return NextResponse.json({

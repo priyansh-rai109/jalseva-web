@@ -54,10 +54,10 @@ export function OrderSuccessModal({ isOpen, onClose }: OrderSuccessModalProps) {
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" /> Order Confirmed
           </div>
-          <h2 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+          <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             Order Placed! 🎉
           </h2>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-xs text-slate-300 leading-relaxed">
             Aapka water order successfully confirm ho gaya hai. Supplier ko real-time notification bheja gaya hai.
           </p>
         </div>

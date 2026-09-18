@@ -109,7 +109,10 @@ export async function PATCH(request: Request) {
     const updatePayload: Record<string, any> = {}
     if (status) updatePayload.status = status
     if (paymentStatus) updatePayload.payment_status = paymentStatus
-    if (status === 'delivered') updatePayload.payment_status = 'paid'
+    if (status === 'delivered') {
+      updatePayload.payment_status = 'paid'
+      updatePayload.delivered_at = new Date().toISOString()
+    }
     if (reason && status === 'cancelled') {
       updatePayload.special_instructions = order.special_instructions
         ? `${order.special_instructions} | [Cancelled by Supplier: ${reason}]`
@@ -127,13 +130,32 @@ export async function PATCH(request: Request) {
         : driverTag
     }
 
-    // 3. Update order in database
-    const { data: updatedOrder, error: updateError } = await adminSupabase
+    // 3. Update order in database (with graceful fallback if driver columns don't exist in Supabase schema)
+    let { data: updatedOrder, error: updateError } = await adminSupabase
       .from('orders')
       .update(updatePayload)
       .eq('id', orderId)
       .select()
       .single()
+
+    if (updateError && (updateError.code === 'PGRST204' || updateError.message?.includes('driver_') || updateError.message?.includes('vehicle_number'))) {
+      console.warn('[Supplier Orders PATCH] Driver columns missing in DB, falling back to core fields with driver info in special_instructions')
+      const fallbackPayload = { ...updatePayload }
+      delete fallbackPayload.driver_id
+      delete fallbackPayload.driver_name
+      delete fallbackPayload.driver_phone
+      delete fallbackPayload.vehicle_number
+
+      const retryRes = await adminSupabase
+        .from('orders')
+        .update(fallbackPayload)
+        .eq('id', orderId)
+        .select()
+        .single()
+
+      updatedOrder = retryRes.data
+      updateError = retryRes.error
+    }
 
     if (updateError) {
       console.error('[Supplier Orders PATCH Error]', updateError)
@@ -154,7 +176,7 @@ export async function PATCH(request: Request) {
         await adminSupabase.from('order_tracking').insert({
           order_id: orderId,
           status: status,
-          notes: noteMap[status] || `Status updated to ${status}`,
+          note: noteMap[status] || `Status updated to ${status}`,
         })
       } catch (trackErr) {
         console.warn('[Order Tracking Insert Warning]', trackErr)

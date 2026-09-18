@@ -217,3 +217,46 @@ export interface SupplierStats {
   revenue_month: number
   average_rating: number
 }
+
+// ───────────────────────────────────────
+// Complaint & Zapier Outbox
+// ───────────────────────────────────────
+export type ComplaintStatus = 'open' | 'in_investigation' | 'resolved' | 'dismissed'
+
+export interface Complaint {
+  id: string
+  order_id: string
+  customer_id: string
+  description: string
+  status: ComplaintStatus
+  created_at: string
+  updated_at: string
+  order?: Order
+  customer?: Customer
+}
+
+export type OutboxStatus = 'pending' | 'processing' | 'delivered' | 'failed'
+
+export interface ZapierComplaintPayload {
+  event_id: string
+  complaint_id: string
+  order_id: string
+  description: string
+}
+
+export interface ComplaintOutboxItem {
+  id: string
+  event_id: string
+  event_type: string
+  complaint_id: string
+  order_id: string
+  payload: ZapierComplaintPayload
+  status: OutboxStatus
+  attempts: number
+  max_attempts: number
+  next_retry_at: string
+  last_error: string | null
+  response_status: number | null
+  created_at: string
+  updated_at: string
+}

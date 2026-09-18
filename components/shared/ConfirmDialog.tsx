@@ -59,26 +59,35 @@ export function ConfirmDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl p-6 shadow-2xl space-y-5 relative text-white">
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-xl bg-secondary/80 border border-border shrink-0">
+          <div className="p-3 rounded-xl bg-slate-800/90 border border-slate-700/80 shrink-0">
             {iconMap[variant]}
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg font-bold text-foreground">{title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">{message}</p>
+            <h3 className="text-lg font-bold text-white">{title}</h3>
+            <p className="text-sm text-slate-300 leading-relaxed">{message}</p>
           </div>
         </div>
 
         {requireReason && (
           <div className="space-y-2 pt-1">
-            <Label className="text-xs font-semibold text-muted-foreground">Reason / Wajah (Optional)</Label>
+            <Label className="text-xs font-semibold text-slate-200" style={{ color: '#e2e8f0' }}>
+              Reason / Wajah (Optional)
+            </Label>
             <Input
               value={reason}
               onChange={e => setReason(e.target.value)}
               placeholder={reasonPlaceholder}
-              className="bg-slate-950 border-slate-800"
+              autoComplete="off"
+              style={{
+                color: '#ffffff',
+                WebkitTextFillColor: '#ffffff',
+                caretColor: '#38bdf8',
+                backgroundColor: '#020617',
+              }}
+              className="bg-slate-950 border-slate-700 !text-white placeholder:!text-slate-400 focus-visible:border-sky-400 focus-visible:ring-sky-400/30 text-sm font-medium px-3 py-2 h-10 shadow-inner"
             />
           </div>
         )}
@@ -89,7 +98,7 @@ export function ConfirmDialog({
             variant="outline"
             onClick={onCancel}
             disabled={loading}
-            className="border-slate-700 hover:bg-slate-800"
+            className="border-slate-700 bg-slate-800 text-white hover:bg-slate-700 hover:text-white font-medium"
           >
             {cancelText}
           </Button>
@@ -97,7 +106,7 @@ export function ConfirmDialog({
             type="button"
             onClick={handleConfirmClick}
             disabled={loading}
-            className={`font-semibold ${btnBg[variant]}`}
+            className={`font-semibold text-white ${btnBg[variant]}`}
           >
             {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</> : confirmText}
           </Button>

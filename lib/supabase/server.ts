@@ -166,17 +166,43 @@ export async function createClient() {
   // prototype chain so realClient.from() and all other methods remain intact.
   const originalGetUser = realClient.auth.getUser.bind(realClient.auth)
   ;(realClient.auth as any).getUser = async () => {
-    const { data, error } = await originalGetUser()
-    if (data?.user) return { data, error }
+    let mockUser: any = null
     try {
       const mockCookie = cookieStore.get('jalseva-mock-session')
       if (mockCookie?.value) {
-        const mockUser = JSON.parse(decodeURIComponent(mockCookie.value))
-        if (mockUser?.id) {
-          return { data: { user: mockUser }, error: null }
-        }
+        const parsed = JSON.parse(decodeURIComponent(mockCookie.value))
+        if (parsed?.id) mockUser = parsed
       }
     } catch {}
+
+    const { data, error } = await originalGetUser()
+    if (data?.user) {
+      if (mockUser) {
+        const mergedPhone = mockUser.phone || mockUser.user_metadata?.phone || data.user.phone
+        const mergedName = mockUser.user_metadata?.name || mockUser.name || data.user.user_metadata?.name
+        return {
+          data: {
+            user: {
+              ...data.user,
+              phone: mergedPhone,
+              user_metadata: {
+                ...data.user.user_metadata,
+                ...mockUser.user_metadata,
+                name: mergedName,
+                phone: mergedPhone,
+              },
+            },
+          },
+          error: null,
+        }
+      }
+      return { data, error }
+    }
+
+    if (mockUser) {
+      return { data: { user: mockUser }, error: null }
+    }
+
     return { data: { user: null }, error }
   }
 

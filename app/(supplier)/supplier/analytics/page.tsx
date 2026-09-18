@@ -61,7 +61,7 @@ export default function SupplierAnalyticsPage() {
   ] : []
 
   return (
-    <div className="p-3 sm:p-5 md:p-8 space-y-5 sm:space-y-8">
+    <div className="space-y-5 sm:space-y-8">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Analytics</h1>
         <p className="text-muted-foreground text-sm mt-1">Your business performance overview</p>

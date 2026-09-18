@@ -560,19 +560,19 @@ export default function AnalyticsDashboardClient({
                 </div>
 
                 {/* Y-axis indicator tags on right */}
-                <div className="absolute right-0 top-0 text-[10px] font-mono text-muted-foreground/60 pr-1">
+                <div className="absolute right-1 top-0 text-[10px] font-mono text-muted-foreground/60 pr-1 select-none pointer-events-none">
                   {activeMetric === 'orders' ? `Max: ${maxOrders}` : `Max: ${formatCurrency(maxRevenue)}`}
                 </div>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground/60 pr-1">
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground/60 pr-1 select-none pointer-events-none">
                   {activeMetric === 'orders' ? `Mid: ${Math.round(maxOrders / 2)}` : `Mid: ${formatCurrency(Math.round(maxRevenue / 2))}`}
                 </div>
-                <div className="absolute right-0 bottom-6 text-[10px] font-mono text-muted-foreground/60 pr-1">
+                <div className="absolute right-1 bottom-8 text-[10px] font-mono text-muted-foreground/60 pr-1 select-none pointer-events-none">
                   0
                 </div>
 
                 {/* Bars or SVG Area visualization */}
                 {chartStyle === 'bar' ? (
-                  <div className="h-full flex items-end gap-2 sm:gap-3 px-2 sm:px-4">
+                  <div className="h-full flex items-end gap-2 sm:gap-3 pl-2 sm:pl-4 pr-14 sm:pr-16">
                     {chartData.map((d, i) => {
                       const val = activeMetric === 'orders' ? d.orders : d.revenue
                       const maxVal = activeMetric === 'orders' ? maxOrders : maxRevenue
@@ -743,10 +743,10 @@ export default function AnalyticsDashboardClient({
       </Card>
 
       {/* ── 3. Platform Breakdown Grid (Status + Ecosystem + Suppliers) ─────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
         {/* Order Fulfillment Status Card */}
-        <Card className="glass-card border-sky-500/20">
-          <CardHeader className="pb-3">
+        <Card className="glass-card border-sky-500/20 flex flex-col h-full">
+          <CardHeader className="p-4 sm:p-5 pb-3">
             <CardTitle className="text-base font-bold flex items-center justify-between" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
               <span className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -757,62 +757,64 @@ export default function AnalyticsDashboardClient({
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-1">
-            {/* Multi-segmented Visual Bar */}
-            <div className="w-full h-3 bg-secondary/80 rounded-full overflow-hidden flex p-0.5 gap-0.5">
-              <div
-                style={{ width: `${(deliveredOrders.length / (orders.length || 1)) * 100}%` }}
-                className="bg-emerald-500 rounded-l-full transition-all duration-500"
-                title={`Delivered: ${deliveredOrders.length}`}
-              />
-              <div
-                style={{ width: `${(pendingOrders.length / (orders.length || 1)) * 100}%` }}
-                className="bg-sky-500 transition-all duration-500"
-                title={`Pending/Confirmed: ${pendingOrders.length}`}
-              />
-              <div
-                style={{ width: `${(cancelledOrders.length / (orders.length || 1)) * 100}%` }}
-                className="bg-rose-500 rounded-r-full transition-all duration-500"
-                title={`Cancelled: ${cancelledOrders.length}`}
-              />
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <span className="flex items-center gap-2 font-medium text-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  Delivered / Completed
-                </span>
-                <span className="font-bold text-foreground">
-                  {deliveredOrders.length} <span className="text-muted-foreground">({deliveryRate}%)</span>
-                </span>
+          <CardContent className="p-4 sm:p-5 pt-0 flex-1 flex flex-col justify-between space-y-4">
+            <div>
+              {/* Multi-segmented Visual Bar */}
+              <div className="w-full h-3 bg-secondary/80 rounded-full overflow-hidden flex p-0.5 gap-0.5 mb-3.5">
+                <div
+                  style={{ width: `${(deliveredOrders.length / (orders.length || 1)) * 100}%` }}
+                  className="bg-emerald-500 rounded-l-full transition-all duration-500"
+                  title={`Delivered: ${deliveredOrders.length}`}
+                />
+                <div
+                  style={{ width: `${(pendingOrders.length / (orders.length || 1)) * 100}%` }}
+                  className="bg-sky-500 transition-all duration-500"
+                  title={`Pending/Confirmed: ${pendingOrders.length}`}
+                />
+                <div
+                  style={{ width: `${(cancelledOrders.length / (orders.length || 1)) * 100}%` }}
+                  className="bg-rose-500 rounded-r-full transition-all duration-500"
+                  title={`Cancelled: ${cancelledOrders.length}`}
+                />
               </div>
 
-              <div className="flex items-center justify-between p-2 rounded-lg bg-sky-500/10 border border-sky-500/20">
-                <span className="flex items-center gap-2 font-medium text-sky-300">
-                  <span className="w-2 h-2 rounded-full bg-sky-400" />
-                  Active / Pending / In-Transit
-                </span>
-                <span className="font-bold text-foreground">
-                  {pendingOrders.length}{' '}
-                  <span className="text-muted-foreground">
-                    ({orders.length ? ((pendingOrders.length / orders.length) * 100).toFixed(1) : 0}%)
+              <div className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="flex items-center gap-2 font-medium text-emerald-300">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Delivered / Completed
                   </span>
-                </span>
-              </div>
+                  <span className="font-bold text-foreground">
+                    {deliveredOrders.length} <span className="text-muted-foreground">({deliveryRate}%)</span>
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-between p-2 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                <span className="flex items-center gap-2 font-medium text-rose-300">
-                  <span className="w-2 h-2 rounded-full bg-rose-400" />
-                  Cancelled Orders
-                </span>
-                <span className="font-bold text-foreground">
-                  {cancelledOrders.length} <span className="text-muted-foreground">({cancellationRate}%)</span>
-                </span>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                  <span className="flex items-center gap-2 font-medium text-sky-300">
+                    <span className="w-2 h-2 rounded-full bg-sky-400" />
+                    Active / Pending / In-Transit
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {pendingOrders.length}{' '}
+                    <span className="text-muted-foreground">
+                      ({orders.length ? ((pendingOrders.length / orders.length) * 100).toFixed(1) : 0}%)
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                  <span className="flex items-center gap-2 font-medium text-rose-300">
+                    <span className="w-2 h-2 rounded-full bg-rose-400" />
+                    Cancelled Orders
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {cancelledOrders.length} <span className="text-muted-foreground">({cancellationRate}%)</span>
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-sky-500/10 flex justify-between text-xs text-muted-foreground">
+            <div className="mt-auto pt-3 border-t border-sky-500/10 flex justify-between items-center text-xs text-muted-foreground">
               <span>Total Volume Delivered:</span>
               <span className="font-bold text-sky-400">{totalLiters.toLocaleString()} Liters</span>
             </div>
@@ -820,8 +822,8 @@ export default function AnalyticsDashboardClient({
         </Card>
 
         {/* Payment & Economics Card */}
-        <Card className="glass-card border-sky-500/20">
-          <CardHeader className="pb-3">
+        <Card className="glass-card border-sky-500/20 flex flex-col h-full">
+          <CardHeader className="p-4 sm:p-5 pb-3">
             <CardTitle className="text-base font-bold flex items-center justify-between" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
               <span className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-purple-400" />
@@ -832,54 +834,56 @@ export default function AnalyticsDashboardClient({
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-1">
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                <div className="text-xs text-muted-foreground">Total GMV</div>
-                <div className="text-xl font-bold text-purple-300 mt-0.5" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  {formatCurrency(totalRevenue)}
+          <CardContent className="p-4 sm:p-5 pt-0 flex-1 flex flex-col justify-between space-y-4">
+            <div>
+              <div className="grid grid-cols-2 gap-2 text-center mb-3">
+                <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                  <div className="text-xs text-muted-foreground">Total GMV</div>
+                  <div className="text-xl font-bold text-purple-300 mt-0.5" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                    {formatCurrency(totalRevenue)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                  <div className="text-xs text-muted-foreground">Avg Basket Size</div>
+                  <div className="text-xl font-bold text-cyan-300 mt-0.5" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                    {formatCurrency(avgOrderValue)}
+                  </div>
                 </div>
               </div>
-              <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                <div className="text-xs text-muted-foreground">Avg Basket Size</div>
-                <div className="text-xl font-bold text-cyan-300 mt-0.5" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  {formatCurrency(avgOrderValue)}
+
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center p-2.5 rounded-lg bg-secondary/50 border border-sky-500/10 gap-2">
+                  <span className="text-muted-foreground flex items-center gap-1.5 font-medium truncate">
+                    💵 Cash on Delivery (COD)
+                  </span>
+                  <span className="font-bold text-foreground shrink-0 text-right">
+                    {paymentStats.cod} Orders ({orders.length ? Math.round((paymentStats.cod / orders.length) * 100) : 0}%)
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center p-2.5 rounded-lg bg-secondary/50 border border-sky-500/10 gap-2">
+                  <span className="text-muted-foreground flex items-center gap-1.5 font-medium truncate">
+                    💳 Online / UPI / Cards
+                  </span>
+                  <span className="font-bold text-foreground shrink-0 text-right">
+                    {paymentStats.online} Orders ({orders.length ? Math.round((paymentStats.online / orders.length) * 100) : 0}%)
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between items-center py-1 border-b border-sky-500/10">
-                <span className="text-muted-foreground flex items-center gap-1.5">
-                  💵 Cash on Delivery (COD)
-                </span>
-                <span className="font-bold text-foreground">
-                  {paymentStats.cod} Orders ({orders.length ? Math.round((paymentStats.cod / orders.length) * 100) : 0}%)
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center py-1 border-b border-sky-500/10">
-                <span className="text-muted-foreground flex items-center gap-1.5">
-                  💳 Online / Razorpay / UPI
-                </span>
-                <span className="font-bold text-foreground">
-                  {paymentStats.online} Orders ({orders.length ? Math.round((paymentStats.online / orders.length) * 100) : 0}%)
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center py-1">
-                <span className="text-muted-foreground">Platform Commission Estimate</span>
-                <span className="font-bold text-emerald-400">
-                  {formatCurrency(Math.round(totalRevenue * 0.05))} (5%)
-                </span>
-              </div>
+            <div className="mt-auto pt-3 border-t border-sky-500/10 flex justify-between items-center text-xs text-muted-foreground">
+              <span>Platform Commission (5%):</span>
+              <span className="font-bold text-emerald-400">
+                {formatCurrency(Math.round(totalRevenue * 0.05))}
+              </span>
             </div>
           </CardContent>
         </Card>
 
         {/* Suppliers & Customer Ecosystem */}
-        <Card className="glass-card border-sky-500/20">
-          <CardHeader className="pb-3">
+        <Card className="glass-card border-sky-500/20 flex flex-col h-full">
+          <CardHeader className="p-4 sm:p-5 pb-3">
             <CardTitle className="text-base font-bold flex items-center justify-between" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
               <span className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-amber-400" />
@@ -890,19 +894,19 @@ export default function AnalyticsDashboardClient({
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-1">
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between items-center p-2 rounded-lg bg-secondary/50 border border-sky-500/10">
+          <CardContent className="p-4 sm:p-5 pt-0 flex-1 flex flex-col justify-between space-y-4">
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center p-2.5 rounded-lg bg-secondary/50 border border-sky-500/10">
                 <span className="text-muted-foreground">Total Verified Suppliers</span>
                 <span className="font-bold text-amber-400">{approvedSuppliers} Approved</span>
               </div>
 
-              <div className="flex justify-between items-center p-2 rounded-lg bg-secondary/50 border border-sky-500/10">
+              <div className="flex justify-between items-center p-2.5 rounded-lg bg-secondary/50 border border-sky-500/10">
                 <span className="text-muted-foreground">Registered Customers</span>
                 <span className="font-bold text-sky-400">{totalCustomers} Users</span>
               </div>
 
-              <div className="flex justify-between items-center p-2 rounded-lg bg-secondary/50 border border-sky-500/10">
+              <div className="flex justify-between items-center p-2.5 rounded-lg bg-secondary/50 border border-sky-500/10">
                 <span className="text-muted-foreground">Repeat Booking Ratio</span>
                 <span className="font-bold text-green-400">
                   {totalCustomers ? (orders.length / totalCustomers).toFixed(1) : 0} orders / user
@@ -911,7 +915,7 @@ export default function AnalyticsDashboardClient({
             </div>
 
             {/* List of active suppliers */}
-            <div className="pt-2 border-t border-sky-500/10">
+            <div className="mt-auto pt-3 border-t border-sky-500/10">
               <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Top Registered Suppliers
               </div>

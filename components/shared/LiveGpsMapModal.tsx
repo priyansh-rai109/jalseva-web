@@ -330,14 +330,14 @@ export function LiveGpsMapModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-bold text-foreground" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                <h3 className="text-base sm:text-lg font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                   {language === 'hi' ? '🛰️ लाइव जीपीएस मैप ट्रैकिंग' : '🛰️ Live GPS Map Tracking'}
                 </h3>
                 <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] py-0 px-2 animate-pulse">
                   ● REAL-TIME GPS
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-slate-300">
                 Order #{orderId.slice(0, 8)} • {supplierName}
               </p>
             </div>
@@ -358,7 +358,7 @@ export function LiveGpsMapModal({
             <button
               type="button"
               onClick={onClose}
-              className="text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-secondary transition-colors"
+              className="text-slate-400 hover:text-white p-1.5 rounded-full hover:bg-slate-800 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>

@@ -69,26 +69,74 @@ export function truncate(str: string, length: number): string {
 
 export function getInitials(name: string): string {
   if (!name) return 'U'
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+  // Remove special characters, brackets, parentheses, and numbers
+  const clean = name.replace(/[^\p{L}\s]/gu, '').trim()
+  if (!clean) return 'U'
+  const parts = clean.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-export function formatDisplayName(rawName?: string | null, phone?: string | null): string {
-  const name = (rawName || '').trim()
+export function isPlaceholderName(name?: string | null): boolean {
+  if (!name) return true
+  const n = name.trim().toLowerCase()
+  return (
+    n === '' ||
+    n === 'customer' ||
+    n === 'customer name' ||
+    n === 'jalseva user' ||
+    n === 'user' ||
+    n === 'supplier' ||
+    n === 'water supplier' ||
+    n === 'owner' ||
+    n === 'owner name' ||
+    n === 'guest' ||
+    n === 'undefined' ||
+    n === 'null' ||
+    n.startsWith('customer (') ||
+    n.startsWith('customer(') ||
+    n.startsWith('supplier (') ||
+    n.startsWith('supplier(') ||
+    /^customer[\s_\-\(\d]+/i.test(n) ||
+    /^supplier[\s_\-\(\d]+/i.test(n) ||
+    /^\+?\d{10,14}$/.test(n.replace(/[\s\-\(\)]+/g, ''))
+  )
+}
 
-  if (!name || name.toLowerCase() === 'customer' || name.toLowerCase() === 'customer name') {
-    if (phone) {
-      const digits = phone.replace(/\D/g, '').slice(-10)
-      if (digits) return `Customer (${digits})`
+export function resolveRealName(candidates: (string | null | undefined)[]): string | null {
+  for (const c of candidates) {
+    if (!isPlaceholderName(c)) {
+      // Also clean up any accidental appended phone brackets like "Name (9876543210)"
+      const cleaned = (c || '').replace(/\s*[\(\[]\+?\d+[\)\]]\s*$/, '').trim()
+      if (!isPlaceholderName(cleaned)) {
+        return cleaned
+      }
     }
-    return 'Customer'
+  }
+  return null
+}
+
+export function formatDisplayName(
+  rawName?: string | null,
+  phone?: string | null,
+  role: 'customer' | 'supplier' | 'super_admin' = 'customer'
+): string {
+  const name = (rawName || '').trim()
+  const defaultFallback = role === 'supplier' ? 'Water Supplier' : role === 'super_admin' ? 'Super Admin' : 'Customer'
+
+  if (isPlaceholderName(name)) {
+    return defaultFallback
   }
 
-  return name
+  // Strip any accidental trailing digits or parenthesized phone numbers
+  const cleaned = name.replace(/\s*[\(\[]\+?\d+[\)\]]\s*$/, '').trim()
+  if (isPlaceholderName(cleaned)) {
+    return defaultFallback
+  }
+
+  return cleaned
     .split(' ')
     .map(w => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''))
     .filter(Boolean)

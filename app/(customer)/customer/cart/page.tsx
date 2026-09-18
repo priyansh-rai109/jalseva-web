@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/stores/cart-store'
 import { useLanguage } from '@/lib/i18n/LanguageContext'
@@ -10,7 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import {
-  ShoppingCart, Trash2, Plus, Minus, MapPin,
+  ShoppingCart, Trash2, Plus, Minus, MapPin, Compass,
   Loader2, ChevronRight, Package, Droplets, Info, CheckCircle2, ArrowLeft, Zap, ShieldAlert, Coins, Sparkles
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,14 +18,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import { OrderSuccessModal } from '@/components/shared/OrderSuccessModal'
+import type { Zone } from '@/types'
 import Link from 'next/link'
 
 const checkoutSchema = z.object({
-  line1: z.string().min(5, 'Address required (कम से कम 5 अक्षर)'),
+  zone_id: z.string().min(1, 'Please select delivery zone (कृपया डिलीवरी जोन चुनें)'),
+  line1: z.string().min(3, 'Address required (पता लिखना आवश्यक है)'),
   pincode: z.string().min(6, 'Valid 6-digit pincode required (6 अंकों का पिनकोड)'),
   city: z.string().min(2, 'City required (शहर का नाम लिखें)'),
   payment_mode: z.enum(['cash_on_delivery', 'razorpay', 'upi', 'online']),
@@ -61,10 +64,63 @@ export default function CartPage() {
   const [isEmergency, setIsEmergency] = useState(false)
   const [useCoins, setUseCoins] = useState(false)
 
+  const [supplierZones, setSupplierZones] = useState<Zone[]>([])
+  const [supplierInfo, setSupplierInfo] = useState<{ name: string; hasZone: boolean } | null>(null)
+  const [loadingZones, setLoadingZones] = useState(false)
+
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: { payment_mode: 'cash_on_delivery', city: 'Jodhpur' },
+    defaultValues: { payment_mode: 'cash_on_delivery', city: 'Jodhpur', zone_id: '' },
   })
+
+  // Load supplier-specific operational zones
+  useEffect(() => {
+    const targetSupplierId = supplier_id || items[0]?.product?.supplier_id
+    if (!targetSupplierId) return
+
+    setLoadingZones(true)
+    const loadZones = async () => {
+      try {
+        const { data: sup } = await supabase
+          .from('suppliers')
+          .select('id, business_name, zone_id, zones(id, name, city, pincodes)')
+          .eq('id', targetSupplierId)
+          .maybeSingle()
+
+        if (sup) {
+          if (sup.zones && sup.zone_id) {
+            // Supplier explicitly selected this zone: Show ONLY this zone!
+            const supZone = sup.zones as any
+            setSupplierZones([supZone])
+            setSupplierInfo({ name: sup.business_name, hasZone: true })
+            setValue('zone_id', supZone.id)
+            if (supZone.pincodes?.[0]) setValue('pincode', supZone.pincodes[0])
+            if (supZone.city) setValue('city', supZone.city)
+          } else {
+            // Supplier has not locked to a specific zone; fetch active zones in city
+            const { data: allZones } = await supabase
+              .from('zones')
+              .select('*')
+              .eq('is_active', true)
+              .order('name')
+            setSupplierZones(allZones || [])
+            setSupplierInfo({ name: sup.business_name, hasZone: false })
+            if (allZones?.[0]) {
+              setValue('zone_id', allZones[0].id)
+              if (allZones[0].pincodes?.[0]) setValue('pincode', allZones[0].pincodes[0])
+              if (allZones[0].city) setValue('city', allZones[0].city)
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading supplier zones:', err)
+      } finally {
+        setLoadingZones(false)
+      }
+    }
+
+    loadZones()
+  }, [items, supplier_id])
 
   const paymentMode = watch('payment_mode')
 
@@ -72,12 +128,15 @@ export default function CartPage() {
     if (items.length === 0) return
     setPlacing(true)
 
+    const selectedZoneObj = supplierZones.find((z) => z.id === data.zone_id) || supplierZones[0]
     const deliveryAddress = {
       id: crypto.randomUUID(),
       label: 'Delivery',
       line1: data.line1,
+      zone: selectedZoneObj?.name || 'Primary Zone',
+      zone_id: data.zone_id,
       pincode: data.pincode,
-      city: data.city,
+      city: data.city || 'Jodhpur',
       is_default: false,
     }
 
@@ -322,6 +381,60 @@ export default function CartPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 sm:p-6 space-y-4">
+                {/* 📍 Zone Selection (Strictly filtered to zones selected by the supplier) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                      <Compass className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{language === 'hi' ? 'डिलीवरी जोन (Delivery Zone)' : 'Delivery Zone'}</span>
+                    </Label>
+                    {supplierInfo && (
+                      <span className="text-[11px] font-medium text-sky-400 truncate max-w-[240px]">
+                        {supplierInfo.hasZone
+                          ? (language === 'hi' ? `✓ ${supplierInfo.name} का सर्विस जोन` : `✓ Served by ${supplierInfo.name}`)
+                          : (language === 'hi' ? 'उपलब्ध जोन' : 'Active zones')}
+                      </span>
+                    )}
+                  </div>
+
+                  {loadingZones ? (
+                    <div className="flex items-center gap-2 p-3 bg-secondary rounded-xl text-xs text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                      <span>{language === 'hi' ? 'सप्लायर के जोन लोड हो रहे हैं...' : 'Loading supplier zones...'}</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={watch('zone_id')}
+                      onValueChange={(val) => {
+                        setValue('zone_id', val)
+                        const foundZone = supplierZones.find((z) => z.id === val)
+                        if (foundZone) {
+                          if (foundZone.city) setValue('city', foundZone.city)
+                          if (foundZone.pincodes?.[0]) setValue('pincode', foundZone.pincodes[0])
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="bg-secondary h-11 text-sm rounded-xl border-sky-500/20 focus:border-sky-500">
+                        <SelectValue placeholder={language === 'hi' ? 'डिलीवरी जोन चुनें' : 'Select delivery zone'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supplierZones.map((z) => (
+                          <SelectItem key={z.id} value={z.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{z.name}</span>
+                              <span className="text-muted-foreground text-xs">({z.city})</span>
+                              {z.pincodes?.length > 0 && (
+                                <span className="text-[10px] text-sky-400/80">[{z.pincodes.join(', ')}]</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {errors.zone_id && <p className="text-xs text-destructive">{errors.zone_id.message}</p>}
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold">{t('streetAddress')}</Label>
                   <Input placeholder={t('streetPlaceholder')} className="bg-secondary h-11 text-sm"

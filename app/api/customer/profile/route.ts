@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isPlaceholderName, resolveRealName } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,7 @@ export async function GET() {
 
     const adminSupabase = createAdminClient()
     const phoneToUse = user.phone || user.user_metadata?.phone
+    const digits = phoneToUse ? phoneToUse.replace(/\D/g, '').slice(-10) : ''
 
     let profile: any = null
     let customer: any = null
@@ -27,6 +29,14 @@ export async function GET() {
       .maybeSingle()
 
     profile = pData
+    if (!profile && digits) {
+      const { data: pByPhone } = await adminSupabase
+        .from('profiles')
+        .select('*')
+        .or(`phone.eq.+91${digits},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .maybeSingle()
+      if (pByPhone) profile = pByPhone
+    }
 
     // 2. Get customer by user_id or phone
     const { data: cData } = await adminSupabase
@@ -37,19 +47,33 @@ export async function GET() {
 
     if (cData) {
       customer = cData
-    } else if (phoneToUse) {
-      const digits = phoneToUse.replace(/\D/g, '').slice(-10)
-      if (digits) {
-        const { data: byPhone } = await adminSupabase
-          .from('customers')
-          .select('*')
-          .ilike('phone', `%${digits}%`)
-          .maybeSingle()
-        if (byPhone) customer = byPhone
-      }
+    } else if (profile?.id) {
+      const { data: byProfId } = await adminSupabase
+        .from('customers')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle()
+      if (byProfId) customer = byProfId
     }
 
-    const name = customer?.name || profile?.name || user.user_metadata?.name || 'Customer'
+    if (!customer && digits) {
+      const { data: byPhone } = await adminSupabase
+        .from('customers')
+        .select('*')
+        .or(`phone.eq.+91${digits},phone.eq.${digits},phone.ilike.%${digits}%`)
+        .maybeSingle()
+      if (byPhone) customer = byPhone
+    }
+
+    const realName = resolveRealName([
+      customer?.name,
+      profile?.name,
+      user.user_metadata?.name,
+      user.user_metadata?.full_name,
+      (user as any).name,
+    ])
+
+    const name = formatDisplayName(realName || customer?.name || profile?.name || user.user_metadata?.name, null, 'customer')
     const phone = customer?.phone || profile?.phone || user.phone || user.user_metadata?.phone || ''
     const email = customer?.email || profile?.email || user.email || ''
     const addresses = customer?.addresses || []
@@ -92,6 +116,19 @@ export async function PATCH(request: Request) {
         role: 'customer',
         updated_at: new Date().toISOString(),
       })
+    }
+
+    // Update auth user metadata if real auth user
+    if (user.id && !user.id.startsWith('00000000-0000-')) {
+      try {
+        await adminSupabase.auth.admin.updateUserById(user.id, {
+          user_metadata: {
+            ...(user.user_metadata || {}),
+            ...(name ? { name } : {}),
+            ...(phoneToUse ? { phone: phoneToUse } : {}),
+          }
+        })
+      } catch {}
     }
 
     // Update customers table
@@ -138,7 +175,25 @@ export async function PATCH(request: Request) {
         })
     }
 
-    return NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true, name })
+
+    // Update mock session cookie so sidebar and client update immediately
+    const sessionUser = {
+      ...user,
+      id: user.id,
+      phone: phoneToUse || user.phone,
+      user_metadata: {
+        ...(user.user_metadata || {}),
+        ...(name ? { name } : {}),
+        phone: phoneToUse || user.phone,
+      }
+    }
+    response.cookies.set('jalseva-mock-session', encodeURIComponent(JSON.stringify(sessionUser)), {
+      path: '/',
+      sameSite: 'lax',
+    })
+
+    return response
   } catch (err: any) {
     console.error('[Customer Profile PATCH Exception]', err)
     return NextResponse.json({ error: err.message || 'Internal Error' }, { status: 500 })

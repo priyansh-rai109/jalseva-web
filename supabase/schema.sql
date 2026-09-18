@@ -279,40 +279,60 @@ ALTER TABLE zones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: users can read and update their own profile (inserts via SECURITY DEFINER trigger only)
+DROP POLICY IF EXISTS "profiles_own_read" ON profiles;
 CREATE POLICY "profiles_own_read" ON profiles FOR SELECT USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "profiles_own_update" ON profiles;
 CREATE POLICY "profiles_own_update" ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Zones: public read and admin manage
+DROP POLICY IF EXISTS "zones_public_read" ON zones;
 CREATE POLICY "zones_public_read" ON zones FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "zones_admin_manage" ON zones;
 CREATE POLICY "zones_admin_manage" ON zones FOR ALL USING (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
 );
 
 -- Water products: public read for active products
+DROP POLICY IF EXISTS "products_public_read" ON water_products;
 CREATE POLICY "products_public_read" ON water_products FOR SELECT USING (is_active = TRUE);
+
+DROP POLICY IF EXISTS "products_supplier_manage" ON water_products;
 CREATE POLICY "products_supplier_manage" ON water_products FOR ALL USING (
   supplier_id IN (SELECT id FROM suppliers WHERE user_id = auth.uid())
 );
 
 -- Suppliers: approved suppliers are publicly visible
+DROP POLICY IF EXISTS "suppliers_public_read" ON suppliers;
 CREATE POLICY "suppliers_public_read" ON suppliers FOR SELECT USING (status = 'approved');
+
+DROP POLICY IF EXISTS "suppliers_own_manage" ON suppliers;
 CREATE POLICY "suppliers_own_manage" ON suppliers FOR ALL USING (user_id = auth.uid());
 
 -- Orders: customer or supplier can see their orders
+DROP POLICY IF EXISTS "orders_customer_read" ON orders;
 CREATE POLICY "orders_customer_read" ON orders FOR SELECT USING (
   customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
 );
+
+DROP POLICY IF EXISTS "orders_supplier_read" ON orders;
 CREATE POLICY "orders_supplier_read" ON orders FOR SELECT USING (
   supplier_id IN (SELECT id FROM suppliers WHERE user_id = auth.uid())
 );
+
+DROP POLICY IF EXISTS "orders_customer_insert" ON orders;
 CREATE POLICY "orders_customer_insert" ON orders FOR INSERT WITH CHECK (
   customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
 );
+
+DROP POLICY IF EXISTS "orders_supplier_update" ON orders;
 CREATE POLICY "orders_supplier_update" ON orders FOR UPDATE USING (
   supplier_id IN (SELECT id FROM suppliers WHERE user_id = auth.uid())
 );
 
 -- Order tracking: same as orders
+DROP POLICY IF EXISTS "tracking_read" ON order_tracking;
 CREATE POLICY "tracking_read" ON order_tracking FOR SELECT USING (
   order_id IN (
     SELECT id FROM orders WHERE
@@ -322,17 +342,26 @@ CREATE POLICY "tracking_read" ON order_tracking FOR SELECT USING (
 );
 
 -- Reviews: public read, customer insert
+DROP POLICY IF EXISTS "reviews_public_read" ON reviews;
 CREATE POLICY "reviews_public_read" ON reviews FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "reviews_customer_insert" ON reviews;
 CREATE POLICY "reviews_customer_insert" ON reviews FOR INSERT WITH CHECK (
   customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
 );
 
 -- Customers: own profile and public read for suppliers to see order details
+DROP POLICY IF EXISTS "customers_own" ON customers;
 CREATE POLICY "customers_own" ON customers FOR ALL USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "customers_public_read" ON customers;
 CREATE POLICY "customers_public_read" ON customers FOR SELECT USING (TRUE);
 
 -- Notifications: own only + public select
+DROP POLICY IF EXISTS "notifications_own" ON notifications;
 CREATE POLICY "notifications_own" ON notifications FOR ALL USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "notifications_public_read" ON notifications;
 CREATE POLICY "notifications_public_read" ON notifications FOR SELECT USING (TRUE);
 
 -- ───────────────────────────────────────

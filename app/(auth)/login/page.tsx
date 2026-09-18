@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -43,8 +43,33 @@ function LoginPageContent() {
   const [newPin, setNewPin] = useState('')
   const [resetLoading, setResetLoading] = useState(false)
 
+  // Discovered user info when phone number is typed
+  const [discoveredUser, setDiscoveredUser] = useState<{ name: string; role: string } | null>(null)
+
   const isValidPhone = phone.replace(/\D/g, '').length === 10
   const isValidPin = pin.length >= 4
+
+  useEffect(() => {
+    const digits = phone.replace(/\D/g, '').slice(-10)
+    if (digits.length === 10) {
+      fetch('/api/auth/pin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'check-phone', phone: digits }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.exists && d.name) {
+            setDiscoveredUser({ name: d.name, role: d.role })
+          } else {
+            setDiscoveredUser(null)
+          }
+        })
+        .catch(() => setDiscoveredUser(null))
+    } else {
+      setDiscoveredUser(null)
+    }
+  }, [phone])
 
   // ── 1. Submit PIN Login ──────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
@@ -299,19 +324,27 @@ function LoginPageContent() {
                   autoFocus
                 />
               </div>
+              {discoveredUser && (
+                <div className="flex items-center gap-2 p-2 px-3 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-400 font-medium animate-in fade-in duration-200">
+                  <span>👋 {language === 'hi' ? `स्वागत है, ${discoveredUser.name}!` : `Welcome back, ${discoveredUser.name}!`}</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground ml-auto bg-sky-500/20 px-1.5 py-0.5 rounded">
+                    {discoveredUser.role}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* 4-Digit Secret PIN Input */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+              <div className="flex items-baseline justify-between">
+                <Label className="text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5">
                   <KeyRound className="w-3.5 h-3.5 text-sky-400" />
                   <span>{language === 'hi' ? '4-अंकों का सुरक्षा पिन (PIN)' : '4-Digit Security PIN'}</span>
                 </Label>
                 <button
                   type="button"
                   onClick={() => setShowForgotModal(true)}
-                  className="text-xs text-sky-400 hover:text-sky-300 transition-colors"
+                  className="text-xs text-sky-400 hover:text-sky-300 transition-colors leading-none"
                 >
                   {language === 'hi' ? 'पिन भूल गए?' : 'Forgot PIN?'}
                 </button>
@@ -322,7 +355,7 @@ function LoginPageContent() {
                   placeholder="••••"
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="bg-secondary/80 h-11 sm:h-12 text-center text-lg sm:text-xl tracking-widest font-bold rounded-xl border-sky-500/20 focus:border-sky-500 pr-10"
+                  className="pl-4 bg-secondary/80 h-11 sm:h-12 text-left text-base sm:text-lg tracking-widest font-bold rounded-xl border-sky-500/20 focus:border-sky-500 pr-10"
                   maxLength={6}
                 />
                 <button
@@ -333,7 +366,7 @@ function LoginPageContent() {
                   {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {language === 'hi'
                   ? '💡 डिफ़ॉल्ट पिन 1234 है (या अपना सेट किया हुआ 4-अंकों का पिन डालें)'
                   : '💡 Default PIN is 1234 (or enter your custom set PIN)'}
@@ -353,8 +386,8 @@ function LoginPageContent() {
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  {language === 'hi' ? 'लॉगिन करें' : 'Sign In'}
                   <ArrowRight className="w-4 h-4" />
+                  {language === 'hi' ? 'लॉगिन करें' : 'Sign In'}
                 </span>
               )}
             </Button>
@@ -365,15 +398,15 @@ function LoginPageContent() {
             <p className="text-xs text-muted-foreground text-center mb-3 font-medium">
               {language === 'hi' ? '⚡ त्वरित डेमो लॉगिन (1-क्लिक)' : '⚡ Quick 1-Click Demo Login'}
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-4">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => handleDemoLogin('customer')}
-                className="text-xs rounded-xl border-sky-500/30 hover:bg-sky-500/10 text-sky-400 gap-1.5 h-9"
+                className="text-xs rounded-xl border-border/80 bg-secondary/50 hover:bg-secondary text-foreground gap-2 h-9 font-medium"
               >
-                <User className="w-3.5 h-3.5" />
+                <User className="w-3.5 h-3.5 text-sky-400" />
                 <span>Customer Demo</span>
               </Button>
               <Button
@@ -381,9 +414,9 @@ function LoginPageContent() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleDemoLogin('supplier')}
-                className="text-xs rounded-xl border-purple-500/30 hover:bg-purple-500/10 text-purple-400 gap-1.5 h-9"
+                className="text-xs rounded-xl border-border/80 bg-secondary/50 hover:bg-secondary text-foreground gap-2 h-9 font-medium"
               >
-                <Building2 className="w-3.5 h-3.5" />
+                <Building2 className="w-3.5 h-3.5 text-purple-400" />
                 <span>Supplier Demo</span>
               </Button>
             </div>
@@ -396,17 +429,17 @@ function LoginPageContent() {
               {language === 'hi' ? 'नया अकाउंट बनाएं' : 'Register here'}
             </Link>
           </div>
-        </div>
 
-        {/* Admin Login Link */}
-        <div className="text-center mt-5">
-          <Link
-            href="/admin-login"
-            className="text-xs text-muted-foreground/80 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
-          >
-            <Lock className="w-3 h-3" />
-            <span>{language === 'hi' ? 'सुपर एडमिन ईमेल पोर्टल (Admin Portal)' : 'Super Admin Email Portal'}</span>
-          </Link>
+          {/* Admin Login Link */}
+          <div className="mt-4 pt-4 border-t border-border/40 text-center">
+            <Link
+              href="/admin-login"
+              className="text-xs text-muted-foreground hover:text-sky-400 transition-colors inline-flex items-center gap-1.5 py-1 px-3 rounded-full hover:bg-secondary/60"
+            >
+              <Lock className="w-3.5 h-3.5 text-sky-400" />
+              <span>{language === 'hi' ? 'सुपर एडमिन ईमेल पोर्टल (Admin Portal)' : 'Super Admin Email Portal'}</span>
+            </Link>
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { formatDisplayName } from '@/lib/utils'
+import { formatDisplayName, isPlaceholderName, resolveRealName } from '@/lib/utils'
 import { CustomerDashboardClient } from './CustomerDashboardClient'
 
 export const metadata = { title: 'My Dashboard' }
@@ -13,15 +13,34 @@ export default async function CustomerDashboard() {
   if (!user) redirect('/login')
 
   const adminSupabase = createAdminClient()
-  const phoneToUse = user.phone || user.user_metadata?.phone
+  const emailDigits = user.email ? (user.email.match(/\d{10}/)?.[0] || '') : ''
+  const rawPhone = user.phone || user.user_metadata?.phone || emailDigits
+  let digits = rawPhone ? rawPhone.replace(/\D/g, '').slice(-10) : ''
+  let phoneToUse = digits ? `+91${digits}` : rawPhone
 
-  let customerObj: any = null
-
-  const { data: profile } = await adminSupabase
+  // 1. Fetch Profile by ID or by Phone
+  let { data: profile } = await adminSupabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .maybeSingle()
+
+  if (!profile && digits) {
+    const { data: pByPhone } = await adminSupabase
+      .from('profiles')
+      .select('*')
+      .or(`phone.eq.+91${digits},phone.eq.${digits},phone.ilike.%${digits}%`)
+      .maybeSingle()
+    if (pByPhone) profile = pByPhone
+  }
+
+  if (profile?.phone && !digits) {
+    digits = profile.phone.replace(/\D/g, '').slice(-10)
+    phoneToUse = `+91${digits}`
+  }
+
+  // 2. Fetch Customer record by user_id, profile id, or phone
+  let customerObj: any = null
 
   const { data: byUser } = await adminSupabase
     .from('customers')
@@ -31,14 +50,79 @@ export default async function CustomerDashboard() {
 
   if (byUser) {
     customerObj = byUser
-  } else if (phoneToUse) {
-    const digits = phoneToUse.slice(-10)
+  } else if (profile?.id) {
+    const { data: byProfId } = await adminSupabase
+      .from('customers')
+      .select('*')
+      .eq('user_id', profile.id)
+      .maybeSingle()
+    if (byProfId) customerObj = byProfId
+  }
+
+  if (!customerObj && digits) {
     const { data: byPhone } = await adminSupabase
       .from('customers')
       .select('*')
-      .ilike('phone', `%${digits}%`)
+      .or(`phone.eq.+91${digits},phone.eq.${digits},phone.ilike.%${digits}%`)
       .maybeSingle()
     if (byPhone) customerObj = byPhone
+  }
+
+  // 3. Resolve Real Registered Name (filtering out 'Customer' or placeholder names)
+  let authAdminName: string | null = null
+  if (user.id && !user.id.startsWith('00000000-0000-')) {
+    try {
+      const { data: authUser } = await adminSupabase.auth.admin.getUserById(user.id)
+      authAdminName = authUser?.user?.user_metadata?.name || authUser?.user?.user_metadata?.full_name || null
+    } catch {}
+  }
+
+  const nameCandidates = [
+    customerObj?.name,
+    profile?.name,
+    user.user_metadata?.name,
+    user.user_metadata?.full_name,
+    authAdminName,
+    (user as any).name,
+  ]
+
+  const realRegisteredName = resolveRealName(nameCandidates)
+
+  // Auto-create customer row if missing (e.g., registered user without customer entry)
+  if (!customerObj && (profile || digits || user.id)) {
+    const custName = realRegisteredName || profile?.name || user.user_metadata?.name || 'Customer'
+    const custPhone = profile?.phone || phoneToUse || (digits ? `+91${digits}` : null)
+    const custUserId = profile?.id || user.id
+    try {
+      const { data: newCust } = await adminSupabase
+        .from('customers')
+        .insert({
+          user_id: custUserId,
+          name: custName,
+          phone: custPhone,
+          email: profile?.email || (user as any).email || undefined,
+          addresses: [{ id: 'default-addr', city: 'Jodhpur', label: 'Primary', line1: 'Jodhpur, Rajasthan', is_default: true }]
+        })
+        .select()
+        .maybeSingle()
+      if (newCust) {
+        customerObj = newCust
+      }
+    } catch (e) {
+      console.warn('Auto-create customer error:', e)
+    }
+  }
+
+  // Auto-heal database records if they still had placeholder 'Customer'
+  if (realRegisteredName) {
+    if (customerObj?.id && isPlaceholderName(customerObj.name)) {
+      adminSupabase.from('customers').update({ name: realRegisteredName }).eq('id', customerObj.id).then(() => {})
+      customerObj.name = realRegisteredName
+    }
+    if (profile?.id && isPlaceholderName(profile.name)) {
+      adminSupabase.from('profiles').update({ name: realRegisteredName }).eq('id', profile.id).then(() => {})
+      profile.name = realRegisteredName
+    }
   }
 
   const customerId = customerObj?.id
@@ -113,8 +197,9 @@ export default async function CustomerDashboard() {
   })
 
   const displayName = formatDisplayName(
-    customerObj?.name || profile?.name || user.user_metadata?.name,
-    user.phone || user.user_metadata?.phone
+    realRegisteredName || customerObj?.name || profile?.name || user.user_metadata?.name,
+    null,
+    'customer'
   )
 
   return (
