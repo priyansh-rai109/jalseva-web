@@ -198,13 +198,19 @@ export default function SupplierSettingsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>{language === 'hi' ? 'डिलीवरी जोन (Area Zone)' : 'Delivery Zone'}</Label>
-              <Select value={zoneId} onValueChange={(v) => setZoneId(v || '')}>
+              <Select
+                value={zoneId}
+                items={zones.map((z) => ({ value: z.id, label: z.name }))}
+                onValueChange={(v) => setZoneId(v || '')}
+              >
                 <SelectTrigger className="w-full bg-secondary">
-                  <SelectValue placeholder="Select Zone" />
+                  <SelectValue placeholder="Select Zone">
+                    {zones.find((z) => z.id === zoneId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {zones.map(z => (
-                    <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+                    <SelectItem key={z.id} value={z.id} label={z.name}>{z.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

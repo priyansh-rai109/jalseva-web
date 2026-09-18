@@ -89,14 +89,19 @@ export default function SupplierZonePage() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Select Zone</label>
-                <Select value={selectedZoneId} onValueChange={(v) => setSelectedZoneId(v ?? '')}>
-
+                <Select
+                  value={selectedZoneId}
+                  items={zones.map((z) => ({ value: z.id, label: `${z.name} (${z.city})` }))}
+                  onValueChange={(v) => setSelectedZoneId(v ?? '')}
+                >
                   <SelectTrigger className="bg-secondary">
-                    <SelectValue placeholder="Select operational zone" />
+                    <SelectValue placeholder="Select operational zone">
+                      {zones.find((z) => z.id === selectedZoneId) ? `${zones.find((z) => z.id === selectedZoneId)?.name} (${zones.find((z) => z.id === selectedZoneId)?.city})` : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {zones.map((z) => (
-                      <SelectItem key={z.id} value={z.id}>
+                      <SelectItem key={z.id} value={z.id} label={`${z.name} (${z.city})`}>
                         {z.name} ({z.city})
                       </SelectItem>
                     ))}

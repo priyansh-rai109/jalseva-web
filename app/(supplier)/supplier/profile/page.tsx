@@ -196,13 +196,19 @@ export default function SupplierProfilePage() {
 
           <div className="space-y-2">
             <Label>Delivery Zone</Label>
-            <Select value={zoneId} onValueChange={(v) => setZoneId(v ?? '')}>
+            <Select
+              value={zoneId}
+              items={zones.map((z) => ({ value: z.id, label: `${z.name} — ${z.city}` }))}
+              onValueChange={(v) => setZoneId(v ?? '')}
+            >
               <SelectTrigger className="bg-secondary">
-                <SelectValue placeholder="Select your delivery zone" />
+                <SelectValue placeholder="Select your delivery zone">
+                  {zones.find((z) => z.id === zoneId) ? `${zones.find((z) => z.id === zoneId)?.name} — ${zones.find((z) => z.id === zoneId)?.city}` : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {zones.map(z => (
-                  <SelectItem key={z.id} value={z.id}>{z.name} — {z.city}</SelectItem>
+                  <SelectItem key={z.id} value={z.id} label={`${z.name} — ${z.city}`}>{z.name} — {z.city}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

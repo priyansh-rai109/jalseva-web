@@ -405,6 +405,7 @@ export default function CartPage() {
                   ) : (
                     <Select
                       value={watch('zone_id')}
+                      items={supplierZones.map((z) => ({ value: z.id, label: `${z.name} (${z.city})` }))}
                       onValueChange={(val) => {
                         setValue('zone_id', val)
                         const foundZone = supplierZones.find((z) => z.id === val)
@@ -415,11 +416,20 @@ export default function CartPage() {
                       }}
                     >
                       <SelectTrigger className="bg-secondary h-11 text-sm rounded-xl border-sky-500/20 focus:border-sky-500">
-                        <SelectValue placeholder={language === 'hi' ? 'डिलीवरी जोन चुनें' : 'Select delivery zone'} />
+                        <SelectValue placeholder={language === 'hi' ? 'डिलीवरी जोन चुनें' : 'Select delivery zone'}>
+                          {(() => {
+                            const z = supplierZones.find((item) => item.id === watch('zone_id'))
+                            return z ? (
+                              <span className="font-semibold text-foreground">
+                                {z.name} <span className="text-muted-foreground text-xs font-normal">({z.city})</span>
+                              </span>
+                            ) : undefined
+                          })()}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {supplierZones.map((z) => (
-                          <SelectItem key={z.id} value={z.id}>
+                          <SelectItem key={z.id} value={z.id} label={`${z.name} (${z.city})`}>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">{z.name}</span>
                               <span className="text-muted-foreground text-xs">({z.city})</span>

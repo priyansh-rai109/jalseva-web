@@ -70,15 +70,24 @@ export default function CustomerBrowsePage() {
             className="pl-10 bg-secondary h-11 text-sm"
           />
         </div>
-        <Select value={selectedZone} onValueChange={(v) => setSelectedZone(v ?? 'all')}>
+        <Select
+          value={selectedZone}
+          items={[
+            { value: 'all', label: t('allZones') },
+            ...zones.map((z) => ({ value: z.id, label: z.name })),
+          ]}
+          onValueChange={(v) => setSelectedZone(v ?? 'all')}
+        >
           <SelectTrigger className="w-full sm:w-[220px] bg-secondary h-11 text-xs sm:text-sm">
             <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder={t('allZones')} />
+            <SelectValue placeholder={t('allZones')}>
+              {selectedZone === 'all' ? t('allZones') : zones.find((z) => z.id === selectedZone)?.name}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t('allZones')}</SelectItem>
+            <SelectItem value="all" label={t('allZones')}>{t('allZones')}</SelectItem>
             {zones.map((z) => (
-              <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+              <SelectItem key={z.id} value={z.id} label={z.name}>{z.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>

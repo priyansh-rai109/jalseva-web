@@ -446,13 +446,19 @@ export default function CompleteProfilePage() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="sup-zone">Primary Delivery Zone</Label>
-                <Select value={supZoneId} onValueChange={(v) => setSupZoneId(v ?? '')}>
+                <Select
+                  value={supZoneId}
+                  items={zones.map((z) => ({ value: z.id, label: `${z.name} (${z.city})` }))}
+                  onValueChange={(v) => setSupZoneId(v ?? '')}
+                >
                   <SelectTrigger id="sup-zone" className="w-full bg-secondary">
-                    <SelectValue placeholder="Select your delivery zone (e.g. Sardarpura)" />
+                    <SelectValue placeholder="Select your delivery zone (e.g. Sardarpura)">
+                      {zones.find((z) => z.id === supZoneId) ? `${zones.find((z) => z.id === supZoneId)?.name} (${zones.find((z) => z.id === supZoneId)?.city})` : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {zones.map((z) => (
-                      <SelectItem key={z.id} value={z.id}>
+                      <SelectItem key={z.id} value={z.id} label={`${z.name} (${z.city})`}>
                         {z.name} ({z.city})
                       </SelectItem>
                     ))}

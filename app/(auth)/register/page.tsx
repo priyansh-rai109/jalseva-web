@@ -303,13 +303,19 @@ function RegisterPageContent() {
                   <MapPin className="w-3.5 h-3.5 text-purple-400" />
                   <span>{language === 'hi' ? 'डिलीवरी ज़ोन (क्षेत्र)' : 'Primary Delivery Zone'}</span>
                 </Label>
-                <Select value={zoneId} onValueChange={(v) => setZoneId(v ?? '')}>
+                <Select
+                  value={zoneId}
+                  items={zones.map((z) => ({ value: z.id, label: `${z.name} (${z.city})` }))}
+                  onValueChange={(v) => setZoneId(v ?? '')}
+                >
                   <SelectTrigger className="bg-secondary/80 h-11 text-xs sm:text-sm rounded-xl">
-                    <SelectValue placeholder={language === 'hi' ? 'ज़ोन चुनें (उदा. शास्त्री नगर)' : 'Select Zone'} />
+                    <SelectValue placeholder={language === 'hi' ? 'ज़ोन चुनें (उदा. शास्त्री नगर)' : 'Select Zone'}>
+                      {zones.find((z) => z.id === zoneId) ? `${zones.find((z) => z.id === zoneId)?.name} (${zones.find((z) => z.id === zoneId)?.city})` : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {zones.map((z) => (
-                      <SelectItem key={z.id} value={z.id}>
+                      <SelectItem key={z.id} value={z.id} label={`${z.name} (${z.city})`}>
                         {z.name} ({z.city})
                       </SelectItem>
                     ))}
