@@ -26,7 +26,7 @@ export async function updateSession(request: NextRequest) {
     '/register/complete-profile',
     '/supplier/pending',
   ]
-  if (alwaysPublic.includes(pathname)) {
+  if (alwaysPublic.includes(pathname) || pathname.startsWith('/custom-prints')) {
     console.log(`[Middleware] ALLOW (always-public): ${pathname}`)
     return NextResponse.next({ request })
   }

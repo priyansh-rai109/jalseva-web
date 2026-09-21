@@ -55,6 +55,9 @@ function Navbar() {
             <Link href="/corporate" className="text-sky-400 font-semibold hover:text-sky-300 transition-colors flex items-center gap-1">
               <span>B2B Corporate 🏢</span>
             </Link>
+            <Link href="/custom-prints" className="text-purple-400 font-semibold hover:text-purple-300 transition-colors flex items-center gap-1">
+              <span>Custom Bottles ✨</span>
+            </Link>
           </div>
 
           {/* Language Toggle & CTAs */}
@@ -529,6 +532,7 @@ function Footer() {
                 { label: language === 'hi' ? 'पानी ऑर्डर करें' : 'Order Water', href: '/login' },
                 { label: language === 'hi' ? 'ऑर्डर ट्रैक करें' : 'Track Order', href: '/login' },
                 { label: language === 'hi' ? 'सप्लायर बनें' : 'Become Supplier', href: '/register?role=supplier' },
+                { label: language === 'hi' ? 'कस्टम बॉटल प्रिंटिंग ✨' : 'Custom Bottle Printing ✨', href: '/custom-prints' },
                 { label: language === 'hi' ? 'एडमिन / ऑपरेटर लॉगिन' : 'Admin / Operator Login', href: '/admin-login' },
               ].map((item) => (
                 <li key={item.label}>

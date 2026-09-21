@@ -29,6 +29,7 @@ import {
   RefreshCw,
   Coins,
   Truck,
+  Sparkles,
 } from 'lucide-react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -54,6 +55,7 @@ const adminNav: NavItemConfig[] = [
   { href: '/admin/zones', labelKey: 'navZones', icon: MapPin },
   { href: '/admin/analytics', labelKey: 'navAnalytics', icon: BarChart3 },
   { href: '/admin/settings', labelKey: 'navSettings', icon: Settings },
+  { href: '/admin/bottle-designs', labelKey: 'navBottleDesigns', icon: Sparkles },
 ]
 
 const supplierNav: NavItemConfig[] = [
@@ -71,6 +73,7 @@ const supplierNav: NavItemConfig[] = [
 const customerNav: NavItemConfig[] = [
   { href: '/customer/dashboard', labelKey: 'navHome', icon: LayoutDashboard },
   { href: '/customer/browse', labelKey: 'navBrowse', icon: Building2 },
+  { href: '/custom-prints', labelKey: 'navBottleDesigns', icon: Sparkles },
   { href: '/customer/subscriptions', labelKey: 'navSubscriptions', icon: RefreshCw },
   { href: '/customer/wallet', labelKey: 'navWallet', icon: Coins },
   { href: '/customer/orders', labelKey: 'navOrders', icon: FileText },
