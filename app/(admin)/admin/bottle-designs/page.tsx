@@ -142,15 +142,17 @@ export default function AdminBottleDesignsPage() {
     setIsFormOpen(true)
   }
 
+  const [imageUrlInput, setImageUrlInput] = useState('')
+
   // ─── Handle Image Upload ─────────────────────────────────────────────────
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+  const uploadFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList).filter((f) => f && f.size > 0)
+    if (files.length === 0) return
 
     setUploadingImage(true)
     const formData = new FormData()
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i])
+    for (const f of files) {
+      formData.append('files', f)
     }
 
     try {
@@ -162,17 +164,35 @@ export default function AdminBottleDesignsPage() {
 
       if (res.ok && data.urls && data.urls.length > 0) {
         setFormImages((prev) => [...prev, ...data.urls])
-        toast.success(`${data.urls.length} image(s) uploaded successfully! 📸`)
+        toast.success(`${data.urls.length} photo(s) uploaded successfully! 📸`)
       } else {
-        toast.error(data.error || 'Failed to upload image')
+        toast.error(data.error || 'Failed to upload photo')
       }
     } catch (err) {
-      console.error('Error uploading image:', err)
-      toast.error('Network error while uploading image')
+      console.error('Error uploading photo:', err)
+      toast.error('Network error while uploading photo')
     } finally {
       setUploadingImage(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      uploadFiles(e.target.files)
+    }
+  }
+
+  const handleAddImageUrl = () => {
+    if (!imageUrlInput.trim()) return
+    const url = imageUrlInput.trim()
+    if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:image')) {
+      toast.error('Please enter a valid image URL starting with http:// or https://')
+      return
+    }
+    setFormImages((prev) => [...prev, url])
+    setImageUrlInput('')
+    toast.success('Image URL added to design! 📸')
   }
 
   const handleRemoveImage = (indexToRemove: number) => {
@@ -551,6 +571,7 @@ export default function AdminBottleDesignsPage() {
                               alt={design.title}
                               fill
                               sizes="56px"
+                              unoptimized
                               className="object-cover group-hover:scale-105 transition-transform"
                             />
                           ) : (
@@ -763,32 +784,68 @@ export default function AdminBottleDesignsPage() {
               {/* Upload Dropzone */}
               <div
                 onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    uploadFiles(e.dataTransfer.files)
+                  }
+                }}
                 className="border-2 border-dashed border-sky-500/30 hover:border-sky-500/60 bg-sky-500/5 hover:bg-sky-500/10 rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1"
               >
                 <input
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept="image/png, image/jpeg, image/webp"
+                  accept="image/*"
                   onChange={handleImageFileChange}
                   className="hidden"
                 />
                 {uploadingImage ? (
                   <div className="flex items-center gap-2 text-xs text-sky-500 py-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Uploading photo to storage...</span>
+                    <span>Uploading photo to Supabase storage...</span>
                   </div>
                 ) : (
                   <>
                     <UploadCloud className="w-6 h-6 text-sky-500" />
                     <p className="text-xs font-semibold text-foreground">
-                      Click to upload design photos
+                      Click or drag photos here to upload
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      PNG, JPG, or WEBP up to 10MB each
+                      JPG, PNG, WEBP, SVG or camera photos up to 15MB each
                     </p>
                   </>
                 )}
+              </div>
+
+              {/* Or paste image URL directly */}
+              <div className="flex gap-2 items-center pt-1">
+                <Input
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  placeholder="Or paste external / Supabase image URL..."
+                  className="h-8 text-xs bg-secondary/50 rounded-lg flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddImageUrl()
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddImageUrl}
+                  className="h-8 text-xs px-2.5 rounded-lg border-sky-500/30 text-sky-500 hover:bg-sky-500/10"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add URL
+                </Button>
               </div>
 
               {/* Uploaded Images Preview Strip */}
@@ -804,6 +861,7 @@ export default function AdminBottleDesignsPage() {
                         alt={`Preview ${idx + 1}`}
                         fill
                         sizes="64px"
+                        unoptimized
                         className="object-cover"
                       />
                       <button

@@ -1,27 +1,45 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import {
+  listBottleDesigns,
+  createBottleDesign,
+  updateBottleDesign,
+  deleteBottleDesign,
+} from '@/lib/supabase/bottle-designs-helper'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * Helper to ensure the requesting user is a Super Admin
  */
-async function verifySuperAdmin() {
-  const serverSupabase = await createClient()
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser()
+async function verifySuperAdmin(): Promise<boolean> {
+  try {
+    const serverSupabase = await createClient()
+    const {
+      data: { user },
+    } = await serverSupabase.auth.getUser()
 
-  if (!user) return false
+    if (!user) return false
 
-  const { data: profile } = await serverSupabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
+    // 1. Direct metadata / known admin email check
+    if (user.user_metadata?.role === 'super_admin' || user.email === 'raipriyansh45@gmail.com') {
+      return true
+    }
 
-  return profile?.role === 'super_admin'
+    // 2. Query profiles with service role client to bypass RLS
+    const adminSupabase = createAdminClient()
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    return profile?.role === 'super_admin'
+  } catch (err) {
+    console.warn('[Admin Bottle Designs verifySuperAdmin Warning]', err)
+    return false
+  }
 }
 
 // ─── GET: List all bottle designs for Admin ──────────────────────────────
@@ -37,32 +55,15 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const search = searchParams.get('search')
 
-    const supabase = createAdminClient()
-    let query = supabase
-      .from('bottle_designs')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const adminClient = createAdminClient()
+    const { designs } = await listBottleDesigns(adminClient, {
+      category,
+      status,
+      search,
+      activeOnly: false,
+    })
 
-    if (category && category !== 'all') {
-      query = query.eq('occasion_category', category)
-    }
-
-    if (status && status !== 'all') {
-      query = query.eq('status', status)
-    }
-
-    if (search && search.trim()) {
-      query = query.or(`title.ilike.%${search.trim()}%,design_code.ilike.%${search.trim()}%`)
-    }
-
-    const { data: designs, error } = await query
-
-    if (error) {
-      console.error('[Admin Bottle Designs GET Error]', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ designs: designs || [] })
+    return NextResponse.json({ designs })
   } catch (err: any) {
     console.error('[Admin Bottle Designs GET Exception]', err)
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
@@ -112,40 +113,20 @@ export async function POST(request: Request) {
       ? tags.split(',').map((t: string) => t.trim()).filter(Boolean)
       : []
 
-    const supabase = createAdminClient()
+    const adminClient = createAdminClient()
 
-    // Check for duplicate design_code
-    const { data: existing } = await supabase
-      .from('bottle_designs')
-      .select('id')
-      .eq('design_code', design_code.trim().toUpperCase())
-      .maybeSingle()
+    const { design } = await createBottleDesign(adminClient, {
+      design_code: design_code.trim().toUpperCase(),
+      title: title.trim(),
+      occasion_category: occasion_category.trim(),
+      description: description?.trim() || null,
+      tags: formattedTags,
+      images,
+      status: status === 'inactive' ? 'inactive' : 'active',
+      internal_notes: internal_notes?.trim() || null,
+    })
 
-    if (existing) {
-      return NextResponse.json({ error: `Design code "${design_code.trim().toUpperCase()}" already exists. Please use a unique code.` }, { status: 400 })
-    }
-
-    const { data: newDesign, error } = await supabase
-      .from('bottle_designs')
-      .insert({
-        design_code: design_code.trim().toUpperCase(),
-        title: title.trim(),
-        occasion_category: occasion_category.trim(),
-        description: description?.trim() || null,
-        tags: formattedTags,
-        images,
-        status: status === 'inactive' ? 'inactive' : 'active',
-        internal_notes: internal_notes?.trim() || null,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[Admin Bottle Designs POST Error]', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, design: newDesign })
+    return NextResponse.json({ success: true, design })
   } catch (err: any) {
     console.error('[Admin Bottle Designs POST Exception]', err)
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
@@ -167,9 +148,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Design ID is required' }, { status: 400 })
     }
 
-    const updates: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    }
+    const updates: Record<string, any> = {}
 
     if (design_code !== undefined) updates.design_code = design_code.trim().toUpperCase()
     if (title !== undefined) updates.title = title.trim()
@@ -191,35 +170,10 @@ export async function PATCH(request: Request) {
         : []
     }
 
-    const supabase = createAdminClient()
+    const adminClient = createAdminClient()
+    const { design } = await updateBottleDesign(adminClient, id, updates)
 
-    // If design_code is being changed, ensure uniqueness
-    if (updates.design_code) {
-      const { data: duplicate } = await supabase
-        .from('bottle_designs')
-        .select('id')
-        .eq('design_code', updates.design_code)
-        .neq('id', id)
-        .maybeSingle()
-
-      if (duplicate) {
-        return NextResponse.json({ error: `Design code "${updates.design_code}" is already in use by another design.` }, { status: 400 })
-      }
-    }
-
-    const { data: updatedDesign, error } = await supabase
-      .from('bottle_designs')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[Admin Bottle Designs PATCH Error]', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, design: updatedDesign })
+    return NextResponse.json({ success: true, design })
   } catch (err: any) {
     console.error('[Admin Bottle Designs PATCH Exception]', err)
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
@@ -248,15 +202,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Design ID is required' }, { status: 400 })
     }
 
-    const supabase = createAdminClient()
-    const { error } = await supabase.from('bottle_designs').delete().eq('id', id)
+    const adminClient = createAdminClient()
+    const { success } = await deleteBottleDesign(adminClient, id)
 
-    if (error) {
-      console.error('[Admin Bottle Designs DELETE Error]', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, message: 'Bottle design deleted successfully' })
+    return NextResponse.json({ success, message: 'Bottle design deleted successfully' })
   } catch (err: any) {
     console.error('[Admin Bottle Designs DELETE Exception]', err)
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
