@@ -6,6 +6,21 @@ export const dynamic = 'force-dynamic'
 const BUCKET_NAME = 'bottle-design-images'
 const MAX_FILE_SIZE = 25 * 1024 * 1024 // 25MB
 
+// CORS headers for browser-based uploads
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
+}
+
+function addCorsHeaders(response: NextResponse) {
+  Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value)
+  })
+  return response
+}
+
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/jpg',
@@ -224,6 +239,6 @@ export async function POST(request: Request) {
     })
   } catch (err: any) {
     console.error('[Bottle Design Upload Exception]', err)
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+    return addCorsHeaders(NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 }))
   }
 }

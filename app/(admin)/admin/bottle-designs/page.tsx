@@ -186,6 +186,7 @@ export default function AdminBottleDesignsPage() {
       const data = await res.json()
 
       if (res.ok && data.urls && data.urls.length > 0) {
+        const mappingUpdate: Record<string, string> = {}
         setFormImages((prev) => {
           const next = [...prev]
           tempKeys.forEach((tempKey, i) => {
@@ -195,15 +196,12 @@ export default function AdminBottleDesignsPage() {
               if (idx !== -1) {
                 next[idx] = permanentUrl
               }
-              // Map permanentUrl to local blobUrl so preview never flickers or breaks!
-              setPreviewMap((pm) => ({
-                ...pm,
-                [permanentUrl]: newBlobMap[tempKey] || permanentUrl,
-              }))
+              mappingUpdate[permanentUrl] = newBlobMap[tempKey] || permanentUrl
             }
           })
           return next
         })
+        setPreviewMap((pm) => ({ ...pm, ...mappingUpdate }))
         toast.success(`${data.urls.length} photo(s) uploaded successfully! 📸`)
       } else {
         toast.success(`${tempKeys.length} photo(s) attached! 📸`)
